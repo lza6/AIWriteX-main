@@ -1,0 +1,22 @@
+# 开箱即用的个人 AI 助手
+
+**项目地址**: https://github.com/openclaw/openclaw
+
+## 项目简介
+这是一款用 TypeScript 开发的开源个人 AI 助手，可快速部署在 macOS、Windows 和 Linux 系统，并支持通过 WhatsApp、Telegram、Slack 等即时通讯应用进行交互。只要你的 token 额度充足，它就能 7*24 不停歇地执行任务，持续为你“打工”。
+
+## 统计数据
+- 👀 总点击: 403
+- 🍴 总Forks: 46374
+- 🐛 开放Issues: 9438
+- 📈 上周新增Stars: 11596
+
+## 编程语言
+TypeScript
+
+## 标签
+智能体, 自托管, TypeScript, AI, LLM 应用
+
+## 相关链接
+- [官网](https://openclaw.ai/)
+- [文档](https://docs.openclaw.ai/start/getting-started)

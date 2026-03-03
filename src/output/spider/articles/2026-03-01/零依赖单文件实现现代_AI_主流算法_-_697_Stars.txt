@@ -1,0 +1,20 @@
+# 零依赖单文件实现现代 AI 主流算法
+
+**项目地址**: https://github.com/Mathews-Tom/no-magic
+
+## 项目简介
+这是一个专为学习 AI 算法设计的教学项目，包含 30 个零依赖、单文件、可直接运行的 Python 实现，涵盖从基础的 GPT 到微调（LoRA、PPO）以及推理优化（Flash Attention）等内容。通过简单易懂的代码实现每个算法，并配有对应的 Manim 动画，方便理解和学习。
+
+## 统计数据
+- 👀 总点击: 97
+- 🍴 总Forks: 65
+- 🐛 开放Issues: 0
+- 📈 上周新增Stars: 166
+
+## 编程语言
+Python
+
+## 标签
+教程, AI, Python
+
+## 相关链接

@@ -1,0 +1,78 @@
+/* 按钮组件样式 */  
+.btn {  
+    display: inline-flex;  
+    align-items: center;  
+    gap: 6px;  
+    padding: 8px 16px;  
+    border: none;  
+    border-radius: 6px;  
+    font-size: 14px;  
+    font-weight: 500;  
+    cursor: pointer;  
+    transition: all 0.2s ease;  
+    text-decoration: none;  
+    justify-content: center;  
+}  
+
+.btn svg {  
+    flex-shrink: 0;  
+    margin: 0;  
+}
+
+.btn-primary {  
+    background: var(--primary-color);    
+    color: white;    
+}  
+  
+.btn-primary:hover {  
+    background: var(--primary-hover-color, #1d4ed8); 
+    transform: translateY(-1px);  
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);  
+}  
+  
+.btn-primary svg {  
+    fill: none;  
+    stroke: currentColor;  
+    stroke-width: 2;  
+    stroke-linecap: round;  
+    stroke-linejoin: round;  
+}
+  
+.btn-secondary {  
+    background: var(--secondary-color);  
+    color: white;  
+}  
+  
+.btn-secondary:hover {  
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    background: #475569;  
+}  
+  
+.btn-success {  
+    background: var(--success-color);  
+    color: white;  
+}  
+  
+.btn-success:hover {  
+    background: #059669;  
+}  
+  
+.action-btn {  
+    padding: 6px 12px;  
+    border: 1px solid var(--border-color);  
+    background: transparent;  
+    border-radius: 4px;  
+    font-size: 12px;  
+    cursor: pointer;  
+    transition: all 0.2s ease;  
+}  
+  
+.action-btn:hover {  
+    background: var(--background-color);  
+}  
+  
+.action-btn.primary {  
+    background: var(--primary-color);  
+    color: white;  
+    border-color: var(--primary-color);  
+}

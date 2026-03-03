@@ -1,0 +1,132 @@
+{
+  "services": {
+    "fetch": {
+      "name": "fetch",
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "网页内容抓取服务，支持将HTML转换为Markdown",
+      "tools": [
+        "fetch"
+      ]
+    },
+    "playwright": {
+      "name": "playwright",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "Playwright浏览器自动化服务，支持网页导航、截图、表单填写等",
+      "tools": [
+        "browser_navigate",
+        "browser_click",
+        "browser_type",
+        "browser_snapshot",
+        "browser_screenshot",
+        "browser_hover",
+        "browser_drag",
+        "browser_press_key",
+        "browser_wait",
+        "browser_close",
+        "browser_save_as_pdf"
+      ]
+    },
+    "chrome-devtools": {
+      "name": "chrome-devtools",
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "Chrome DevTools MCP，支持浏览器调试、性能分析、网络监控",
+      "tools": [
+        "click",
+        "fill",
+        "hover",
+        "drag",
+        "navigate_page",
+        "take_screenshot",
+        "take_snapshot",
+        "list_console_messages",
+        "list_network_requests",
+        "performance_start_trace",
+        "performance_stop_trace",
+        "evaluate_script"
+      ]
+    },
+    "memory": {
+      "name": "memory",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "知识图谱内存服务，支持实体、关系、观察的持久化存储",
+      "tools": [
+        "create_entities",
+        "create_relations",
+        "add_observations",
+        "delete_entities",
+        "delete_observations",
+        "delete_relations",
+        "read_graph",
+        "search_nodes",
+        "open_nodes"
+      ]
+    },
+    "verge-news": {
+      "name": "verge-news",
+      "command": "npx",
+      "args": [
+        "-y",
+        "verge-news-mcp"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "The Verge新闻服务，获取科技新闻、搜索文章，支持每日/每周新闻和关键词搜索",
+      "tools": [
+        "get-daily-news",
+        "get-weekly-news",
+        "search-news"
+      ]
+    },
+    "pulse-cn": {
+      "name": "pulse-cn",
+      "command": "npx",
+      "args": [
+        "-y",
+        "pulse-cn-mcp"
+      ],
+      "env": {},
+      "enabled": true,
+      "auto_start": false,
+      "description": "中国互联网实时热门内容，支持微博热搜、今日头条、澎湃新闻、知乎等18个平台",
+      "tools": [
+        "weibo-hotspots",
+        "horoscope",
+        "daily-english-sentence",
+        "internet-hotspots-aggregator",
+        "today-headlines-hotspots",
+        "paper-news-hotspots",
+        "zhihu-realtime-hotspots",
+        "bilibili-daily-hotspots",
+        "douyin-hotspots",
+        "baidu-hotspots"
+      ]
+    }
+  },
+  "updated_at": "2026-03-01T08:29:21.038897"
+}

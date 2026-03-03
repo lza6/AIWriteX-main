@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人工智能的最新发展趋势</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+
+        /* ===== 基础变量 ===== */
+        :root {
+            --primary: #2563eb;
+            --secondary: #3b82f6;
+            --accent: #60a5fa;
+            --background: #eff6ff;
+            --text: #1e3a5f;
+            --light: #dbeafe;
+            --shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+            --radius: 12px;
+        }
+        
+        /* ===== 重置与基础 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #eff6ff 0%, #ffffff 50%, #eff6ff 100%);
+            color: #1e3a5f;
+            line-height: 1.8;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* ===== 阅读进度条 ===== */
+        .reading-progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(0,0,0,0.05);
+            z-index: 10000;
+        }
+        
+        .reading-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #3b82f6, #60a5fa);
+            width: 0%;
+            transition: width 0.1s ease;
+            box-shadow: 0 0 10px #2563eb80;
+        }
+        
+        /* ===== 环境背景动画 ===== */
+        .ambient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .gradient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: #2563eb;
+            top: -200px;
+            right: -200px;
+            animation-delay: 0s;
+        }
+        
+        .orb-2 {
+            width: 400px;
+            height: 400px;
+            background: #3b82f6;
+            bottom: 10%;
+            left: -100px;
+            animation-delay: -5s;
+        }
+        
+        .orb-3 {
+            width: 300px;
+            height: 300px;
+            background: #60a5fa;
+            top: 40%;
+            right: 10%;
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.9); }
+            75% { transform: translate(20px, 30px) scale(1.05); }
+        }
+        
+        /* ===== 玻璃拟态卡片 ===== */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 24px;
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.05),
+                0 10px 15px -3px rgba(0, 0, 0, 0.05),
+                0 20px 25px -5px rgba(0, 0, 0, 0.03),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        
+        /* ===== 头部样式 ===== */
+        .article-header {
+            position: relative;
+            padding: 80px 24px 60px;
+            margin-bottom: 40px;
+            overflow: hidden;
+        }
+        
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%);
+            z-index: -1;
+        }
+        
+        .header-bg::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 40%);
+        }
+        
+        .header-decoration {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+        
+        .header-particle {
+            position: absolute;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            animation: particle-float 15s infinite ease-in-out;
+        }
+        
+        @keyframes particle-float {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+            50% { transform: translateY(-100px) rotate(180deg); opacity: 0.6; }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            color: white;
+        }
+        
+        .topic-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+            animation: fade-in-up 0.8s ease;
+        }
+        
+        .article-title {
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            animation: fade-in-up 0.8s ease 0.1s both;
+            letter-spacing: -0.02em;
+        }
+        
+        .article-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+            animation: fade-in-up 0.8s ease 0.2s both;
+        }
+        
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* ===== 内容区域 ===== */
+        .content-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .content-body {
+            padding: 48px;
+        }
+        
+        /* ===== 排版样式 ===== */
+        .content-body h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 48px 0 24px;
+            color: #2563eb;
+            position: relative;
+            padding-bottom: 16px;
+        }
+        
+        .content-body h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, #2563eb, #60a5fa);
+            border-radius: 2px;
+        }
+        
+        .content-body h2 {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 40px 0 20px;
+            color: #1e3a5f;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .content-body h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #2563eb, #3b82f6);
+            border-radius: 2px;
+        }
+        
+        .content-body h3 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 32px 0 16px;
+            color: #1e3a5f;
+        }
+        
+        .content-body p {
+            font-size: 17px;
+            line-height: 1.9;
+            margin: 20px 0;
+            color: #374151;
+            text-align: justify;
+        }
+        
+        /* ===== 段落首字下沉 ===== */
+        .content-body p:first-of-type::first-letter {
+            font-size: 56px;
+            font-weight: 700;
+            float: left;
+            line-height: 1;
+            margin-right: 12px;
+            margin-top: 8px;
+            color: #2563eb;
+            text-shadow: 2px 2px 0 #dbeafe;
+        }
+        
+        /* ===== 列表样式 ===== */
+        .content-body ul, .content-body ol {
+            margin: 24px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        
+        .content-body li {
+            position: relative;
+            padding-left: 32px;
+            margin: 12px 0;
+            font-size: 16px;
+            line-height: 1.8;
+        }
+        
+        .content-body ul li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 10px;
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(135deg, #2563eb, #60a5fa);
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px #dbeafe;
+        }
+        
+        .content-body ol {
+            counter-reset: item;
+        }
+        
+        .content-body ol li {
+            counter-increment: item;
+        }
+        
+        .content-body ol li::before {
+            content: counter(item);
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* ===== 引用块 ===== */
+        .content-body blockquote {
+            margin: 32px 0;
+            padding: 24px 32px;
+            background: linear-gradient(135deg, #eff6ff, #ffffff);
+            border-left: 4px solid #2563eb;
+            border-radius: 0 16px 16px 0;
+            font-style: italic;
+            position: relative;
+        }
+        
+        .content-body blockquote::before {
+            content: '"';
+            position: absolute;
+            top: -10px;
+            left: 16px;
+            font-size: 60px;
+            color: #2563eb;
+            opacity: 0.2;
+            font-family: Georgia, serif;
+        }
+        
+        .content-body blockquote p {
+            margin: 0;
+            font-size: 18px;
+            color: #4b5563;
+        }
+        
+        /* ===== 表格样式 ===== */
+        .content-body table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 32px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        
+        .content-body th {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            padding: 16px;
+            font-weight: 600;
+            text-align: left;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+        
+        .content-body td {
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 15px;
+        }
+        
+        .content-body tr:nth-child(even) {
+            background: #eff6ff;
+        }
+        
+        .content-body tr:hover {
+            background: rgba(2563eb, 0.05);
+        }
+        
+        /* ===== 代码块 ===== */
+        .content-body pre {
+            background: #1f2937;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 24px 0;
+            overflow-x: auto;
+            position: relative;
+        }
+        
+        .content-body pre::before {
+            content: '';
+            position: absolute;
+            top: 12px;
+            left: 16px;
+            width: 12px;
+            height: 12px;
+            background: #ff5f56;
+            border-radius: 50%;
+            box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27ca40;
+        }
+        
+        .content-body code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 14px;
+        }
+        
+        .content-body pre code {
+            display: block;
+            padding-top: 20px;
+            color: #e5e7eb;
+            line-height: 1.6;
+        }
+        
+        .content-body p code {
+            background: #eff6ff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #2563eb;
+            font-size: 14px;
+        }
+        
+        /* ===== 图片样式 ===== */
+        .content-body img {
+            max-width: 100%;
+            border-radius: 16px;
+            margin: 32px 0;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: zoom-in;
+        }
+        
+        .content-body img:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .content-body img.expanded {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 90vw;
+            max-height: 90vh;
+            z-index: 10000;
+            cursor: zoom-out;
+        }
+        
+        /* ===== 强调样式 ===== */
+        .content-body strong {
+            color: #2563eb;
+            font-weight: 600;
+        }
+        
+        .content-body em {
+            color: #3b82f6;
+        }
+        
+        /* ===== 分隔线 ===== */
+        .content-body hr {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #dbeafe, transparent);
+            margin: 48px 0;
+        }
+        
+        /* ===== 底部样式 ===== */
+        .article-footer {
+            text-align: center;
+            padding: 48px 24px;
+            background: linear-gradient(180deg, transparent, #eff6ff);
+            margin-top: 60px;
+        }
+        
+        .footer-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .footer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: white;
+            border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            font-size: 14px;
+            color: #1e3a5f;
+        }
+        
+        .footer-decoration {
+            margin-top: 32px;
+        }
+        
+        /* ===== 悬浮按钮 ===== */
+        .floating-actions {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            z-index: 1000;
+        }
+        
+        .fab-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border: none;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .fab-btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+        }
+        
+        .fab-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+            .article-title {
+                font-size: 28px;
+            }
+            
+            .content-body {
+                padding: 32px 24px;
+            }
+            
+            .content-body h1 {
+                font-size: 24px;
+            }
+            
+            .content-body h2 {
+                font-size: 20px;
+            }
+            
+            .content-body p {
+                font-size: 16px;
+            }
+            
+            .floating-actions {
+                bottom: 20px;
+                right: 20px;
+            }
+            
+            .fab-btn {
+                width: 48px;
+                height: 48px;
+            }
+        }
+        
+        /* ===== 滚动条美化 ===== */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #2563eb, #3b82f6);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+        }
+
+    </style>
+</head>
+<body>
+    <!-- 阅读进度条 -->
+    <div class="reading-progress-container">
+        <div class="reading-progress-bar" id="readingProgress"></div>
+    </div>
+    
+    <!-- 背景装饰 -->
+    <div class="ambient-bg">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+    
+
+    <header class="article-header">
+        <div class="header-bg"></div>
+        <div class="header-decoration">
+            <div class="header-particle" style="width: 20px; height: 20px; left: 10%; top: 20%; animation-delay: 0.0s;"></div><div class="header-particle" style="width: 35px; height: 35px; left: 25%; top: 50%; animation-delay: 0.5s;"></div><div class="header-particle" style="width: 50px; height: 50px; left: 40%; top: 80%; animation-delay: 1.0s;"></div><div class="header-particle" style="width: 65px; height: 65px; left: 55%; top: 20%; animation-delay: 1.5s;"></div><div class="header-particle" style="width: 80px; height: 80px; left: 70%; top: 50%; animation-delay: 2.0s;"></div><div class="header-particle" style="width: 95px; height: 95px; left: 85%; top: 80%; animation-delay: 2.5s;"></div>
+            
+            <svg style="position: absolute; top: 10%; right: 5%; opacity: 0.15;" width="200" height="200" viewBox="0 0 200 200">
+                <defs>
+                    <linearGradient id="geoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:white;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:white;stop-opacity:0.5" />
+                    </linearGradient>
+                </defs>
+                <circle cx="100" cy="100" r="80" fill="none" stroke="url(#geoGrad)" stroke-width="1">
+                    <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="30s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="100" cy="100" r="50" fill="none" stroke="url(#geoGrad)" stroke-width="1">
+                    <animateTransform attributeName="transform" type="rotate" from="360 100 100" to="0 100 100" dur="20s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="100" cy="100" r="20" fill="white" opacity="0.3">
+                    <animate attributeName="r" values="20;25;20" dur="3s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        <div class="header-content">
+            <div class="topic-badge">科技</div>
+            <h1 class="article-title">人工智能的最新发展趋势</h1>
+            <div class="article-meta">
+                <span><i data-lucide="calendar" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i> 2026年03月01日</span>
+                <span><i data-lucide="clock" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i> 阅读时间约 3 分钟</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="content-wrapper">
+        <article class="glass-card content-body">
+            <h1>引言</h1>
+<p>人工智能（AI）正在以惊人的速度发展，改变着我们的生活和工作方式。从自动驾驶汽车到智能助手，AI的应用无处不在。</p>
+<h2>深度学习的新突破</h2>
+<p>近年来，深度学习技术取得了重大突破。神经网络模型变得越来越复杂，能够处理更复杂的任务。</p>
+<ul><li><strong>Transformer架构</strong>：革新了自然语言处理领域</li><li><strong>大语言模型</strong>：如GPT系列，展示了惊人的理解能力</li><li><strong>多模态AI</strong>：能够同时处理文本、图像和音频</li></ul>
+<h2>未来展望</h2>
+<p>AI的未来充满了无限可能。我们可以期待：</p>
+<ol><li>更智能的个人助手</li><li>更精准的医学诊断</li><li>更高效的科学研究</li></ol>
+<blockquote><p>"人工智能是新的电力。" —— 吴恩达</p></blockquote>
+<p>让我们拥抱这个AI驱动的未来！</p>
+        </article>
+        
+        <!-- 关键词标签 -->
+        <div class="keywords-section" style="margin-top: 32px; padding: 0 24px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+                
+            </div>
+        </div>
+    </main>
+
+    <footer class="article-footer">
+        <div class="footer-content">
+            <div class="footer-badge">
+                <i data-lucide="sparkles" style="width: 16px; height: 16px; color: #2563eb;"></i>
+                <span>由 <strong style="color: #2563eb;">AIWriteX</strong> 智能生成</span>
+            </div>
+            
+        <div class="footer-decoration">
+            <svg width="240" height="60" viewBox="0 0 240 60" style="display: block; margin: 0 auto;">
+                <defs>
+                    <linearGradient id="dotGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#2563eb" />
+                        <stop offset="50%" style="stop-color:#3b82f6" />
+                        <stop offset="100%" style="stop-color:#60a5fa" />
+                    </linearGradient>
+                </defs>
+                <circle cx="30" cy="30" r="5" fill="url(#dotGrad)" opacity="0.8">
+                    <animate attributeName="cy" values="30;20;30" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="75" cy="30" r="5" fill="url(#dotGrad)" opacity="0.7">
+                    <animate attributeName="cy" values="30;15;30" dur="2s" begin="0.2s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2s" begin="0.2s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="120" cy="30" r="6" fill="url(#dotGrad)" opacity="1">
+                    <animate attributeName="cy" values="30;10;30" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                    <animate attributeName="r" values="6;8;6" dur="2s" begin="0.4s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="165" cy="30" r="5" fill="url(#dotGrad)" opacity="0.7">
+                    <animate attributeName="cy" values="30;15;30" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.7;0.3;0.7" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="210" cy="30" r="5" fill="url(#dotGrad)" opacity="0.8">
+                    <animate attributeName="cy" values="30;20;30" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.8;0.4;0.8" dur="2s" begin="0.8s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+        </div>
+        </div>
+    </footer>
+    
+    <!-- 关键词标签样式 -->
+    <style>
+        .keyword-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            background: linear-gradient(135deg, #eff6ff, #ffffff);
+            border: 1px solid #dbeafe;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #1e3a5f;
+            transition: all 0.3s ease;
+            cursor: default;
+        }
+        .keyword-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #2563eb;
+        }
+    </style>
+    
+    <!-- 悬浮操作按钮 -->
+    <div class="floating-actions">
+        <button class="fab-btn" onclick="scrollToTop()" title="回到顶部">
+            <i data-lucide="chevron-up"></i>
+        </button>
+    </div>
+    
+
+    <script>
+        // 初始化图标
+        lucide.createIcons();
+        
+        // 阅读进度
+        window.addEventListener('scroll', function() {
+            var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            var scrolled = (winScroll / height) * 100;
+            document.getElementById('readingProgress').style.width = scrolled + '%';
+        });
+        
+        // 回到顶部
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // 代码高亮
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('pre code').forEach(function(block) {
+                hljs.highlightBlock(block);
+            });
+        });
+        
+        // 图片点击放大
+        document.querySelectorAll('.content-body img').forEach(function(img) {
+            img.classList.add('lazy-image');
+            img.onclick = function() {
+                this.classList.toggle('expanded');
+            };
+        });
+    </script>
+</body>
+</html>

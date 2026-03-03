@@ -1,0 +1,21 @@
+# 极简的 AI Agent 工具箱
+
+**项目地址**: https://github.com/badlogic/pi-mono
+
+## 项目简介
+这是一款基于 TypeScript 开发的 AI Agent 工具箱，爆火的 OpenClaw 就是基于该项目开发出来的。它提供开发 AI Agent 所需的基础功能，包括统一多 LLM 服务接口、Agent 状态管理、工具调用、交互式命令行界面、WebUI 和 Slack 机器人集成等。
+
+## 统计数据
+- 👀 总点击: 247
+- 🍴 总Forks: 1879
+- 🐛 开放Issues: 7
+- 📈 上周新增Stars: 2397
+
+## 编程语言
+TypeScript
+
+## 标签
+智能体, TypeScript, AI
+
+## 相关链接
+- [官网](https://pi.dev/)

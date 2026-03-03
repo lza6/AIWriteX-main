@@ -1,0 +1,20 @@
+# 从零开始动手实现 AI Agent
+
+**项目地址**: https://github.com/shareAI-lab/learn-claude-code
+
+## 项目简介
+该项目是讲解如何从零构建类似 Claude Code 的 AI Agent 工具，共计 12 节课，每节课都有一个可运行的 Python 文件。内容从最基础的 Agent 循环，逐步叠加工具调用、任务规划、子智能体、上下文压缩、多智能体协作和自主执行等功能，最终构建出一个完整的 AI Agent 系统。
+
+## 统计数据
+- 👀 总点击: 504
+- 🍴 总Forks: 3944
+- 🐛 开放Issues: 2
+- 📈 上周新增Stars: 1849
+
+## 编程语言
+TypeScript
+
+## 标签
+教程, 智能体, AI, Python
+
+## 相关链接

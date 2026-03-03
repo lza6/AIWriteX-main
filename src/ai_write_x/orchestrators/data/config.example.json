@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4",
+    "api_key_env": "OPENAI_API_KEY",
+    "temperature": 0.3,
+    "max_tokens": 4096
+  },
+  "sources": {
+    "github": [
+      {
+        "type": "user_events",
+        "username": "torvalds",
+        "enabled": true
+      },
+      {
+        "type": "repo_releases",
+        "owner": "astral-sh",
+        "repo": "uv",
+        "enabled": true
+      }
+    ],
+    "hackernews": {
+      "enabled": true,
+      "fetch_top_stories": 20,
+      "min_score": 100
+    },
+    "rss": [
+      {
+        "name": "Simon Willison",
+        "url": "https://simonwillison.net/atom/everything/",
+        "enabled": true,
+        "category": "ai-tools"
+      },
+      {
+        "name": "LWN.net (subscriber full-text)",
+        "url": "https://lwn.net/headlines/full_text?key=${LWN_KEY}",
+        "enabled": false,
+        "category": "linux"
+      }
+    ],
+    "reddit": {
+      "enabled": true,
+      "subreddits": [
+        {
+          "subreddit": "MachineLearning",
+          "enabled": true,
+          "sort": "hot",
+          "time_filter": "day",
+          "fetch_limit": 15,
+          "min_score": 50
+        }
+      ],
+      "users": [
+        {
+          "username": "iamthatis",
+          "enabled": true,
+          "sort": "new",
+          "fetch_limit": 10
+        }
+      ],
+      "fetch_comments": 5
+    }
+  },
+  "filtering": {
+    "ai_score_threshold": 6.0,
+    "time_window_hours": 24
+  }
+}

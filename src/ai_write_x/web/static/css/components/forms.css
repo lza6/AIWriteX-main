@@ -1,0 +1,106 @@
+/* 表单组件样式 */    
+.form-group {    
+    margin-bottom: 20px;    
+}    
+    
+.form-label {    
+    display: block;    
+    margin-bottom: 8px;    
+    font-weight: 500;    
+    color: var(--text-primary);    
+}    
+    
+.form-input,    
+.form-select,    
+.form-textarea,  
+.form-control {    
+    width: 100%;    
+    padding: 12px;    
+    border: 1px solid var(--border-color);    
+    border-radius: 6px;    
+    font-size: 14px;    
+    transition: border-color 0.2s ease;    
+    background: var(--surface-color);    
+    color: var(--text-primary);    
+}    
+    
+.form-input:focus,    
+.form-select:focus,    
+.form-textarea:focus,  
+.form-control:focus {    
+    outline: none;    
+    border-color: var(--primary-color);    
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);    
+}    
+    
+.form-textarea {    
+    resize: vertical;    
+    min-height: 100px;    
+}    
+    
+.form-help {    
+    font-size: 12px;    
+    color: var(--text-secondary);    
+    margin: 0;    
+}    
+    
+.search-input {    
+    flex: 1;    
+    padding: 12px 16px;    
+    border: 1px solid var(--border-color);    
+    border-radius: 6px;    
+    font-size: 14px;    
+}    
+    
+.filter-select {    
+    min-width: 150px;    
+    padding: 12px 16px;    
+    border: 1px solid var(--border-color);    
+    border-radius: 6px;    
+    font-size: 14px;    
+}    
+    
+.search-bar {    
+    display: flex;    
+    gap: 12px;    
+    margin-bottom: 20px;    
+    align-items: center;    
+}    
+    
+/* 切换开关样式 */    
+.config-toggle {    
+    display: flex;    
+    align-items: center;    
+    gap: 12px;    
+}    
+    
+.toggle-switch {    
+    position: relative;    
+    width: 44px;    
+    height: 24px;    
+    background: var(--border-color);    
+    border-radius: 12px;    
+    cursor: pointer;    
+    transition: background-color 0.2s ease;    
+}    
+    
+.toggle-switch.active {    
+    background: var(--primary-color);    
+}    
+    
+.toggle-switch::after {    
+    content: '';    
+    position: absolute;    
+    top: 2px;    
+    left: 2px;    
+    width: 20px;    
+    height: 20px;    
+    background: white;    
+    border-radius: 50%;    
+    transition: transform 0.2s ease;    
+    box-shadow: var(--shadow);    
+}    
+    
+.toggle-switch.active::after {    
+    transform: translateX(20px);    
+} 

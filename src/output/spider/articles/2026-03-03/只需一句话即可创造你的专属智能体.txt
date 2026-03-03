@@ -1,0 +1,11 @@
+项目地址：https://github.com/ModelEngine-Group/nexent
+
+## 项目简介
+这是一款开源的零代码智能体自动生成平台，无需编程基础或复杂的流程图编排，通过自然语言描述需求即可快速创建AI智能体。它内置了数据处理引擎，能够自动处理20
+
+英文标题：Create Your Own AI Agent in Just One Sentence
+
+英文简介：This is an open-source zero-code AI agent generation platform. It requires no programming basics or
+
+编程语言：Python
+更新时间：2026-03-03T09:32:14

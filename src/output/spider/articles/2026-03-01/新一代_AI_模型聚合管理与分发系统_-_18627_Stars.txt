@@ -1,0 +1,22 @@
+# 新一代 AI 模型聚合管理与分发系统
+
+**项目地址**: https://github.com/QuantumNous/new-api
+
+## 项目简介
+该项目是基于 One API 二次开发的 AI 模型接口管理与分发平台。它将 OpenAl、Claude、Gemini、DeepSeek 等多种主流大模型与 AI 服务封装为统一接口，并兼容 OpenAI、Claude、Gemini 等常见接口格式。同时提供数据看板、智能路由分发、令牌分组、模型访问限制和在线充值等功能，适合用于企业或个人搭建 LLM 统一调用平台。
+
+## 统计数据
+- 👀 总点击: 3667
+- 🍴 总Forks: 3637
+- 🐛 开放Issues: 598
+- 📈 上周新增Stars: 673
+
+## 编程语言
+Go
+
+## 标签
+Web 应用, AI, LLM 应用, Go, JavaScript
+
+## 相关链接
+- [官网](https://www.newapi.ai/)
+- [文档](https://www.newapi.ai/zh/docs)

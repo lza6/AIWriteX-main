@@ -1,0 +1,36 @@
+/* 暗色主题样式 */  
+[data-theme="dark"] {  
+    --primary-color: #3b82f6;  
+    --primary-color-rgb: 59, 130, 246;  
+    --primary-hover: #2563eb;
+    --primary-hover-color: #2563eb;
+    --secondary-color: #94a3b8;  
+    --success-color: #22c55e;  
+    --warning-color: #fbbf24;  
+    --error-color: #f87171;  
+    --background-color: #0f172a;  
+    --surface-color: #1e293b;
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #16213e;
+    --bg-hover: rgba(255, 255, 255, 0.05);
+    --text-primary: #f1f5f9;  
+    --text-secondary: #94a3b8;  
+    --border-color: #334155;  
+    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);  
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);  
+}  
+  
+/* 暗色主题特定样式覆盖 */  
+[data-theme="dark"] .nav-submenu {  
+    background: rgba(255, 255, 255, 0.1);  
+}  
+  
+[data-theme="dark"] .preview-placeholder {  
+    color: var(--text-secondary);  
+    background: var(--surface-color);  
+}  
+  
+[data-theme="dark"] .status-indicator {  
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);  
+}

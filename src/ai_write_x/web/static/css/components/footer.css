@@ -1,0 +1,184 @@
+.app-footer {
+    height: var(--footer-height);
+    background: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    overflow: hidden;
+}  
+  
+/* 左侧固定品牌信息 */  
+.footer-left {  
+    flex-shrink: 0;  
+    display: flex;  
+    align-items: center;  
+}  
+  
+.footer-brand {  
+    font-size: 13px;  
+    font-weight: 500;  
+    color: var(--text-secondary);  
+    white-space: nowrap;  
+}  
+  
+/* 右侧走马灯区域 */  
+.footer-right {  
+    flex: 1;  
+    display: flex;  
+    justify-content: flex-end;  
+    min-width: 0;  
+}  
+  
+.footer-marquee-container {  
+    max-width: 500px;  
+    width: 100%;  
+    overflow: hidden;  
+    position: relative;  
+    height: 100%;  
+    display: flex;  
+    align-items: center;  
+    background: var(--surface-color);  
+} 
+  
+.footer-marquee-content {  
+    display: inline-block; 
+    white-space: nowrap;
+}  
+  
+.footer-marquee-content.paused {  
+    animation-play-state: paused;  
+}  
+
+/* 底部品牌链接 */  
+.footer-brand-link {  
+    text-decoration: none;  
+    color: var(--text-secondary);  
+    transition: color 0.2s;  
+}  
+  
+.footer-brand-link:hover {  
+    color: var(--primary-color);  
+    cursor: pointer;  
+}  
+  
+.footer-brand-link .footer-brand {  
+    font-size: 13px;  
+    font-weight: 500;  
+}
+
+.footer-brand {  
+    font-size: 13px;  
+    font-weight: 500;  
+    color: var(--text-secondary);  
+    display: flex;  
+    align-items: center;  
+    gap: 8px;  
+}  
+  
+.version-text {  
+    font-weight: 500; 
+    color: var(--text-secondary); 
+}  
+  
+.copyright-text {  
+    font-size: 11px;  
+    opacity: 0.7;  
+    font-weight: 400;  
+}  
+  
+.footer-brand-link:hover .version-text {  
+    color: var(--primary-color);  
+}  
+  
+.footer-brand-link:hover .copyright-text {  
+    opacity: 1;  
+}
+
+@keyframes marquee-scroll {    
+    0% {    
+        transform: translateX(var(--start-pos, 100%));  
+    }    
+    100% {    
+        transform: translateX(var(--end-pos, -100%));  
+    }    
+}
+
+/* 单条消息滚动动画 */  
+@keyframes marquee-slide {  
+    0% {  
+        transform: translateX(100%);  
+    }  
+    100% {  
+        transform: translateX(-100%);  
+    }  
+}  
+  
+/* 消息项样式 */  
+.marquee-item {  
+    font-size: 13px;  
+    color: var(--text-secondary);  
+    padding: 0 16px;  
+    display: inline-block;  
+    min-width: 100%;
+}  
+  
+.marquee-item.success {  
+    color: #10b981;  
+}  
+  
+.marquee-item.warning {  
+    color: #f59e0b;  
+}  
+  
+.marquee-item.error {  
+    color: #ef4444;  
+}  
+  
+.marquee-item .loop-indicator {  
+    font-size: 11px;  
+    opacity: 0.6;  
+    margin-left: 4px;  
+}  
+  
+/* 响应式设计 */  
+@media (max-width: 1200px) {  
+    .footer-marquee-container {  
+        max-width: 400px;  
+    }  
+}  
+  
+@media (max-width: 768px) {  
+    .footer-brand {  
+        font-size: 12px;  
+    }  
+      
+    .footer-marquee-container {  
+        max-width: 300px;  
+    }  
+      
+    .marquee-item {  
+        font-size: 12px;  
+    }
+}
+
+.footer-promo-link {  
+    margin-left: 16px;  
+    padding: 0;  
+    background: none;  
+    color: #FF6600;  
+    font-size: 12px;  
+    font-weight: 500;  
+    text-decoration: underline;  
+    text-decoration-color: rgba(255, 102, 0, 0.3);  
+    text-underline-offset: 3px;  
+    transition: all 0.3s ease;  
+    white-space: nowrap;  
+}  
+  
+.footer-promo-link:hover {  
+    color: #FF8C00;  
+    text-decoration-color: #FF8C00;  
+    transform: translateX(2px);  
+}

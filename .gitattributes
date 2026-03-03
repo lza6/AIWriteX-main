@@ -1,0 +1,18 @@
+# === Python 核心代码 ===  
+*.py linguist-language=Python linguist-detectable=true  
+  
+# === 排除第三方库 ===  
+src/ai_write_x/web/static/lib/** linguist-vendored=true  
+  
+# === 排除模板和静态资源 ===  
+knowledge/**/*.html linguist-vendored=true
+  
+# === 配置文件 ===  
+*.yaml linguist-language=YAML  
+*.toml linguist-language=TOML  
+*.json linguist-language=JSON  
+  
+# === 为了标记为Python项目，忽略部分js代码 ===
+src/ai_write_x/web/static/js/config-manager.js linguist-vendored=true
+src/ai_write_x/web/static/js/article-manager.js linguist-vendored=true
+  

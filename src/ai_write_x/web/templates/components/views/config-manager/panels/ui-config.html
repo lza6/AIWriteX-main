@@ -1,0 +1,44 @@
+<div class="config-panel" id="config-ui">  
+    <div class="config-header">  
+        <h2>界面设置</h2>  
+        <p class="config-description">设置应用界面的外观和行为</p>  
+    </div>  
+      
+    <div class="config-form">  
+        <div class="config-section">  
+            <h3 class="section-title">外观设置</h3>  
+            <div class="form-grid">  
+                <div class="form-group">  
+                    <label for="theme-selector">主题模式</label>  
+                    <select id="theme-selector" name="theme" class="form-control">  
+                        <option value="light">亮色主题</option>  
+                        <option value="dark">暗色主题</option>  
+                    </select>  
+                    <p class="form-help">选择界面的颜色主题</p>  
+                </div>  
+                  
+                <div class="form-group">  
+                    <label for="window-mode-selector">窗口模式</label>  
+                    <select id="window-mode-selector" name="windowMode" class="form-control">  
+                        <option value="STANDARD">标准模式</option>  
+                        <option value="MAXIMIZED">最大化模式</option>  
+                    </select>  
+                    <p class="form-help">选择窗口显示模式</p>  
+                </div>
+                <div class="form-group">    
+                    <label for="design-theme-selector">网页设计器主题</label>    
+                    <select id="design-theme-selector" name="designTheme" class="form-control">    
+                        <option value="follow-system">跟随系统</option>    
+                        <option value="default">默认主题</option>    
+                    </select>    
+                    <p class="form-help">选择页面设计器的主题风格</p>    
+                </div>   
+            </div>  
+        </div>  
+          
+        <div class="config-actions">  
+            <button type="button" class="btn btn-primary" id="save-ui-config">保存设置</button>  
+            <button type="button" class="btn btn-secondary" id="reset-ui-config">恢复默认</button>  
+        </div>  
+    </div>  
+</div>

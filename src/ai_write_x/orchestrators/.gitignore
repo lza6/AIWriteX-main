@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+
+# Data files (keep structure, ignore content)
+data/seen.json
+data/summaries/*.md
+
+docs/_posts/*.md
+
+# Logs
+logs/*.log
+*.log
+
+# macOS
+.DS_Store
+
+# uv
+.uv/
+
+# todo
+todo.txt

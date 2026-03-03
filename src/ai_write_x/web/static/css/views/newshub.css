@@ -1,0 +1,531 @@
+/* NewsHub 热点聚合样式 */
+
+/* 视图容器 */
+#newshub-view {
+    padding: 20px;
+    overflow-y: auto;
+    display: none;
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+}
+
+#newshub-view.active {
+    display: flex !important;
+    flex-direction: column;
+}
+
+/* 统计概览 */
+.newshub-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* 工具栏 */
+.newshub-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: 10px;
+}
+
+.toolbar-left,
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toolbar-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.toolbar-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.toolbar-checkbox input {
+    cursor: pointer;
+}
+
+/* 区块 */
+.newshub-section {
+    margin-bottom: 30px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+.section-title svg {
+    color: var(--accent-color);
+}
+
+/* 趋势列表 */
+.trends-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.trend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background: var(--card-bg);
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s;
+}
+
+.trend-item:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.trend-rank {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+    color: white;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.trend-keyword {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.trend-score {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.trend-growth {
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--bg-secondary);
+}
+
+.trend-growth.positive {
+    color: #10b981;
+}
+
+.trend-growth.negative {
+    color: #ef4444;
+}
+
+/* 新闻列表 */
+.news-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.news-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.news-card:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.news-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.news-category {
+    padding: 4px 10px;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.news-score {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.news-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 10px 0;
+    line-height: 1.4;
+}
+
+.news-summary {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.news-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.news-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.keyword-tag {
+    padding: 3px 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.news-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.news-source {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.news-sentiment {
+    font-size: 14px;
+}
+
+.news-sentiment.positive {
+    color: #10b981;
+}
+
+.news-sentiment.negative {
+    color: #ef4444;
+}
+
+.news-sentiment.neutral {
+    color: #6b7280;
+}
+
+.news-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--accent-hover);
+}
+
+/* GitHub趋势 */
+.github-list {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+}
+
+.github-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.github-item:last-child {
+    border-bottom: none;
+}
+
+.github-rank {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #24292e;
+    color: white;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.github-info {
+    flex: 1;
+}
+
+.github-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.github-name:hover {
+    text-decoration: underline;
+}
+
+.github-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 5px 0;
+}
+
+.github-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.github-stars {
+    color: #f1c40f;
+}
+
+/* 使用说明 */
+.newshub-help {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--card-bg));
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+.newshub-help h3 {
+    font-size: 16px;
+    color: var(--text-primary);
+    margin-bottom: 15px;
+}
+
+.newshub-help ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.newshub-help li {
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.newshub-help li:last-child {
+    border-bottom: none;
+}
+
+.newshub-help strong {
+    color: var(--accent-color);
+}
+
+/* 加载和空状态 */
+.loading-placeholder,
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .newshub-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .news-list {
+        grid-template-columns: 1fr;
+    }
+
+    .newshub-toolbar {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* 工具栏按钮 */
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg, #ffffff);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    border-color: var(--accent-color, #4F46E5);
+    color: var(--accent-color, #4F46E5);
+}
+
+.toolbar-btn.primary {
+    background: var(--accent-color, #4F46E5);
+    color: white;
+    border-color: var(--accent-color, #4F46E5);
+}
+
+.toolbar-btn.primary:hover {
+    opacity: 0.9;
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 数据源模态框 */
+.nh-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.nh-modal-content {
+    background: var(--card-bg, #ffffff);
+    border-radius: 12px;
+    width: 600px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 25px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.nh-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.nh-modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.nh-modal-close:hover {
+    background: var(--bg-secondary, #f3f4f6);
+    color: var(--text-primary);
+}
+
+.nh-sources-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 50vh;
+    overflow-y: auto;
+}

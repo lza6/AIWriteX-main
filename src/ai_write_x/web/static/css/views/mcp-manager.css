@@ -1,0 +1,722 @@
+/* MCP服务管理器样式 */
+
+/* 视图容器 */
+#mcp-manager-view {
+    padding: 20px;
+    overflow-y: auto;
+    display: none;
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+}
+
+#mcp-manager-view.active {
+    display: flex !important;
+    flex-direction: column;
+}
+
+/* 状态摘要 */
+.mcp-summary {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.mcp-summary .summary-item {
+    flex: 1;
+    text-align: center;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.mcp-summary .summary-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.mcp-summary .summary-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.mcp-summary .summary-item.enabled .summary-value {
+    color: #3b82f6;
+}
+
+.mcp-summary .summary-item.running .summary-value {
+    color: #10b981;
+}
+
+.mcp-summary .summary-item.error .summary-value {
+    color: #ef4444;
+}
+
+/* 工具栏 */
+.mcp-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px 20px;
+    background: var(--card-bg);
+    border-radius: 12px;
+}
+
+.mcp-toolbar .toolbar-left,
+.mcp-toolbar .toolbar-right {
+    display: flex;
+    gap: 10px;
+}
+
+.toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-color);
+}
+
+.toolbar-btn.primary {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.toolbar-btn.primary:hover {
+    background: var(--accent-hover);
+}
+
+/* 依赖检查 */
+.mcp-section {
+    margin-bottom: 25px;
+}
+
+.mcp-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: var(--text-primary);
+}
+
+.mcp-dependencies {
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: 12px;
+}
+
+.deps-grid {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.dep-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.dep-item.dep-available {
+    border-color: #10b981;
+}
+
+.dep-item.dep-unavailable {
+    border-color: #ef4444;
+}
+
+.dep-icon {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.dep-available .dep-icon {
+    color: #10b981;
+}
+
+.dep-unavailable .dep-icon {
+    color: #ef4444;
+}
+
+.dep-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.dep-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dep-version {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* 安装按钮 */
+.dep-install-btn {
+    padding: 6px 14px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: auto;
+}
+
+.dep-install-btn:hover {
+    background: var(--accent-hover);
+}
+
+.dep-install-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* 安装命令模态框 */
+.mcp-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.install-commands-modal {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 0;
+    width: 550px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow: hidden;
+}
+
+.install-commands-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.install-commands-modal .modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.install-commands-modal .modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.install-commands-modal .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(80vh - 60px);
+}
+
+.install-message {
+    margin: 0 0 15px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.install-commands {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 15px;
+    font-family: monospace;
+}
+
+.command-comment {
+    color: #6b7280;
+    font-size: 12px;
+    margin: 8px 0;
+}
+
+.command-line {
+    display: block;
+    background: var(--card-bg);
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.command-line:hover {
+    background: var(--bg-hover);
+}
+
+.install-hint {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* 安装成功消息 */
+.install-success-message {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.8;
+    text-align: center;
+}
+
+.install-commands-modal .modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.install-commands-modal .btn-primary {
+    padding: 10px 24px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.install-commands-modal .btn-primary:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+/* 服务列表 */
+.mcp-services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.mcp-service-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s;
+}
+
+.mcp-service-card:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.mcp-service-card.disabled {
+    opacity: 0.7;
+}
+
+.service-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.service-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.service-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.service-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.service-status.status-stopped {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.service-status.status-starting {
+    background: #fef3c7;
+    color: #d97706;
+    animation: pulse 1.5s infinite;
+}
+
+.service-status.status-running {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.service-status.status-error {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* 开关样式 */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked+.toggle-slider {
+    background-color: var(--accent-color);
+}
+
+.toggle-switch input:checked+.toggle-slider:before {
+    transform: translateX(20px);
+}
+
+.service-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.service-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.meta-item svg {
+    opacity: 0.6;
+}
+
+.service-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.action-btn.start {
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.action-btn.start:hover {
+    background: #d1fae5;
+}
+
+.action-btn.stop {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.action-btn.stop:hover {
+    background: #fee2e2;
+}
+
+.action-btn.restart {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.action-btn.restart:hover {
+    background: #fef3c7;
+}
+
+.service-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px;
+    background: #fee2e2;
+    border-radius: 6px;
+    color: #dc2626;
+    font-size: 12px;
+}
+
+/* 模态框 */
+.mcp-config-modal,
+.mcp-add-modal {
+    width: 500px;
+    max-width: 90vw;
+}
+
+.config-section {
+    margin-bottom: 20px;
+}
+
+.config-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.config-row {
+    margin-bottom: 15px;
+}
+
+.config-row label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+}
+
+.config-row input,
+.config-row textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.config-row input:focus,
+.config-row textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.config-row.checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.config-row.checkbox input {
+    width: auto;
+}
+
+.tools-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tool-tag {
+    display: inline-block;
+    padding: 4px 10px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+/* 帮助信息 */
+.mcp-help {
+    padding: 20px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.mcp-help h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.mcp-help ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.mcp-help li {
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.mcp-help code {
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.help-note {
+    margin-top: 15px;
+    padding: 10px;
+    background: #fef3c7;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #92400e;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .service-status.status-stopped {
+    background: #374151;
+    color: #9ca3af;
+}
+
+[data-theme="dark"] .service-status.status-starting {
+    background: #422006;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .service-status.status-running {
+    background: #064e3b;
+    color: #34d399;
+}
+
+[data-theme="dark"] .service-status.status-error {
+    background: #450a0a;
+    color: #f87171;
+}
+
+[data-theme="dark"] .service-error {
+    background: #450a0a;
+}
+
+[data-theme="dark"] .help-note {
+    background: #422006;
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .dep-item.dep-available {
+    border-color: #10b981;
+}
+
+[data-theme="dark"] .dep-item.dep-unavailable {
+    border-color: #ef4444;
+}

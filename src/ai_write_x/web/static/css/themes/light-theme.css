@@ -1,0 +1,33 @@
+/* 亮色主题样式 */  
+:root,  
+[data-theme="light"] {  
+    --primary-color: #2563eb;  
+    --primary-hover: #1d4ed8;
+    --primary-hover-color: #1d4ed8;
+    --primary-color-rgb: 37, 99, 235;  
+    --secondary-color: #64748b;  
+    --success-color: #10b981;  
+    --warning-color: #f59e0b;  
+    --error-color: #ef4444;  
+    --background-color: #f8fafc;  
+    --surface-color: #ffffff;
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --bg-hover: rgba(0, 0, 0, 0.05);
+    --text-primary: #1e293b;  
+    --text-secondary: #64748b;  
+    --border-color: #e2e8f0;  
+    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);  
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);  
+}  
+  
+/* 亮色主题特定样式覆盖 */  
+[data-theme="light"] .nav-submenu {  
+    background: rgba(0, 0, 0, 0.05);  
+}  
+  
+[data-theme="light"] .preview-placeholder {  
+    color: var(--text-secondary);  
+    background: var(--background-color);  
+}

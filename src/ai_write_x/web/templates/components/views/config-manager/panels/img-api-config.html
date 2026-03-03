@@ -1,0 +1,54 @@
+<div id="config-img-api" class="config-panel">
+    <div class="config-header">
+        <div class="header-content">
+            <div>
+                <h2>图片生成API</h2>
+                <p class="config-description">设置图片生成服务的API密钥和参数</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-secondary" id="reset-img-api-config">
+                恢复默认
+            </button>
+            <button type="button" class="btn btn-primary" id="save-img-api-config">
+                保存设置
+            </button>
+        </div>
+    </div>
+
+    <div class="config-form">
+        <!-- 图片API提供商卡片容器 -->
+        <div id="img-api-providers-container">
+            <!-- 动态生成提供商卡片 -->
+        </div>
+
+        <!-- 添加自定义图片API按钮 -->
+        <div class="add-api-section">
+            <button type="button" class="btn btn-outline" id="add-custom-img-api">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                添加自定义图片API
+            </button>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="config-notice">
+            <svg class="notice-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <div class="notice-content">
+                <strong>设置说明:</strong>
+                <ul>
+                    <li>Picsum: 免费随机图片服务,无需设置</li>
+                    <li>阿里百炼: 需要设置API KEY和模型参数 (如: wanx2.0-t2i-turbo)</li>
+                    <li>魔搭社区: 需要设置API KEY和模型参数 (如: wanx2.0-t2i-turbo)</li>
+                    <li>点击"设为当前"切换使用的图片生成服务</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

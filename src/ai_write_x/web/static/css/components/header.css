@@ -1,0 +1,121 @@
+/* 头部组件样式 - 现代专业化重构 */
+.app-header {
+    height: var(--header-height);
+    background: rgba(var(--surface-color-rgb, 255, 255, 255), 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(var(--primary-color-rgb, 108, 92, 231), 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    position: relative;
+}
+
+/* 底部发光线条 */
+.app-header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(var(--primary-color-rgb), 0.3), transparent);
+}
+
+.app-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    letter-spacing: -0.5px;
+}
+
+/* Logo 容器 - 强化科技感 */
+.app-header .header-logo-container {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow:
+        0 4px 12px rgba(37, 99, 235, 0.2),
+        inset 0 0 10px rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.app-header .header-logo-container:hover {
+    transform: rotate(5deg) scale(1.1);
+}
+
+/* 状态提示器 - 极简主义设计 */
+.app-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.1);
+}
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success-color, #10b981);
+    box-shadow: 0 0 10px var(--success-color);
+    animation: headerPulse 2s infinite ease-in-out;
+}
+
+/* 店铺徽章样式 - 融入整体风格 */
+.shop-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    color: white;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shop-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(234, 88, 12, 0.45);
+}
+
+@keyframes headerPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1.2);
+    }
+}

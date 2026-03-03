@@ -1,0 +1,127 @@
+{
+  "31": {
+    "inputs": {
+      "unet_name": "z_image_turbo_nvfp4.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "32": {
+    "inputs": {
+      "clip_name": "zImageTurboQuantized_textEncoderFp8Scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "33": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "34": {
+    "inputs": {
+      "text": "一只猫",
+      "clip": [
+        "32",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "35": {
+    "inputs": {
+      "seed": 789805265906945,
+      "steps": 9,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "31",
+        0
+      ],
+      "positive": [
+        "34",
+        0
+      ],
+      "negative": [
+        "36",
+        0
+      ],
+      "latent_image": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "36": {
+    "inputs": {
+      "conditioning": [
+        "34",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "37": {
+    "inputs": {
+      "width": 768,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空Latent图像"
+    }
+  },
+  "38": {
+    "inputs": {
+      "samples": [
+        "35",
+        0
+      ],
+      "vae": [
+        "33",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "39": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  }
+}

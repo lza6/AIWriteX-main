@@ -1,0 +1,87 @@
+# ============================================
+# AIWriteX .gitignore 配置
+# ============================================
+
+# 🔐 密钥安全 - 绝对不上传
+.env
+.env.*
+*.env
+secrets/api_keys.yaml
+secrets/*.yaml
+!secrets/api_keys.example.yaml
+license.dat
+build_secrets.json
+*.pem
+*.key
+
+# 🐍 Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# 💻 IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# 📁 项目特定目录
+.git-backup/
+logs/*.log
+logs/
+make_exe/
+make_app/
+tools/
+aiforge_work/
+backup/
+temp/
+tmp/
+output/*/*
+!output/article/.gitkeep
+!output/exe/.gitkeep
+!output/app/.gitkeep
+
+# 🖼️ 图片文件（生成的图片不上传）
+image/*
+!image/.gitkeep
+
+# 📦 打包文件
+AIWriteX_云盘版_Setup*.exe
+AIWriteX_云盘版_Setup*.zip
+AIWriteX.app
+AIWriteX.dmg
+
+# 🗂️ 其他
+.qoder
+config.bk
+ui_config.json
+spider.log
+*.log
+
+# 🪟 Windows
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk

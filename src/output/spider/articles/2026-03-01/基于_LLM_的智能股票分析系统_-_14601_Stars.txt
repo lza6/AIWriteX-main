@@ -1,0 +1,20 @@
+# 基于 LLM 的智能股票分析系统
+
+**项目地址**: https://github.com/ZhuLinsen/daily_stock_analysis
+
+## 项目简介
+这是一个由 LLM 驱动的智能股票分析工具，支持 A 股、港股和美股的每日自动分析与推送。它通过 AkShare、Tushare、YFinance 等数据源获取实时行情，并借助 DeepSeek 等大模型 API 服务，对自选股票进行多维度分析（技术面、筹码分布、舆情），生成决策仪表盘，支持 GitHub Actions 定时执行（无需服务器）或 Docker 一键部署。
+
+## 统计数据
+- 👀 总点击: 235
+- 🍴 总Forks: 15426
+- 🐛 开放Issues: 25
+- 📈 上周新增Stars: 1278
+
+## 编程语言
+Python
+
+## 标签
+AI, LLM 应用, Python
+
+## 相关链接

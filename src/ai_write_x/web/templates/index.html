@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIWriteX - 智能内容创作平台</title>
+
+    <link rel="icon" href="data:," />
+
+    <!-- 核心样式文件 -->
+    <link rel="stylesheet" href="/static/css/main.css?v=20260301d">
+    </link>
+
+    <!-- 主题样式文件 -->
+    <link rel="stylesheet" href="/static/css/themes/light-theme.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/themes/dark-theme.css?v=20260301c">
+
+    <!-- 组件样式文件 -->
+    <link rel="stylesheet" href="/static/css/components/header.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/sidebar.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/footer.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/navigation.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/buttons.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/forms.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/notifications.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/modals.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/preview-panel.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/content-editor.css?v=20260301c">
+
+    <link rel="stylesheet" href="/static/lib/grapesjs/css/grapes.min.css">
+    <link rel="stylesheet" href="/static/lib/grapesjs/css/grapesjs-preset-webpage.min.css">
+
+    <!-- 视图样式文件  -->
+    <link rel="stylesheet" href="/static/css/views/shared-manager.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/creative-workshop.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/article-manager.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/template-manager.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/config-manager.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/mcp-manager.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/newshub.css?v=20260301c">
+</head>
+
+<body class="window-mode-standard" data-window-mode="standard">
+    <div class="app-container">
+        <!-- 组件化的头部 -->
+        {% include 'components/header.html' %}
+
+        <!-- 中间区域：侧边栏 + 主内容 -->
+        <div class="app-middle">
+            <!-- 组件化的侧边栏 -->
+            {% include 'components/sidebar.html' %}
+
+            <!-- 主体布局 -->
+            <div class="app-main">
+                <main class="content-area">
+                    <!-- 组件化的视图 -->
+                    {% include 'components/views/creative-workshop.html' %}
+                    {% include 'components/views/article-manager.html' %}
+                    {% include 'components/views/template-manager.html' %}
+                    {% include 'components/views/spider-manager.html' %}
+                    {% include 'components/views/mcp-manager.html' %}
+                    {% include 'components/views/newshub.html' %}
+                    {% include 'components/views/config-manager/config-manager.html' %}
+                </main>
+            </div>
+        </div>
+
+        <!-- 右侧面板 -->
+        {% include 'components/preview-panel.html' %}
+
+        <!-- 全局弹窗容器 -->
+        <div id="global-modal-container"></div>
+
+        <!-- 发布文章弹窗 -->
+        <div id="publish-dialog" class="modal-overlay" style="display: none;">
+            <div class="modal-content publish-modal">
+                <div class="modal-header">
+                    <h3>发布文章</h3>
+                    <button class="modal-close" onclick="window.articleManager.closePublishDialog()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>选择平台 <span class="required">*</span></label>
+                        <select id="publish-platform-select" class="form-control">
+                            <option value="">请选择发布平台...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="account-selection-group" style="display: none;">
+                        <label>
+                            选择账号 <span class="required">*</span>
+                            <span class="account-count" id="selected-account-count">(已选 0 个)</span>
+                        </label>
+
+                        <div class="account-quick-actions">
+                            <button type="button" class="btn-link"
+                                onclick="window.articleManager.selectAllAccounts()">全选</button>
+                            <span class="divider">|</span>
+                            <button type="button" class="btn-link"
+                                onclick="window.articleManager.deselectAllAccounts()">取消全选</button>
+                        </div>
+
+                        <div id="account-list" class="account-checkbox-list"></div>
+                    </div>
+
+                    <div id="no-accounts-tip" class="no-accounts-tip" style="display: none;">
+                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <p>该平台暂无配置的账号</p>
+                        <button class="btn btn-primary" onclick="window.articleManager.goToSettings()">前往设置</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="window.articleManager.closePublishDialog()">取消</button>
+                    <button class="btn btn-primary" id="confirm-publish-btn"
+                        onclick="window.articleManager.confirmPublish()" disabled>确认发布</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI 换模板预览弹窗 -->
+        <div id="re-template-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content re-template-modal"
+                style="width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column;">
+                <div class="modal-header">
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
+                            </path>
+                        </svg>
+                        AI 换模板预览
+                    </h3>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div id="re-template-loading"
+                            style="display: none; align-items: center; gap: 8px; font-size: 14px; color: var(--primary-color);">
+                            <div class="spinner-small"></div>
+                            AI 正在设计中...
+                        </div>
+                        <button class="modal-close" onclick="window.articleManager.closeReTemplateModal()">×</button>
+                    </div>
+                </div>
+                <div class="modal-body"
+                    style="flex: 1; display: flex; gap: 20px; overflow: hidden; padding: 20px; background: #f0f2f5;">
+                    <!-- 左侧：思考日志/状态 -->
+                    <div class="re-template-log"
+                        style="width: 300px; flex-shrink: 0; background: #fff; border-radius: 8px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                        <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-secondary);">AI 设计日志</h4>
+                        <div id="re-template-status-list"
+                            style="flex: 1; overflow-y: auto; font-size: 13px; line-height: 1.6;">
+                            <div style="color: #888;">等待开始...</div>
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                            <p style="font-size: 12px; color: #999; margin-bottom: 10px;">提示：AI 将提取文章内容并重新构建 HTML
+                                结构，适配移动端和微信环境。</p>
+                            <button class="btn btn-secondary btn-block" id="re-template-retry-btn"
+                                onclick="window.articleManager.runReTemplate()" style="width: 100%;">
+                                重新生成方案
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 右侧：实时预览区域 -->
+                    <div class="re-template-preview"
+                        style="flex: 1; min-width: 0; background: #fff; border-radius: 8px; position: relative; display: flex; flex-direction: column; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                        <div
+                            style="background: #e8e8e8; padding: 8px 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary btn-sm" id="re-template-view-preview-btn"
+                                    onclick="window.articleManager.toggleReTemplateView('preview')"
+                                    style="font-size: 12px; background: #fff; border-color: #ddd;">可视化预览</button>
+                                <button class="btn btn-secondary btn-sm" id="re-template-view-insights-btn"
+                                    onclick="window.articleManager.toggleReTemplateView('insights')"
+                                    style="font-size: 12px; background: transparent; border-color: transparent;">AI
+                                    深度分析</button>
+                                <button class="btn btn-secondary btn-sm" id="re-template-view-code-btn"
+                                    onclick="window.articleManager.toggleReTemplateView('code')"
+                                    style="font-size: 12px; background: transparent; border-color: transparent;">源代码</button>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-secondary btn-sm" id="re-template-copy-code-btn"
+                                    onclick="window.articleManager.copyReTemplateCode()"
+                                    style="font-size: 12px; display: none;">复制源代码</button>
+                            </div>
+                        </div>
+                        <!-- 可视化视图 -->
+                        <div style="flex: 1; display: flex; overflow: hidden;">
+                            <iframe id="re-template-iframe"
+                                style="flex: 1; border: none; width: 100%; height: 100%;"></iframe>
+                            <!-- AI 深度分析视图 -->
+                            <div id="re-template-insights-view"
+                                style="flex: 1; border: none; width: 100%; height: 100%; padding: 25px; background: #fcfcfc; display: none; overflow-y: auto;">
+                                <div style="max-width: 800px; margin: 0 auto;">
+                                    <h4
+                                        style="color: var(--primary-color); border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-size: 24px;">💭</span> AI 设计背后的思考过程
+                                    </h4>
+                                    <div id="re-template-insights-content"
+                                        style="font-size: 15px; color: #444; line-height: 1.8;">
+                                        <div style="color: #999; text-align: center; margin-top: 50px;">等待 AI 生成深度分析...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 源代码视图 -->
+                            <textarea id="re-template-code-view"
+                                style="flex: 1; border: none; width: 100%; height: 100%; resize: none; padding: 15px; font-family: monospace; font-size: 13px; line-height: 1.5; color: #333; background: #f8f9fa; display: none;"
+                                readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer"
+                    style="padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button class="btn btn-danger" id="re-template-stop-btn"
+                        onclick="window.articleManager.stopReTemplate()" style="display: none;">
+                        停止生成
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.articleManager.closeReTemplateModal()">关闭</button>
+                    <button class="btn btn-primary" id="re-template-save-btn"
+                        onclick="window.articleManager.saveReTemplate()" disabled>
+                        应用并保存
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 全局后台任务代理 (Task Agent) -->
+        <div id="global-task-agent"
+            style="position: fixed; bottom: 85px; right: 30px; z-index: 9999; display: none; align-items: center; gap: 12px; background: white; padding: 12px 20px; border-radius: 50px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); border: 1px solid var(--primary-color);">
+            <div class="spinner-small"
+                style="width: 20px; height: 20px; border: 2px solid var(--primary-color); border-top-color: transparent; border-radius: 50%; animation: task-spinner 0.8s linear infinite;">
+            </div>
+            <div style="display: flex; flex-direction: column; cursor: pointer;"
+                onclick="window.articleManager?.openTaskList()">
+                <span id="task-agent-title" style="font-size: 13px; font-weight: 600; color: #333;">正在处理后台任务...</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div
+                        style="flex: 1; width: 120px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;">
+                        <div id="task-agent-progress"
+                            style="width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s;">
+                        </div>
+                    </div>
+                    <span id="task-agent-percent" style="font-size: 11px; color: #888;">0%</span>
+                </div>
+            </div>
+            <button onclick="window.articleManager?.openTaskList()" class="task-agent-btn"
+                style="background: #f0f7ff; border: none; padding: 6px; border-radius: 50%; color: var(--primary-color); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 后台任务列表弹窗 (Task List) -->
+        <div id="task-list-modal" class="modal-overlay" style="display: none; z-index: 10000;">
+            <div class="modal-content"
+                style="width: 500px; max-height: 80vh; border-radius: 16px; overflow: hidden; background: white; margin: auto;">
+                <div class="modal-header"
+                    style="background: var(--primary-color); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M9 11l3 3L22 4" />
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                        </svg>
+                        后台任务管理器
+                    </h3>
+                    <button class="modal-close"
+                        onclick="document.getElementById('task-list-modal').style.display='none'"
+                        style="color: white; opacity: 0.8; background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+                </div>
+                <div class="modal-body" id="task-list-container"
+                    style="padding: 20px; overflow-y: auto; background: #f8fafc; min-height: 200px;">
+                    <!-- 任务条目将动态插入 -->
+                    <div style="text-align: center; color: #94a3b8; padding: 40px 0;">
+                        <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
+                        <p>当前暂无进行中的后台任务</p>
+                    </div>
+                </div>
+                <div class="modal-footer"
+                    style="padding: 15px 20px; border-top: 1px solid #e2e8f0; background: #fff; display: flex; justify-content: flex-end;">
+                    <button class="btn btn-secondary"
+                        onclick="document.getElementById('task-list-modal').style.display='none'">关闭</button>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            #global-task-agent:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+            }
+
+            .task-agent-btn:hover {
+                background-color: #e0efff !important;
+            }
+
+            @keyframes task-spinner {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .task-item {
+                background: white;
+                border-radius: 12px;
+                padding: 15px;
+                margin-bottom: 12px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                transition: transform 0.2s;
+            }
+
+            .task-item:hover {
+                transform: scale(1.02);
+                border-color: var(--primary-color);
+            }
+        </style>
+
+        <!-- 组件化的底部 -->
+        {% include 'components/footer.html' %}
+    </div>
+
+    <!-- 原文与生成结果双栏对比模态框 -->
+    <div id="comparison-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content comparison-modal-content"
+            style="width: 98%; max-width: 1600px; height: 95vh; display: flex; flex-direction: column;">
+            <div class="modal-header"
+                style="flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+                <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
+                        </path>
+                    </svg>
+                    内容双栏对比
+                </h3>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <!-- 顶部分页控件 -->
+                    <div id="comparison-pagination"
+                        style="display: none; align-items: center; gap: 10px; background: var(--bg-secondary); padding: 4px 12px; border-radius: 20px;">
+                        <button class="btn btn-icon btn-sm" id="comp-prev-btn" onclick="window.compareNext(-1)"
+                            title="上一篇">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <span id="comp-page-info"
+                            style="font-size: 13px; font-weight: bold; color: var(--text-primary);">第 1 / 1 篇</span>
+                        <button class="btn btn-icon btn-sm" id="comp-next-btn" onclick="window.compareNext(1)"
+                            title="下一篇">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                    <button class="modal-close"
+                        onclick="document.getElementById('comparison-modal').style.display='none'">×</button>
+                </div>
+            </div>
+            <div class="modal-body"
+                style="flex: 1; display: flex; gap: 20px; overflow: hidden; padding: 20px; background: var(--bg-secondary);">
+                <!-- 左侧：目标原文章 -->
+                <div class="comparison-pane"
+                    style="flex: 1; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 12px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02); border: 1px solid var(--border-color); overflow: hidden;">
+                    <div
+                        style="padding: 12px 20px; border-bottom: 1px solid var(--border-color); background: rgba(59,130,246,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; color: #3b82f6; display: flex; align-items: center; gap: 6px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            目标原文章
+                        </h4>
+                        <span class="tag tag-primary" style="font-size: 11px;">Source</span>
+                    </div>
+                    <div id="comp-source-content"
+                        style="flex: 1; overflow-y: auto; padding: 20px; font-size: 15px; line-height: 1.8; color: var(--text-secondary); white-space: pre-wrap; word-break: break-all;">
+                        正在加载原稿内容...
+                    </div>
+                </div>
+
+                <!-- 右侧：最终完成的文章 -->
+                <div class="comparison-pane"
+                    style="flex: 1; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 12px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02); border: 1px solid var(--border-color); overflow: hidden;">
+                    <div
+                        style="padding: 12px 20px; border-bottom: 1px solid var(--border-color); background: rgba(16,185,129,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; color: #10b981; display: flex; align-items: center; gap: 6px;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            最终完成的文章
+                        </h4>
+                        <span class="tag tag-success" style="font-size: 11px;">Generated</span>
+                    </div>
+                    <div id="comp-generated-content" class="article-preview-content"
+                        style="flex: 1; overflow-y: auto; padding: 20px;">
+                        正在加载生成结果...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer"
+                style="flex-shrink: 0; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <button class="btn btn-secondary"
+                    onclick="document.getElementById('comparison-modal').style.display='none'">关闭对比</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本加载 -->
+    <script src="/static/lib/grapesjs/grapes.min.js"></script>
+    <script src="/static/lib/grapesjs/plugins/grapesjs-preset-webpage.min.js"></script>
+    <script src="/static/js/image-designer.js?v=20260301c"></script>
+
+    <script src="/static/lib/marked/marked.min.js"></script>
+    <script src="/static/js/markdown-renderer.js?v=20260301c"></script>
+    <script src="/static/lib/monaco/vs/loader.js"></script>
+    <script src="/static/js/dialog.js?v=20260301c"></script>
+    <script src="/static/js/preview-panel.js?v=20260301c"></script>
+    <script src="/static/js/update-checker.js?v=20260301c"></script>
+    <script src="/static/js/footer-marquee.js?v=20260301c"></script>
+    <script src="/static/js/task-queue.js?v=20260303a"></script>
+    <script src="/static/js/main.js?v=20260301d"></script>
+    <script src="/static/js/progress-manager.js?v=20260301c"></script>
+    <script src="/static/js/creative-workshop.js?v=20260301c"></script>
+    <script src="/static/js/article-manager.js?v=20260301c"></script>
+    <script src="/static/js/template-manager.js?v=20260301c"></script>
+    <script src="/static/js/spider-manager.js?v=20260301c"></script>
+    <script src="/static/js/mcp-manager.js?v=20260301d"></script>
+    <script src="/static/js/newshub-manager.js?v=20260301c"></script>
+    <script src="/static/js/content-editor.js?v=20260301c"></script>
+    <script src="/static/js/config-manager.js?v=20260301c"></script>
+    <script src="/static/js/quality-manager.js?v=20260301c"></script>
+    <script src="/static/js/theme-manager.js?v=20260301c"></script>
+    <script src="/static/js/window-modes.js?v=20260301c"></script>
+</body>
+
+</html>

@@ -1,0 +1,368 @@
+<div id="config-wechat" class="config-panel">
+    <div class="config-header">
+        <div class="header-content">
+            <div>
+                <h2>微信公众号</h2>
+                <p class="config-description">设置微信公众号凭证，支持多个账号自动发布</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-secondary" id="reset-wechat-config">
+                恢复默认
+            </button>
+            <button type="button" class="btn btn-primary" id="save-wechat-config">
+                保存设置
+            </button>
+        </div>
+    </div>
+
+    <!-- 服务器出口IP显示 (新增) -->
+    <div class="server-ip-info">
+        <div class="ip-label">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                <line x1="6" y1="6" x2="6.01" y2="6" />
+                <line x1="6" y1="18" x2="6.01" y2="18" />
+            </svg>
+            <span>服务器出口 IP (请加入微信IP白名单)</span>
+        </div>
+        <div class="ip-display-wrapper">
+            <code id="server-outbound-ip">正在获取...</code>
+            <button type="button" class="btn-copy-ip" id="copy-server-ip" title="点击复制IP">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                复制
+            </button>
+        </div>
+    </div>
+
+    <!-- 凭证列表容器 -->
+    <div id="wechat-credentials-container">
+        <!-- 动态生成凭证卡片 -->
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="form-row">
+        <button type="button" class="btn btn-secondary" id="add-wechat-credential">
+            + 添加凭证
+        </button>
+    </div>
+
+    <!-- AppSecret获取指引 -->
+    <div class="config-guide">
+        <div class="guide-header" onclick="toggleGuide(this)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span>如何获取 AppSecret & 配置白名单？</span>
+            <svg class="guide-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <polyline points="6 9 12 15 18 9" />
+            </svg>
+        </div>
+        <div class="guide-content" style="display: none;">
+            <ol class="guide-steps">
+                <li>
+                    <span class="step-num">1</span>
+                    <span>登录微信开发者平台：<a href="https://developers.weixin.qq.com/"
+                            target="_blank">developers.weixin.qq.com</a></span>
+                </li>
+                <li>
+                    <span class="step-num">2</span>
+                    <span>进入 <strong>设置与开发 → 基本配置</strong></span>
+                </li>
+                <li>
+                    <span class="step-num">3</span>
+                    <span>在「IP白名单」中，点击「修改」，加入上方的<strong>服务器出口 IP</strong></span>
+                </li>
+                <li>
+                    <span class="step-num">4</span>
+                    <span>在「开发者ID」区域找到 <strong>AppID</strong>（直接显示）</span>
+                </li>
+                <li>
+                    <span class="step-num">5</span>
+                    <span>点击 <strong>AppSecret</strong> 旁边的「重置」或「查看」按钮</span>
+                </li>
+                <li>
+                    <span class="step-num">6</span>
+                    <span>管理员扫码验证后，复制 AppSecret（<em class="warning">只显示一次，请立即保存</em>）</span>
+                </li>
+            </ol>
+            <div class="guide-tip">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span>AppSecret 非常重要，泄露可能导致账号被盗，配置白名单是安全运行的前提！</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .config-guide {
+        background: var(--bg-tertiary, #16213e);
+        border-radius: 12px;
+        margin-bottom: 20px;
+        overflow: hidden;
+        border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    }
+
+    .guide-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: var(--text-secondary, #888);
+    }
+
+    .guide-header:hover {
+        background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+        color: var(--text-primary, #fff);
+    }
+
+    .guide-header span {
+        flex: 1;
+        font-size: 14px;
+    }
+
+    .guide-arrow {
+        transition: transform 0.3s;
+    }
+
+    .guide-header.active .guide-arrow {
+        transform: rotate(180deg);
+    }
+
+    .guide-content {
+        padding: 0 16px 16px;
+        border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    }
+
+    .guide-steps {
+        margin: 16px 0 0 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .guide-steps li {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 0;
+        font-size: 13px;
+        color: var(--text-secondary, #888);
+        border-bottom: 1px dashed var(--border-color, rgba(255, 255, 255, 0.05));
+    }
+
+    .guide-steps li:last-child {
+        border-bottom: none;
+    }
+
+    .step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: var(--primary-color, #6366f1);
+        color: #fff;
+        border-radius: 50%;
+        font-size: 12px;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+
+    .guide-steps a {
+        color: var(--primary-color, #6366f1);
+        text-decoration: none;
+    }
+
+    .guide-steps a:hover {
+        text-decoration: underline;
+    }
+
+    .guide-steps strong {
+        color: var(--text-primary, #fff);
+    }
+
+    .guide-steps .warning {
+        color: #f59e0b;
+    }
+
+    .guide-tip {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+        background: rgba(245, 158, 11, 0.1);
+        border-radius: 8px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: #f59e0b;
+    }
+
+    .guide-tip svg {
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    /* 凭证卡片状态 */
+    .credential-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        margin-top: 12px;
+    }
+
+    .credential-status.verified {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+    }
+
+    .credential-status.unverified {
+        background: rgba(234, 179, 8, 0.1);
+        color: #eab308;
+    }
+
+    .credential-status.error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .credential-status.testing {
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--primary-color, #6366f1);
+    }
+
+    .status-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border-color, rgba(255, 255, 255, 0.1));
+        border-top-color: var(--primary-color, #6366f1);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* 测试按钮 */
+    .test-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: var(--bg-tertiary, #16213e);
+        border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+        border-radius: 6px;
+        color: var(--text-secondary, #888);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .test-btn:hover {
+        background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+        color: var(--text-primary, #fff);
+        border-color: var(--primary-color, #6366f1);
+    }
+
+    .test-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .test-btn.success {
+        background: rgba(34, 197, 94, 0.1);
+        border-color: #22c55e;
+        color: #22c55e;
+    }
+
+    .test-btn.error {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+        color: #ef4444;
+    }
+
+    /* 服务器IP显示组件样式 */
+    .server-ip-info {
+        background: rgba(99, 102, 241, 0.05);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .ip-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-secondary, #888);
+    }
+
+    .ip-display-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    #server-outbound-ip {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--primary-color, #6366f1);
+    }
+
+    .btn-copy-ip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: var(--primary-color, #6366f1);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-copy-ip:hover {
+        background: var(--primary-dark, #4f46e5);
+        transform: translateY(-1px);
+    }
+
+    .btn-copy-ip:active {
+        transform: translateY(0);
+    }
+</style>
+
+<script>
+    function toggleGuide(header) {
+        const content = header.nextElementSibling;
+        const isOpen = content.style.display !== 'none';
+
+        content.style.display = isOpen ? 'none' : 'block';
+        header.classList.toggle('active', !isOpen);
+    }
+</script>

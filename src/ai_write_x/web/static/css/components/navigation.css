@@ -1,0 +1,62 @@
+/* 导航组件样式 */  
+.nav-item-expandable .nav-arrow {  
+    width: 16px;  
+    height: 16px;  
+    margin-left: auto;  
+    transition: transform 0.2s ease;  
+}  
+  
+.nav-arrow {  
+    width: 16px;  
+    height: 16px;  
+    margin-left: auto;  
+    transition: transform 0.2s ease;  
+    fill: currentColor;  
+    stroke: currentColor;  
+    stroke-width: 2;  
+}  
+  
+.nav-item-expandable.expanded .nav-arrow {  
+    transform: rotate(90deg);  
+}  
+  
+.nav-submenu {  
+    max-height: 0;  
+    overflow: hidden;  
+    transition: max-height 0.3s ease;  
+    background: rgba(0, 0, 0, 0.1);  
+}  
+  
+.nav-item-expandable.expanded .nav-submenu {  
+    max-height: 400px;  
+}  
+  
+.nav-sublink {  
+    display: flex;  
+    align-items: center;  
+    padding: 8px 16px 8px 48px;  
+    color: var(--text-secondary);  
+    text-decoration: none;  
+    font-size: 14px;  
+    transition: all 0.2s ease;  
+    border-left: 3px solid transparent;  
+}  
+  
+.nav-sublink:hover {  
+    background: rgba(var(--primary-color-rgb), 0.06);  
+    color: var(--text-primary);  
+    border-left-color: var(--primary-color);  
+}  
+  
+.nav-sublink.active {  
+    background: rgba(var(--primary-color-rgb), 0.1);  
+    color: var(--primary-color);  
+    border-left-color: var(--primary-color);  
+    font-weight: 500;  
+}  
+  
+.config-required {  
+    color: var(--error-color);  
+    font-size: 12px;  
+    margin-left: 4px;  
+}

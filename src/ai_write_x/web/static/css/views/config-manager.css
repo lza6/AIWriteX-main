@@ -1,0 +1,1349 @@
+/* 配置管理视图样式 */
+
+/* 视图容器 */
+#config-manager-view {
+    overflow: auto;
+    display: none;
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+}
+
+#config-manager-view.active {
+    display: flex !important;
+    flex-direction: column;
+}
+
+.config-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.config-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.config-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.config-content::-webkit-scrollbar-track {
+    background: var(--background-color);
+    border-radius: 4px;
+}
+
+.config-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.config-content::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+.config-panel {
+    padding: 10px 15px var(--content-bottom-padding) 15px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: none;
+}
+
+.config-panel.active {
+    display: block;
+    opacity: 1;
+}
+
+.config-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.header-content {
+    flex: 1;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.config-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.config-description {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+/* 配置表单 - 统一响应式布局 */
+.config-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.config-section {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+#config-platforms .config-section {
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 20px;
+}
+
+#config-platforms .section-title {
+    margin-bottom: 0px;
+}
+
+/* 统一的表单网格布局 */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+/* 配置管理器专用的复选框样式 */
+.config-panel .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.config-panel .checkbox-custom {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 3px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.config-panel .checkbox-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.config-panel .checkbox-label input[type="checkbox"]:checked+.checkbox-custom {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.config-panel .checkbox-label input[type="checkbox"]:checked+.checkbox-custom::after {
+    content: '✓';
+    position: absolute;
+    top: -2px;
+    left: 2px;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.config-panel .checkbox-label input[type="checkbox"]:disabled+.checkbox-custom {
+    background: var(--surface-color);
+    border-color: var(--border-color);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.config-panel .checkbox-label input[type="checkbox"]:disabled:checked+.checkbox-custom {
+    background: var(--border-color);
+    border-color: var(--border-color);
+    opacity: 0.5;
+}
+
+.config-panel .checkbox-label input[type="checkbox"]:disabled:checked+.checkbox-custom::after {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.config-panel .checkbox-label:has(input[type="checkbox"]:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.config-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 30px;
+}
+
+.required {
+    color: var(--error-color);
+}
+
+/* 统一的行布局 */
+.form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.form-group-half {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 0;
+}
+
+.form-group-quarter {
+    flex: 1;
+    min-width: 150px;
+    margin-bottom: 0;
+}
+
+.form-group-full {
+    width: 100%;
+}
+
+/* 响应式处理 - 只在真正小屏幕时生效 */
+@media (max-width: 1200px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 800px) {
+    .form-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .form-group-half,
+    .form-group-quarter {
+        min-width: auto;
+    }
+}
+
+.form-help {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* 三分之一宽度布局 - 支持自适应 */
+.form-group-third {
+    flex: 1;
+    min-width: 180px;
+    margin-bottom: 0;
+}
+
+/* 标准模式下的优化 */
+@media (min-width: 1200px) {
+    .form-group-third {
+        flex: 0 1 calc(33.333% - 8px);
+    }
+}
+
+/* 最大化模式下的自适应 */
+@media (min-width: 1600px) {
+    .form-group-third {
+        flex: 1;
+        min-width: 200px;
+    }
+}
+
+/* 小屏幕下堆叠布局 */
+@media (max-width: 800px) {
+    .form-group-third {
+        flex: 1 1 100%;
+        min-width: auto;
+    }
+}
+
+/* 平台列表容器 */
+.platform-list-container {
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+}
+
+#config-platforms .platform-list-container {
+    margin-top: 0;
+    padding: 8px 0;
+}
+
+/* 平台表格 */
+.platform-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-color);
+    /* 修改:默认使用surface-color */
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.platform-table thead {
+    background: var(--surface-color);
+}
+
+.platform-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.platform-table .col-enabled {
+    width: 100px;
+    text-align: center;
+}
+
+.platform-table .col-platform {
+    width: 200px;
+}
+
+.platform-table .col-weight {
+    width: 250px;
+}
+
+.platform-table .col-description {
+    width: auto;
+    min-width: 250px;
+}
+
+.platform-table tbody tr {
+    background: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.platform-table tbody tr:hover {
+    background: var(--background-color);
+}
+
+.platform-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.platform-table td {
+    padding: 12px 16px;
+    color: var(--text-secondary);
+}
+
+/* 启用列居中对齐 */
+.platform-table td:first-child .checkbox-label {
+    justify-content: center;
+    margin: 0;
+    width: 100%;
+}
+
+.platform-table td:first-child {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* 平台名称样式 */
+.platform-table .platform-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 平台权重输入框 */
+.platform-table .platform-weight-input {
+    width: 120px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-color);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.platform-table .platform-weight-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.platform-table .platform-weight-input:disabled {
+    background: var(--surface-color);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* 说明文字样式 */
+.platform-table .platform-description {
+    color: var(--text-tertiary);
+    font-size: 13px;
+}
+
+/* 响应式优化 */
+@media (max-width: 1200px) {
+    .platform-table .col-description {
+        display: none;
+    }
+
+    .platform-table .col-weight {
+        width: auto;
+    }
+}
+
+@media (max-width: 800px) {
+    .platform-table .col-enabled {
+        width: 80px;
+    }
+
+    .platform-table .col-platform {
+        width: 150px;
+    }
+
+    .platform-table th,
+    .platform-table td {
+        padding: 8px 12px;
+    }
+}
+
+/* 微信凭证容器 */
+#wechat-credentials-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 凭证卡片 */
+.wechat-credential-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+}
+
+/* 凭证标题栏 */
+.credential-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.credential-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.credential-delete-btn {
+    padding: 6px 12px;
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.2s;
+}
+
+.credential-delete-btn:hover {
+    opacity: 0.8;
+}
+
+.credential-delete-btn:disabled {
+    background: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* 凭证表单布局 */
+.credential-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 群发选项特殊布局 */
+.sendall-options {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.sendall-options .form-group {
+    margin-bottom: 0;
+    min-width: 120px;
+}
+
+/* 标签组ID输入框 */
+.tag-id-input {
+    width: 150px;
+    padding: 8px 12px;
+    height: 38px;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+/* 增强禁用状态的视觉反馈 */
+.form-control:disabled,
+.tag-id-input:disabled {
+    background: var(--surface-color);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+    opacity: 0.6;
+    border-color: var(--border-color);
+}
+
+/* 禁用状态下的占位符文字 */
+.form-control:disabled::placeholder,
+.tag-id-input:disabled::placeholder {
+    color: var(--text-tertiary);
+    opacity: 0.5;
+}
+
+/* 群发选项中的输入框统一样式 */
+.sendall-options .form-control {
+    padding: 8px 12px;
+    height: 38px;
+    line-height: 1.5;
+}
+
+/* 禁用状态下的标签文字 */
+.checkbox-label:has(input[type="checkbox"]:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 为普通label添加禁用状态支持 */
+.form-group:has(input:disabled) label {
+    opacity: 0.6;
+    color: var(--text-tertiary);
+}
+
+/* 确保form-help在输入框禁用时也变暗 */
+.form-group:has(input:disabled) .form-help {
+    opacity: 0.6;
+}
+
+/* 确保三列布局在较小屏幕下也能正常显示 */
+@media (max-width: 1200px) {
+    .credential-form .form-row .form-group-third {
+        flex: 1 1 calc(50% - 6px);
+        /* 两列布局 */
+        min-width: 200px;
+    }
+}
+
+@media (max-width: 800px) {
+    .credential-form .form-row .form-group-third {
+        flex: 1 1 100%;
+        /* 单列布局 */
+        min-width: auto;
+    }
+
+    .sendall-options {
+        flex-direction: column;
+        gap: 12px;
+    }
+}
+
+/* 未保存更改提示样式 */
+.btn.has-changes {
+    animation: configPulse 2s infinite;
+}
+
+@keyframes configPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 4px rgba(255, 152, 0, 0);
+    }
+}
+
+/* API提供商卡片容器 */
+#api-providers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 图片API提供商卡片容器 */
+#img-api-providers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 添加API按钮区域 */
+.add-api-section {
+    margin-top: 16px;
+    padding: 16px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.add-api-section:hover {
+    border-color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.05);
+}
+
+.add-api-section .btn-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 2px solid var(--primary-color);
+    background: transparent;
+    color: var(--primary-color);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.add-api-section .btn-outline:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* AIForge LLM提供商卡片容器 */
+#aiforge-llm-providers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* API提供商卡片 */
+.api-provider-card {
+    background: var(--surface-color);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.2s;
+}
+
+.api-provider-card.active {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+}
+
+/* 提供商卡片头部 */
+.provider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.provider-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.provider-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.provider-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.provider-badge.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.provider-badge.inactive {
+    background: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.provider-toggle-btn {
+    padding: 6px 16px;
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.provider-toggle-btn:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.provider-toggle-btn.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* 提供商删除按钮 */
+.provider-delete-btn {
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.provider-delete-btn:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* 提供商表单 */
+.provider-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* 只读字段样式 */
+.form-control[readonly] {
+    background: var(--surface-color);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+}
+
+/* 信息提示框样式 */
+.config-notice {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(33, 150, 243, 0.08);
+    border-left: 4px solid #64b5f6;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+/* 添加暗色模式适配 */
+[data-theme="dark"] .config-notice {
+    background: rgba(33, 150, 243, 0.15);
+    border-left-color: #64b5f6;
+}
+
+[data-theme="dark"] .notice-icon {
+    stroke: #64b5f6;
+}
+
+.notice-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    stroke: #64b5f6;
+    fill: none;
+    stroke-width: 2;
+}
+
+.notice-content {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.notice-content ul {
+    margin: 4px 0 0 0;
+    padding-left: 20px;
+}
+
+.notice-content li {
+    margin: 2px 0;
+}
+
+/* 微信公众号配置页面的 notice 间距调整 */
+#config-wechat .config-notice {
+    margin-top: 0;
+}
+
+/* 当 config-notice 前面是 config-section 时,减小间距 */
+.config-section+.config-notice {
+    margin-top: 0;
+}
+
+/* 当 config-notice 前面是 form-row 时,减小间距 */
+.form-row+.config-notice {
+    margin-top: 4px;
+}
+
+/* 自定义下拉框容器 */
+.editable-select {
+    position: relative;
+    width: 100%;
+}
+
+.form-control,
+select.form-control {
+    padding: 8px 12px;
+    height: 38px;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+/* 当前选中值显示 */
+.select-display {
+    padding: 8px 12px;
+    height: 38px;
+    line-height: 1.5;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-color);
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+}
+
+.select-display:hover {
+    border-color: var(--primary-color);
+}
+
+/* 下拉选项容器 */
+.select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    margin-top: 4px;
+}
+
+/* 选项 */
+.select-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+}
+
+.select-option:hover {
+    background: var(--background-color);
+}
+
+/* 输入框 */
+.select-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    outline: none;
+    background: var(--background-color);
+}
+
+/* 右键菜单 */
+.context-menu {
+    position: fixed;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    min-width: 80px;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-align: center;
+}
+
+.context-menu-item:hover {
+    background: var(--background-color);
+}
+
+/* "-- 请添加 --"选项特殊样式 */
+.select-option-add {
+    color: var(--primary-color);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+}
+
+.select-option-add:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.select-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.select-dropdown::-webkit-scrollbar-track {
+    background: var(--background-color);
+    border-radius: 4px;
+}
+
+.select-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+.select-display:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group-third {
+    flex: 0 0 calc(33.333% - 11px);
+    min-width: 0;
+}
+
+@media (max-width: 1200px) {
+    .form-group-third {
+        flex: 0 0 calc(50% - 8px);
+        /* 中等屏幕显示两列 */
+    }
+}
+
+@media (max-width: 800px) {
+    .form-group-third {
+        flex: 0 0 100%;
+        /* 小屏幕显示一列 */
+    }
+}
+
+/* ========== 维度分组卡片 ========== */
+.dimension-group-card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.dimension-group-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 卡片头部 */
+.dimension-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+.dimension-group-header:hover {
+    background: var(--hover-color);
+}
+
+.dimension-group-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dimension-group-title-group i {
+    font-size: 20px;
+    color: var(--primary-color);
+}
+
+.dimension-group-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dimension-count-badge {
+    background: var(--primary-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.dimension-toggle-icon {
+    font-size: 18px;
+    color: var(--text-secondary);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dimension-toggle-icon.rotated {
+    transform: rotate(180deg);
+}
+
+/* 卡片内容 */
+.dimension-group-content {
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 16px;
+}
+
+.dimension-group-content.collapsed {
+    max-height: 0;
+    padding: 0 16px;
+}
+
+/* ========== 维度配置行 ========== */
+.dimension-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.dimension-row:last-child {
+    border-bottom: none;
+}
+
+/* 维度启用复选框 */
+.dimension-row .dimension-checkbox {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* 维度名称标签 */
+.dimension-row .dimension-name-label {
+    flex: 0 0 auto;
+    min-width: 90px;
+    max-width: 110px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* 预设选项下拉框 - 使用3的比例(约55%宽度) */
+.dimension-row .dimension-select {
+    flex: 3;
+    min-width: 180px;
+    height: 38px;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-color);
+    color: var(--text-primary);
+}
+
+.dimension-row .dimension-select:disabled {
+    background: var(--surface-color);
+    color: var(--text-tertiary);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 自定义输入框 - 使用2的比例(约35%宽度) */
+.dimension-row .dimension-custom-input {
+    flex: 2;
+    min-width: 150px;
+    height: 38px;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background-color);
+    color: var(--text-primary);
+}
+
+.dimension-row .dimension-custom-input:disabled {
+    background: var(--surface-color);
+    color: var(--text-tertiary);
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.dimension-row .dimension-custom-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* ========== 响应式布局 ========== */
+@media (max-width: 1200px) {
+    .dimension-row {
+        flex-wrap: wrap;
+    }
+
+    .dimension-row .dimension-name-label {
+        flex: 0 0 100%;
+        margin-bottom: 8px;
+    }
+
+    .dimension-row .dimension-select,
+    .dimension-row .dimension-custom-input {
+        flex: 1 1 calc(50% - 6px);
+    }
+}
+
+@media (max-width: 800px) {
+    .dimension-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .dimension-row .dimension-checkbox {
+        align-self: flex-start;
+    }
+
+    .dimension-row .dimension-name-label {
+        margin-bottom: 4px;
+    }
+
+    .dimension-row .dimension-select,
+    .dimension-row .dimension-custom-input {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+/* ========== 全局设置区域 ========== */
+.creative-global-settings {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.creative-global-settings .form-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.creative-global-settings .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* 滑块控件样式 */
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.slider-container input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-color);
+    outline: none;
+    transition: background 0.2s;
+}
+
+/* 悬停时稍微加深 */
+.slider-container input[type="range"]:hover {
+    background: rgba(127, 127, 127, 0.15);
+}
+
+/* 暗色模式下的特殊处理 */
+[data-theme="dark"] .slider-container input[type="range"] {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .slider-container input[type="range"]:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* 滑块按钮保持主题色 */
+.slider-container input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.slider-container input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.slider-container input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.slider-value {
+    min-width: 50px;
+    padding: 4px 8px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+/* 自定义API卡片样式 (复用为AIForge自定义LLM卡片) */
+.custom-api-card {
+    background: var(--surface-color);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.2s;
+    margin-bottom: 16px;
+}
+
+.custom-api-card:hover {
+    border-color: var(--primary-color);
+}
+
+.custom-api-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.custom-api-card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.custom-api-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.custom-api-card-actions button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+
+.custom-api-card-actions button:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.custom-api-card-actions .btn-use.active {
+    background: var(--success-color, #52c41a);
+    color: white;
+    border-color: var(--success-color, #52c41a);
+}
+
+.custom-api-card-actions .btn-delete {
+    color: var(--error-color, #ff4d4f);
+    border-color: var(--error-color, #ff4d4f);
+}
+
+.custom-api-card-actions .btn-delete:hover {
+    background: var(--error-color, #ff4d4f);
+    color: white;
+}
+
+.custom-api-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}

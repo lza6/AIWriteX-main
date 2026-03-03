@@ -1,0 +1,260 @@
+<div id="config-api" class="config-panel">
+    <div class="config-header">
+        <div class="header-content">
+            <div>
+                <h2>大模型API</h2>
+                <p class="config-description">设置LLM提供商的API密钥和模型参数</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button type="button" class="btn btn-secondary" id="reset-api-config">
+                恢复默认
+            </button>
+            <button type="button" class="btn btn-primary" id="save-api-config">
+                保存设置
+            </button>
+        </div>
+    </div>
+
+    <div class="config-form">
+        <!-- API提供商卡片容器 -->
+        <div id="api-providers-container">
+            <!-- 动态生成提供商卡片 -->
+        </div>
+
+        <!-- 自定义API卡片 -->
+        <div class="custom-apis-section">
+            <div class="section-header">
+                <h3>自定义API</h3>
+                <button type="button" class="btn btn-primary btn-sm" id="add-custom-api-btn">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    添加自定义API
+                </button>
+            </div>
+            <div id="custom-apis-container">
+                <!-- 自定义API卡片 -->
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="config-notice">
+            <svg class="notice-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <div class="notice-content">
+                <strong>设置说明:</strong>
+                <ul>
+                    <li>默认已提供较多模型,原则上只需要填写API KEY</li>
+                    <li>只需要填写选中的API类型相应的参数</li>
+                    <li>修改设置仅当前运行有效，永久生效需保存设置</li>
+                    <li>自定义API可添加多个，测试成功后可设为当前使用</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-actions">
+        <button type="button" class="btn btn-primary" id="save-api-config">
+            保存设置
+        </button>
+        <button type="button" class="btn btn-secondary" id="reset-api-config">
+            恢复默认
+        </button>
+    </div>
+</div>
+
+<style>
+    .custom-apis-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .custom-apis-section .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .custom-apis-section .section-header h3 {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .custom-api-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .custom-api-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .custom-api-card-title {
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .custom-api-card-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .custom-api-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .custom-api-form .form-group {
+        margin-bottom: 0;
+    }
+
+    .custom-api-form .form-group-full {
+        grid-column: 1 / -1;
+    }
+
+    .custom-api-form label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+
+    .custom-api-form input,
+    .custom-api-form select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-size: 13px;
+    }
+
+    .custom-api-form input:focus,
+    .custom-api-form select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+
+    .btn-test {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-test:hover {
+        background: #059669;
+    }
+
+    .btn-test:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .btn-test.success {
+        background: #10b981;
+    }
+
+    .btn-test.error {
+        background: #ef4444;
+    }
+
+    /* 设为当前使用按钮 */
+    .btn-use {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .btn-use:hover {
+        background: #2563eb;
+    }
+
+    .btn-use.active {
+        background: #10b981;
+    }
+
+    .btn-delete {
+        background: transparent;
+        color: #ef4444;
+        border: 1px solid #ef4444;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .btn-delete:hover {
+        background: #ef4444;
+        color: white;
+    }
+
+    .test-result {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .test-result.success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid #10b981;
+        color: #10b981;
+    }
+
+    .test-result.error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid #ef4444;
+        color: #ef4444;
+    }
+
+    /* 自定义API模型选择 */
+    .model-select-wrapper {
+        position: relative;
+    }
+
+    .model-select-wrapper select {
+        appearance: none;
+        padding-right: 30px;
+    }
+
+    .model-dropdown-btn {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+    }
+</style>

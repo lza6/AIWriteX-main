@@ -1,0 +1,56 @@
+<div id="config-platforms" class="config-panel">  
+    <div class="config-header">  
+        <h2>热搜平台</h2>  
+        <p class="config-description">设置各平台热搜话题的随机选取权重,控制选用优先级</p>  
+    </div>  
+      
+    <div class="config-form">  
+        <!-- 平台列表 -->  
+        <div class="config-section">  
+            <h3 class="section-title">  
+                热搜平台列表  
+            </h3>  
+              
+            <div class="platform-list-container">  
+                <table class="platform-table">  
+                    <thead>  
+                        <tr>  
+                            <th class="col-enabled">启用</th>  
+                            <th class="col-platform">平台</th>  
+                            <th class="col-weight">权重</th>  
+                            <th class="col-description">说明</th>  
+                        </tr>  
+                    </thead>  
+                    <tbody id="platform-list-body">  
+                        <!-- 动态生成平台行 -->  
+                    </tbody>  
+                </table>  
+            </div>
+        </div>
+        <!-- 提示信息 -->  
+        <div class="config-notice">  
+            <svg class="notice-icon" viewBox="0 0 24 24">  
+                <circle cx="12" cy="12" r="10"/>  
+                <line x1="12" y1="16" x2="12" y2="12"/>  
+                <line x1="12" y1="8" x2="12.01" y2="8"/>  
+            </svg>  
+            <div class="notice-content">  
+                <strong>设置说明:</strong>  
+                <ul>  
+                    <li>根据权重随机一个平台,获取其当前的最热门话题</li>  
+                    <li>不启用则不会被选取,全部不启用默认采用微博</li>  
+                    <li>修改设置仅当前运行有效，永久生效需保存设置</li>  
+                </ul>  
+            </div>  
+        </div> 
+    </div>  
+      
+    <div class="config-actions">  
+        <button type="button" class="btn btn-primary" id="save-platforms-config">  
+            保存设置  
+        </button>  
+        <button type="button" class="btn btn-secondary" id="reset-platforms-config">  
+            恢复默认  
+        </button>  
+    </div>  
+</div>

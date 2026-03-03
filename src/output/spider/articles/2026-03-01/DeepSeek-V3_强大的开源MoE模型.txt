@@ -1,0 +1,13 @@
+# DeepSeek-V3: 强大的开源MoE模型
+
+**来源**: HuggingFace Papers
+**发布日期**: 2026-03-01 17:48:08
+
+## 简介
+这篇内容来自HuggingFace Papers，包含最新的人工智能研究成果和工具推荐。
+
+## 原文链接
+[查看原文](https://huggingface.co/papers/deepseek-ai/DeepSeek-V3)
+
+---
+*由 AIWriteX 自动推荐*

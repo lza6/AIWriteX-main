@@ -1,0 +1,77 @@
+/* ========== 模板管理特有样式 ========== */  
+  
+/* 分类右键菜单 */  
+.category-context-menu {  
+    position: fixed;  
+    background: var(--surface-color);  
+    border: 1px solid var(--border-color);  
+    border-radius: 6px;  
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);  
+    z-index: 10000;  
+    min-width: 140px;  
+    padding: 4px 0;  
+}  
+  
+.category-context-menu .context-menu-item {  
+    padding: 10px 16px;  
+    cursor: pointer;  
+    transition: background 0.2s;  
+    display: flex;  
+    align-items: center;  
+    gap: 8px;  
+    font-size: 14px;  
+}  
+  
+.category-context-menu .context-menu-item:hover {  
+    background: var(--background-color);  
+}  
+  
+.category-context-menu .context-menu-item-danger {  
+    color: #ef4444;  
+}  
+  
+.category-context-menu .context-menu-item-danger:hover {  
+    background: rgba(239, 68, 68, 0.1);  
+}  
+  
+.category-badge {  
+    display: inline-block;  
+    padding: 2px 8px;  
+    border-radius: 3px;  
+    font-size: 11px;  
+    font-weight: 500;  
+    background: var(--primary-color);  
+    color: white;  
+    max-width: 120px;  
+    overflow: hidden;  
+    text-overflow: ellipsis;  
+    white-space: nowrap;  
+    vertical-align: middle;  
+}
+
+/* 拖拽中的卡片样式 */  
+.template-card.dragging {  
+    cursor: move;  
+}  
+  
+/* 拖拽悬停的分类样式 */  
+.tree-item.drag-over {  
+    background-color: var(--primary-color);  
+    color: white;  
+    border-left: 3px solid var(--primary-dark);  
+}  
+  
+.tree-item.drag-over .tree-icon,  
+.tree-item.drag-over .tree-name,  
+.tree-item.drag-over .item-count {  
+    color: white;  
+}  
+  
+/* 拖拽时的光标 */  
+.template-card[draggable="true"] {  
+    cursor: grab;  
+}  
+  
+.template-card[draggable="true"]:active {  
+    cursor: grabbing;  
+}

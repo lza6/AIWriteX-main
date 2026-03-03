@@ -1,0 +1,137 @@
+/* 侧边栏组件样式 - 高端科技感重塑 */
+.sidebar {
+    width: var(--sidebar-width);
+    background: rgba(var(--surface-color-rgb, 255, 255, 255), 0.75);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-right: 1px solid rgba(var(--primary-color-rgb, 108, 92, 231), 0.1);
+    overflow-y: auto;
+    z-index: 50;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.nav-menu {
+    list-style: none;
+    padding: 24px 12px;
+}
+
+.nav-item {
+    margin-bottom: 6px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-link:hover {
+    background: rgba(var(--primary-color-rgb, 108, 92, 231), 0.06);
+    color: var(--text-primary);
+    transform: translateX(4px);
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color, #a29bfe) 100%);
+    color: white !important;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(var(--primary-color-rgb, 108, 92, 231), 0.3);
+}
+
+.nav-link.active .nav-icon {
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+.nav-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+    transition: transform 0.3s ease;
+}
+
+.nav-link:hover .nav-icon {
+    transform: scale(1.1);
+}
+
+/* 二级菜单样式 */
+.nav-item-expandable .nav-arrow {
+    width: 14px;
+    height: 14px;
+    margin-left: auto;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-arrow {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+}
+
+.nav-item-expandable.expanded .nav-arrow {
+    transform: rotate(90deg);
+}
+
+.nav-submenu {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    background: rgba(var(--primary-color-rgb, 108, 92, 231), 0.03);
+    border-radius: 12px;
+    margin: 4px 0 10px 10px;
+}
+
+.nav-item-expandable.expanded .nav-submenu {
+    max-height: 500px;
+    /* 增加容量 */
+    padding: 8px 0;
+}
+
+.nav-sublink {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px 10px 24px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13.5px;
+    transition: all 0.25s ease;
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+.nav-sublink:hover {
+    background: rgba(var(--primary-color-rgb, 108, 92, 231), 0.08);
+    color: var(--primary-color);
+}
+
+.nav-sublink.active {
+    background: rgba(var(--primary-color-rgb, 108, 92, 231), 0.12);
+    color: var(--primary-color);
+    font-weight: 700;
+    position: relative;
+}
+
+.nav-sublink.active::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    width: 4px;
+    height: 4px;
+    background: var(--primary-color);
+    border-radius: 50%;
+}
+
+.config-required {
+    color: var(--error-color, #ff4d4f);
+    font-size: 16px;
+    margin-left: 4px;
+    line-height: 1;
+}

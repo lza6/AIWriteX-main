@@ -1,0 +1,17 @@
+.idea
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+*.so
+
+.DS_Store
+
+
+.venv
+
+*.log
+
+.claude
+.serena
+.env

@@ -1,0 +1,26 @@
+beautifulsoup4==4.13.4
+crewai==0.102.0
+openai>=1.0.0
+Cython==3.0.0
+dashscope==1.22.1
+pydantic
+PyYAML==6.0.1
+Requests==2.32.3
+setuptools==65.5.0
+tomlkit==0.13.2
+aiforge-engine>=0.0.19
+rich
+python_dateutil==2.8.2
+markdown==3.8.2
+peewee>=3.14.0
+pystray>=0.19.5
+Pillow>=10.4.0
+pywebview>=6.0
+fastapi>=0.117.1
+uvicorn>=0.30.0
+pywin32>=306; sys_platform == "win32"
+python-multipart>=0.0.6  
+jinja2>=3.1.0  
+cryptography
+aiohttp>=3.9.0
+websocket-client>=1.6.0

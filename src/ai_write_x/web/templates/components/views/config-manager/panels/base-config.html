@@ -1,0 +1,154 @@
+<div id="config-base" class="config-panel active">
+    <div class="config-header">
+        <h2>基础设置</h2>
+        <p class="config-description">设置系统的基本运行参数和发布设置</p>
+    </div>
+
+    <div class="config-form">
+        <!-- 发布设置区块 -->
+        <div class="config-section">
+            <h3 class="section-title">
+                发布设置
+            </h3>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label for="publish-platform">发布平台</label>
+                    <select id="publish-platform" class="form-control">
+                        <option value="wechat">微信公众号</option>
+                        <option value="xiaohongshu">小红书</option>
+                        <option value="douyin">抖音</option>
+                        <option value="toutiao">今日头条</option>
+                        <option value="baijiahao">百家号</option>
+                        <option value="zhihu">知乎</option>
+                        <option value="douban">豆瓣</option>
+                    </select>
+                    <small class="form-help">选择内容发布的目标平台（当前版本仅支持微信公众号平台）</small>
+                </div>
+
+                <div class="form-group form-group-half">
+                    <label for="article-format">文章格式</label>
+                    <select id="article-format" class="form-control">
+                        <option value="html">HTML</option>
+                        <option value="markdown">MARKDOWN</option>
+                        <option value="txt">TXT</option>
+                    </select>
+                    <small class="form-help">生成文章的格式类型</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group-third">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-publish">
+                        <span class="checkbox-custom"></span>
+                        自动发布
+                    </label>
+                    <small class="form-help">生成文章后自动发布到设置的平台</small>
+                </div>
+
+                <div class="form-group form-group-third">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="format-publish">
+                        <span class="checkbox-custom"></span>
+                        格式化发布
+                    </label>
+                    <small class="form-help">非HTML格式时，格式化后发布</small>
+                </div>
+
+                <div class="form-group form-group-third">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-delete-published">
+                        <span class="checkbox-custom"></span>
+                        发布后删除
+                    </label>
+                    <small class="form-help">发布成功后是否清空本地的HTML文章</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模板设置区块 -->
+        <div class="config-section">
+            <h3 class="section-title">
+                模板设置
+            </h3>
+            <div class="form-row">
+                <div class="form-group form-group-third">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="use-template">
+                        <span class="checkbox-custom"></span>
+                        使用模板
+                    </label>
+                    <small class="form-help">启用本地内置模板系统生成文章</small>
+                </div>
+
+                <div class="form-group form-group-third">
+                    <label for="config-template-category">模板分类</label>
+                    <select id="config-template-category" class="form-control" disabled>
+                        <option value="">随机分类</option>
+                        <!-- 动态加载分类选项 -->
+                    </select>
+                </div>
+
+                <div class="form-group form-group-third">
+                    <label for="template">模板选择</label>
+                    <select id="template" class="form-control" disabled>
+                        <option value="">随机模板</option>
+                        <!-- 动态加载模板选项 -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="use-compress">
+                        <span class="checkbox-custom"></span>
+                        压缩模板
+                    </label>
+                    <small class="form-help">压缩模板以降低token消耗</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- 生成设置区块 -->
+        <div class="config-section">
+            <h3 class="section-title">
+                生成设置
+            </h3>
+            <div class="form-row">
+                <div class="form-group form-group-quarter">
+                    <label for="max-search-results">最大搜索数量</label>
+                    <input type="number" id="max-search-results" class="form-control" min="1" max="20" value="10">
+                    <small class="form-help">搜索返回的最大结果数（1-20）</small>
+                </div>
+
+                <div class="form-group form-group-quarter">
+                    <label for="min-search-results">最小搜索数量</label>
+                    <input type="number" id="min-search-results" class="form-control" min="1" max="10" value="3">
+                    <small class="form-help">搜索返回的最小结果数（1-10）</small>
+                </div>
+
+                <div class="form-group form-group-quarter">
+                    <label for="min-article-len">最小文章字数</label>
+                    <input type="number" id="min-article-len" class="form-control" min="500" value="800">
+                    <small class="form-help">生成文章的最小字数</small>
+                </div>
+
+                <div class="form-group form-group-quarter">
+                    <label for="max-article-len">最大文章字数</label>
+                    <input type="number" id="max-article-len" class="form-control" max="5000" value="2000">
+                    <small class="form-help">生成文章的最大字数</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-actions">
+        <button type="button" class="btn btn-primary" id="save-base-config">
+            保存设置
+        </button>
+        <button type="button" class="btn btn-secondary" id="reset-base-config">
+            恢复默认
+        </button>
+    </div>
+</div>

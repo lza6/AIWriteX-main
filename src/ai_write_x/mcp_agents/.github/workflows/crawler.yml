@@ -1,0 +1,72 @@
+name: Hot News Crawler
+
+on:
+  schedule:
+    # 我们使用的是 github 官方提供的资源来进行的推送，而每个账号的资源是限额的，为了不被官方判定为滥用而面临封号的风险，不建议比半小时更低
+    - cron: "0 * * * *" # 每小时整点运行一次(实际有偏差) 或者 "*/30 * * * *" (每半小时执行一次) 或者 "*/30 0-14 * * *"(每天早上 8 点到晚上 10 点期间，每半小时运行一次)
+  workflow_dispatch:
+
+# 添加权限设置
+permissions:
+  contents: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify required files
+        run: |
+          echo "🔍 检查必需的配置文件..."
+
+          if [ ! -f config/config.yaml ]; then
+            echo "❌ 错误: config/config.yaml 文件不存在"
+            echo "请参考项目文档创建配置文件"
+            exit 1
+          fi
+
+          if [ ! -f config/frequency_words.txt ]; then
+            echo "❌ 错误: config/frequency_words.txt 文件不存在"
+            echo "请参考项目文档创建频率词配置文件"
+            exit 1
+          fi
+
+          echo "✅ 配置文件检查通过"
+
+      - name: Run crawler
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DINGTALK_WEBHOOK_URL: ${{ secrets.DINGTALK_WEBHOOK_URL }}
+          WEWORK_WEBHOOK_URL: ${{ secrets.WEWORK_WEBHOOK_URL }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_SMTP_SERVER: ${{ secrets.EMAIL_SMTP_SERVER }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          GITHUB_ACTIONS: true
+        run: python main.py
+
+      - name: Commit and push if changes
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "自动更新at $(TZ=Asia/Shanghai date)" && git push)

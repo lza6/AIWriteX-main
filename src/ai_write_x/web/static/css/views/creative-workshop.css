@@ -1,0 +1,1037 @@
+#creative-workshop-view.active {
+    display: flex !important;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+}
+
+.workshop-container {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    flex: 1;
+    min-height: 0;
+    padding: 40px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    position: relative;
+    /* 确保内部绝对定位相对于此容器 */
+}
+
+/* ========== LOGO和标题区域 ========== */
+/* ========== AIWriteX 高科技头部样式 ========== */
+
+/* 保持原有容器布局，确保不撑开高度 */
+.workshop-header {
+    text-align: center;
+    margin-bottom: 32px;
+    flex-shrink: 0;
+    /* 使用 flex 布局确保垂直居中 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+/* --- LOGO 容器：神秘的能量黑盒 --- */
+.logo-container {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    /* 深色磨砂玻璃质感背景 */
+    background: linear-gradient(145deg, #1a1f35, #252b46);
+    border-radius: 24px;
+    /* 稍微圆润一点 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    /* 高级投影 */
+    box-shadow:
+        0 10px 25px rgba(37, 99, 235, 0.3),
+        inset 0 0 15px rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: visible;
+    /* 允许光晕溢出 */
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo-container:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 15px 35px rgba(37, 99, 235, 0.5);
+}
+
+/* 容器背后的脉冲光晕 */
+.logo-container::before {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background: radial-gradient(circle, rgba(66, 153, 225, 0.4) 0%, transparent 70%);
+    opacity: 0;
+    z-index: -1;
+    animation: energy-pulse 3s infinite ease-in-out;
+    border-radius: 50%;
+}
+
+/* --- SVG 图标样式 --- */
+.logo-icon {
+    width: 48px;
+    /*稍微加大一点图标占比*/
+    height: 48px;
+    filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+/* 内部路径动画 */
+.orbit-path {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    transform-origin: center;
+}
+
+.orbit-1 {
+    stroke: #00e5ff;
+    /* 青色 */
+    animation: spin-cw 4s linear infinite;
+    stroke-dasharray: 60;
+    /* 虚线效果 */
+}
+
+.orbit-2 {
+    stroke: #bd00ff;
+    /* 紫色 */
+    animation: spin-ccw 5s linear infinite;
+    stroke-dasharray: 40;
+    opacity: 0.8;
+}
+
+.core-x {
+    fill: url(#grad-core);
+    animation: breathe 2.5s infinite ease-in-out;
+}
+
+/* --- 标题文字：渐变流光 --- */
+.workshop-title {
+    font-size: 32px;
+    font-weight: 800;
+    /* 更粗的字体 */
+    margin: 0 0 12px 0;
+    letter-spacing: -0.5px;
+    /* 渐变文字裁切 */
+    background: linear-gradient(135deg, #2c3e50 0%, #2563eb 50%, #d946ef 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    /* 简单的入场动画 */
+    animation: fade-up 0.8s ease-out;
+}
+
+/* --- 副标题：打字机光标效果 --- */
+.workshop-subtitle {
+    font-size: 16px;
+    color: #64748b;
+    /* 更加柔和的灰色 */
+    margin: 0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 24px;
+    /* 锁定高度防止跳动 */
+}
+
+.subtitle-text {
+    position: relative;
+}
+
+/* 闪烁的光标 */
+.cursor-blink {
+    display: inline-block;
+    width: 2px;
+    height: 16px;
+    background-color: #2563eb;
+    animation: blink 1s step-end infinite;
+}
+
+/* --- 动画关键帧 --- */
+@keyframes spin-cw {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes spin-ccw {
+    100% {
+        transform: rotate(-360deg);
+    }
+}
+
+@keyframes breathe {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(0.9);
+        opacity: 0.8;
+    }
+}
+
+@keyframes energy-pulse {
+
+    0%,
+    100% {
+        opacity: 0.2;
+        transform: scale(0.8);
+    }
+
+    50% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========== 主输入卡片 ========== */
+.workshop-card {
+    width: 100%;
+    max-width: 800px;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+/* ========== 话题输入框 ========== */
+.topic-input {
+    width: 100%;
+    min-height: 0;
+    height: 90px;
+    padding: 12px 16px;
+    font-size: 18px;
+    line-height: 1.2;
+    border: none;
+    border-radius: 12px 12px 0 0;
+    background: transparent;
+    color: var(--text-primary);
+    resize: none;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.topic-input:focus {
+    outline: none;
+}
+
+.topic-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* ========== ComfyUI Style Node Graph (Phase 10) ========== */
+#creative-workshop-view .workflow-graph {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    overflow-x: auto;
+    width: 100%;
+    animation: slideUp 0.3s ease;
+    transition: opacity 0.5s ease;
+}
+
+#creative-workshop-view .workflow-graph.fade-out {
+    opacity: 0;
+}
+
+#creative-workshop-view .workflow-graph:not(.hidden)+.input-toolbar {
+    border-top: none;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wf-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+    position: relative;
+    min-width: 50px;
+}
+
+.wf-node.active {
+    opacity: 1;
+}
+
+.wf-node.done {
+    opacity: 1;
+}
+
+.wf-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    border: 2px solid var(--border-color);
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.wf-node.active .wf-dot {
+    background: #00e5ff;
+    border-color: #00e5ff;
+    box-shadow: 0 0 10px #00e5ff, 0 0 20px rgba(0, 229, 255, 0.4);
+    animation: pulse-dot 1.5s infinite;
+}
+
+.wf-node.done .wf-dot {
+    background: var(--success-color);
+    border-color: var(--success-color);
+}
+
+.wf-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.wf-node.active .wf-label {
+    color: #00e5ff;
+    font-weight: 700;
+}
+
+.wf-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border-color);
+    margin: -18px 4px 0 4px;
+    transition: background 0.3s ease;
+}
+
+.wf-line.active {
+    background: linear-gradient(90deg, var(--success-color), #00e5ff);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+
+.wf-line.done {
+    background: var(--success-color);
+}
+
+@keyframes pulse-dot {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.6);
+    }
+
+    70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 8px rgba(0, 229, 255, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+    }
+}
+
+#log-progress-btn .btn-icon.rotating {
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ========== 底部工具栏 ========== */
+.input-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-color);
+    background: var(--surface-color);
+    transition: border-color 0.2s ease;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.topic-input:focus+.bottom-progress+.input-toolbar,
+.topic-input:focus~.input-toolbar {
+    border-top-color: var(--primary-color);
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 8px;
+}
+
+/* ========== 工具栏按钮 ========== */
+.toolbar-btn {
+    height: 36px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background: var(--hover-background);
+    border-color: var(--primary-color);
+}
+
+.toolbar-btn.active {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+#reference-mode-btn.active {
+    color: var(--text-secondary);
+    border-color: var(--success-color);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+#reference-mode-btn.active::after {
+    content: '✓';
+    color: var(--success-color);
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+/* ========== 生成按钮 ========== */
+.generate-btn {
+    height: 36px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.generate-btn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    transform: translateY(-1px);
+}
+
+.generate-btn:active {
+    transform: translateY(0);
+}
+
+.generate-btn.generating {
+    background: var(--error-color);
+}
+
+.generate-btn.generating:hover {
+    background: #dc2626;
+}
+
+.btn-stop {
+    height: 36px;
+    padding: 0 18px;
+    background: var(--error-color);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-stop:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.btn-stop:active {
+    transform: translateY(0);
+}
+
+.btn-stop .btn-icon {
+    fill: white !important;
+    stroke: none !important;
+    width: 18px;
+    height: 18px;
+}
+
+.btn-stop .btn-icon rect {
+    fill: white !important;
+    stroke: none !important;
+}
+
+/* ========== SVG图标统一样式 ========== */
+#creative-workshop-view .btn-icon,
+#creative-workshop-view .trigger-icon,
+#creative-workshop-view .panel-icon,
+#creative-workshop-view .btn-icon-small {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.btn-icon-small {
+    width: 14px;
+    height: 14px;
+}
+
+.toolbar-btn .btn-icon,
+.generate-btn .btn-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.generate-btn .btn-icon {
+    stroke: white;
+}
+
+/* ========== 配置面板基类 ========== */
+.workshop-config-panel {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin: 0 0 8px 0;
+    width: 100%;
+    max-width: 800px;
+    overflow: hidden;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.workshop-config-panel.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    border: none;
+}
+
+/* ========== 统一两个面板的高度 ========== */
+#reference-mode-panel:not(.collapsed) {
+    width: 100%;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+    height: auto !important;
+    min-height: 100px;
+    max-height: 40vh !important;
+}
+
+#generation-progress:not(.collapsed) {
+    width: 100%;
+    flex: 1;
+    margin-top: 0;
+    margin-bottom: 16px;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ========== 面板标题栏 ========== */
+#creative-workshop-view .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    min-height: 40px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-color);
+}
+
+#creative-workshop-view .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.panel-icon {
+    width: 20px;
+    height: 20px;
+    stroke: var(--primary-color);
+    flex-shrink: 0;
+}
+
+/* 标题栏右侧按钮组 */
+.panel-header-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+/* 图标按钮样式 */
+.icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+    background: var(--hover-background);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.icon-btn .btn-icon-small {
+    width: 16px;
+    height: 16px;
+}
+
+/* ========== 面板内容区域 - 统一布局 ========== */
+#creative-workshop-view .panel-content {
+    padding: 12px;
+    height: calc(100% - 45px);
+    overflow: hidden;
+}
+
+/* ========== 表单元素 ========== */
+#creative-workshop-view .form-group {
+    margin-bottom: 16px;
+}
+
+#creative-workshop-view .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.label-hint {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+#creative-workshop-view .form-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+#creative-workshop-view .form-select,
+#creative-workshop-view .form-textarea {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.4;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--input-background);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+#creative-workshop-view .form-textarea {
+    resize: vertical;
+    font-family: inherit;
+    min-height: 50px;
+}
+
+#creative-workshop-view .form-select:focus,
+#creative-workshop-view .form-textarea:focus {
+    outline: none !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+/* ========== 日志面板特殊样式 ========== */
+#generation-progress .panel-content {
+    padding: 0 2px 12px 12px;
+    height: calc(100% - 45px);
+    overflow: hidden;
+}
+
+#generation-progress .logs-output {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    padding-right: 0;
+    overflow-wrap: break-word;
+    min-height: 100px;
+    height: 100%;
+    max-height: none;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* 空状态提示 */
+#generation-progress .logs-output:empty::before {
+    content: '暂无日志';
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 14px;
+}
+
+#generation-progress .logs-output .log-entry {
+    padding-bottom: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+#generation-progress .logs-output .log-entry.info {
+    color: var(--text-primary);
+}
+
+#generation-progress .logs-output .log-entry.success {
+    color: var(--success-color);
+}
+
+#generation-progress .logs-output .log-entry.warning {
+    color: var(--warning-color);
+}
+
+#generation-progress .logs-output .log-entry.error {
+    color: var(--error-color);
+}
+
+#generation-progress .logs-output .log-message {
+    color: inherit;
+    word-break: break-word;
+}
+
+/* ========== 统一滚动条样式 ========== */
+#reference-mode-panel .panel-content::-webkit-scrollbar,
+#generation-progress .panel-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+#reference-mode-panel .panel-content::-webkit-scrollbar-track,
+#generation-progress .panel-content::-webkit-scrollbar-track {
+    background: var(--surface-color);
+    border-radius: 4px;
+}
+
+#reference-mode-panel .panel-content::-webkit-scrollbar-thumb,
+#generation-progress .panel-content::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+#reference-mode-panel .panel-content::-webkit-scrollbar-thumb:hover,
+#generation-progress .panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ========== 响应式设计 ========== */
+@media (max-width: 1024px) {
+    .workshop-container {
+        max-width: 100%;
+        padding: 80px 16px 40px;
+    }
+
+    .workshop-card {
+        max-width: 100%;
+    }
+
+    #creative-workshop-view .form-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .workshop-container {
+        padding: 60px 16px 20px;
+    }
+
+    .workshop-header {
+        margin-bottom: 32px;
+    }
+
+    .logo-container {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 16px;
+    }
+
+    .logo-icon {
+        width: 32px;
+        height: 32px;
+    }
+
+    .workshop-title {
+        font-size: 24px;
+    }
+
+    .workshop-subtitle {
+        font-size: 16px;
+    }
+
+    .topic-input {
+        height: 80px;
+        padding: 12px 16px;
+        font-size: 16px;
+    }
+
+    .input-toolbar {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 16px;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .generate-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    #creative-workshop-view .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .workshop-container {
+        padding: 40px 12px 20px;
+    }
+
+    .topic-input {
+        height: 72px;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    .workshop-config-panel {
+        border-radius: 8px;
+    }
+}
+
+/* ========== 大屏幕响应式适配 ========== */
+@media (min-width: 1400px) {
+    .workshop-container {
+        max-width: 1200px;
+    }
+
+    .workshop-card,
+    .workshop-config-panel {
+        max-width: 1000px;
+    }
+}
+
+@media (min-width: 1920px) {
+    .workshop-container {
+        max-width: 1400px;
+    }
+
+    .workshop-card,
+    .workshop-config-panel {
+        max-width: 1200px;
+    }
+}
+
+@media (min-width: 2560px) {
+    .workshop-container {
+        max-width: 1600px;
+    }
+
+    .workshop-card,
+    .workshop-config-panel {
+        max-width: 1400px;
+    }
+}
+
+/* ========== 深色主题适配 ========== */
+[data-theme="dark"] .btn-generate {
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+[data-theme="dark"] .btn-generate:hover {
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+}
+
+[data-theme="dark"] .spinner {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-color);
+}
+
+/* ========== AI 自动美化开关 ========== */
+.auto-retemplate-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 0 8px;
+    height: 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    transition: all 0.3s ease;
+    user-select: none;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.auto-retemplate-toggle:hover {
+    border-color: var(--primary-color);
+    background: rgba(37, 99, 235, 0.04);
+}
+
+.auto-retemplate-toggle input[type="checkbox"] {
+    display: none;
+}
+
+/* iOS 风格滑块 */
+.auto-retemplate-toggle .toggle-slider {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--border-color, #d1d5db);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+
+.auto-retemplate-toggle .toggle-slider::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 选中状态 */
+.auto-retemplate-toggle input:checked+.toggle-slider {
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+}
+
+.auto-retemplate-toggle input:checked+.toggle-slider::after {
+    left: 18px;
+}
+
+.auto-retemplate-toggle input:checked~.toggle-label {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.auto-retemplate-toggle .toggle-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+/* 选中后整个容器高亮 */
+.auto-retemplate-toggle:has(input:checked) {
+    border-color: rgba(124, 58, 237, 0.4);
+    background: rgba(124, 58, 237, 0.06);
+}

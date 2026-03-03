@@ -1,0 +1,102 @@
+<div id="config-creative" class="config-panel">  
+    <div class="config-header">  
+        <div class="header-content">  
+            <div>  
+                <h2>维度化创意</h2>  
+                <p class="config-description">配置多维度创意变换引擎,实现无限创意组合</p>  
+            </div>  
+        </div>  
+    </div>  
+      
+    <div class="config-form">  
+        <!-- ========== 全局配置区域 ========== -->  
+        <div class="config-section">  
+            <h3 class="section-title">  
+                全局配置  
+            </h3>  
+              
+            <!-- 第一行: 启用开关、创意强度、保持核心信息 -->  
+            <div class="form-row">  
+                <div class="form-group form-group-third">  
+                    <label class="checkbox-label">  
+                        <input type="checkbox" id="creative-enabled">  
+                        <span class="checkbox-custom"></span>  
+                        启用维度化创意  
+                    </label>  
+                    <small class="form-help">开启后将对生成的内容进行创意变换</small>  
+                </div>  
+                <div class="form-group form-group-third">  
+                    <label for="creative-intensity">创意强度</label>  
+                    <div class="slider-container">  
+                        <input type="range" id="creative-intensity" class="form-slider"   
+                               min="0.7" max="1.5" step="0.1" value="1.0">  
+                        <span class="slider-value">1.0</span>  
+                    </div>  
+                    <small class="form-help">控制创意变换的激进程度(0.7-1.5)</small>  
+                </div>    
+            </div>  
+              
+            <!-- 第二行: 自动选择、最大维度数、兼容性阈值 -->  
+            <div class="form-row">  
+                <div class="form-group form-group-third">  
+                    <label class="checkbox-label">  
+                        <input type="checkbox" id="auto-dimension-selection">  
+                        <span class="checkbox-custom"></span>  
+                        自动选择维度  
+                    </label>  
+                    <small class="form-help">AI智能选择最适合的维度组合</small>  
+                </div>  
+                <div class="form-group form-group-third">  
+                    <label for="max-dimensions">最大维度数</label>  
+                    <input type="number" id="max-dimensions" class="form-control"   
+                           min="0" max="10" value="5">  
+                    <small class="form-help">同时应用的维度最大数量(0-10)</small>  
+                </div>  
+                <div class="form-group form-group-third">  
+                    <label for="compatibility-threshold">兼容性阈值</label>  
+                    <div class="slider-container">  
+                        <input type="range" id="compatibility-threshold" class="form-slider"   
+                               min="0.0" max="1.0" step="0.1" value="0.6">  
+                        <span class="slider-value">0.6</span>  
+                    </div>  
+                    <small class="form-help">维度组合兼容性阈值(0.0-1.0)</small>  
+                </div>  
+            </div>  
+              
+            <!-- 第三行: 允许实验性组合 -->
+            <div class="form-row">  
+                <div class="form-group form-group-third">  
+                    <label class="checkbox-label">  
+                        <input type="checkbox" id="preserve-core-info">  
+                        <span class="checkbox-custom"></span>  
+                        保持核心信息  
+                    </label>  
+                    <small class="form-help">在创意变换中保持文章核心信息不变</small>  
+                </div>  
+                <div class="form-group form-group-third">  
+                    <label class="checkbox-label">  
+                        <input type="checkbox" id="allow-experimental">  
+                        <span class="checkbox-custom"></span>  
+                        允许实验性组合  
+                    </label>  
+                    <small class="form-help">允许使用实验性的维度组合</small>  
+                </div>  
+            </div>  
+        </div>  
+          
+        <!-- ========== 维度分组卡片容器 ========== -->  
+        <div id="dimension-groups-container">  
+            <!-- 动态生成5个维度分组卡片 -->  
+        </div>  
+          
+        <!-- ========== 操作按钮 ========== -->  
+        <div class="config-actions">  
+            <button id="save-creative-config" class="btn btn-primary">  
+                保存设置  
+            </button>  
+            <button id="reset-creative-config" class="btn btn-secondary">  
+                恢复默认  
+            </button>  
+        </div>  
+    </div>  
+</div>

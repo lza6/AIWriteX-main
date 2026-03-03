@@ -1,0 +1,193 @@
+/* AIWriteX 主样式文件 - 核心变量和布局 */
+:root {
+    /* 统一的布局变量 */
+    --sidebar-width: 200px;
+    --header-height: 60px;
+    --footer-height: 40px;
+    --content-bottom-padding: 20px;
+    --sidebar-bottom-padding: 0;
+}
+
+/* 基础重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow: hidden;
+}
+
+/* 应用容器 */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+/* 中间行容器 */
+.app-middle {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Header */
+.app-header {
+    height: var(--header-height);
+    flex-shrink: 0;
+}
+
+/* Sidebar */
+.sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    overflow-y: auto;
+    z-index: 100;
+    /* 确保在主内容之上但低于 Overlay */
+}
+
+/* Main content */
+.app-main {
+    flex: 1;
+    background: var(--background-color);
+    overflow: hidden;
+    position: relative;
+    min-width: 0;
+    z-index: 1;
+    display: flex;
+    /* 改为 flex 容器 */
+    flex-direction: column;
+}
+
+/* Footer */
+.app-footer {
+    height: var(--footer-height);
+    flex-shrink: 0;
+}
+
+.content-area {
+    /* 移除 absolute 定位，改为相对布局，依靠 flex 填充 */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    /* 确保在 flex 容器中可以正确收缩/扩展 */
+}
+
+.view-content {
+    /* 改为相对布局，依靠 flex 填充 */
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--background-color);
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+    position: relative;
+}
+
+.view-content.active {
+    display: flex !important;
+    /* 统一使用 flex 让内部布局更可控 */
+    flex-direction: column;
+    align-items: stretch;
+    /* 确保子项（如 .manager-layout）宽度拉伸 */
+    justify-content: flex-start;
+    /* 避免 space-between 等导致间距 */
+    opacity: 1;
+    z-index: 2;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color);
+}
+
+/* 模式切换动画 */
+.app-container,
+.sidebar,
+.app-main {
+    transition: all 0.3s ease;
+}
+
+/* 任务图标激活提示动效 */
+@keyframes taskAgentPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(58, 123, 213, 0.4);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+}
+
+.task-agent-active {
+    animation: taskAgentPulse 1.5s infinite ease-in-out;
+    border: 1px solid rgba(58, 123, 213, 0.5) !important;
+}
+
+/* 双栏对比模态框专用样式 */
+.comparison-modal-content {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.comparison-pane {
+    transition: box-shadow 0.3s ease;
+}
+
+.comparison-pane:hover {
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.05);
+}
+
+.comparison-pane::-webkit-scrollbar {
+    width: 6px;
+}
+
+.comparison-pane::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.comparison-pane::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
