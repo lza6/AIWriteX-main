@@ -1,4 +1,7 @@
-## 视频教程：
+## 最新一期版本视频教程：
+https://youtu.be/I80b-Lo3pKg
+
+## 基础软件使用视频教程：
 https://youtu.be/ODPR-PXDWLI
 
 ## 相关的大模型下载（本地文生图）：
