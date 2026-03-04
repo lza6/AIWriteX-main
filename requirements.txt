@@ -12,7 +12,7 @@ aiforge-engine>=0.0.19
 rich
 python_dateutil==2.8.2
 markdown==3.8.2
-peewee>=3.14.0
+peewee==3.17.9
 pystray>=0.19.5
 Pillow>=10.4.0
 pywebview>=6.0
