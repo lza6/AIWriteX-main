@@ -43,13 +43,15 @@ class AgentFactory:
                 if config.api_key:
                     # 原始模型名（用户配置的）
                     original_model = config.api_model
+                    fallback_model = config.api_fallback_model  # 备用模型（可能为 None）
                     
                     # 使用自定义的 OpenAIDirectLLM，完全绕过 litellm
                     self._llm_cache[cache_key] = OpenAIDirectLLM(
                         model=original_model,
                         api_key=config.api_key,
                         base_url=config.api_apibase,
-                        max_tokens=8192
+                        max_tokens=9999,
+                        fallback_model=fallback_model
                     )
                     
                     # 日志显示原始模型名，让用户看到自己配置的值

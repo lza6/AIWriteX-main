@@ -32,6 +32,20 @@ class BaseSpider:
     source_name = "Unknown"  # 子类需要设置这个属性
     category = "General"  # 子类可以设置分类
 
+    @property
+    def dynamic_headers(self):
+        import random
+        uas = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0"
+        ]
+        headers = self.headers.copy()
+        headers["User-Agent"] = random.choice(uas)
+        return headers
+
     async def request(
         self,
         method="GET",
@@ -59,54 +73,62 @@ class BaseSpider:
         if not request_url:
             raise ValueError("URL is required")
 
-        # 使用自适应的 connector
-        connector = aiohttp.TCPConnector(ssl=verify_ssl)
-        async with aiohttp.ClientSession(connector=connector) as session:
+        import random
+        max_retries = 3
+        base_delay = 1.0
+
+        for attempt in range(max_retries):
+            # 使用自适应的 connector
+            connector = aiohttp.TCPConnector(ssl=verify_ssl)
             try:
-                # 合并 headers
-                request_headers = self.headers.copy()
-                if headers:
-                    request_headers.update(headers)
+                async with aiohttp.ClientSession(connector=connector) as session:
+                    # 合并 headers并且使用动态UA池 (V3: Spider Resilience)
+                    request_headers = self.dynamic_headers
+                    if headers:
+                        request_headers.update(headers)
 
-                async with session.request(
-                    method=method,
-                    url=request_url,
-                    headers=request_headers,
-                    params=params,
-                    json=json,
-                    data=data,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as response:
-                    # 检查响应状态码
-                    if response.status == 403:
-                        logger.error(f"访问被拒绝 (403): {request_url}")
-                    
-                    response.raise_for_status()
+                    async with session.request(
+                        method=method,
+                        url=request_url,
+                        headers=request_headers,
+                        params=params,
+                        json=json,
+                        data=data,
+                        timeout=aiohttp.ClientTimeout(total=timeout),
+                    ) as response:
+                        # V3: 死链快速熔断预检
+                        if response.status == 404:
+                            logger.error(f"链接不存在 (404)，触发快速熔断: {request_url}")
+                            return ""
+                        if response.status == 403:
+                            logger.warning(f"访问被拒绝 (403)，将尝试重试: {request_url}")
+                        
+                        response.raise_for_status()
+                        content = await response.read()
+                        
+                        # 按照优先级尝试编码
+                        encodings_to_try = [
+                            'utf-8-sig', 'utf-8', 'gb18030', 'big5', 'latin-1'
+                        ]
+                        
+                        for enc in encodings_to_try:
+                            try:
+                                decoded_text = content.decode(enc)
+                                if decoded_text.count('\ufffd') < 5: 
+                                    return decoded_text
+                            except UnicodeDecodeError:
+                                continue
+                                
+                        return content.decode('utf-8', errors='ignore')
 
-                    content = await response.read()
-                    
-                    # 按照优先级尝试编码
-                    encodings_to_try = [
-                        'utf-8-sig',   # 处理带 BOM 的 UTF-8
-                        'utf-8',       # 标准 UTF-8
-                        'gb18030',     # 简体中文 (兼容 GBK/GB2312)
-                        'big5',        # 繁体中文 (BBC/Zaobao 常用)
-                        'latin-1'      # 最后的保底
-                    ]
-                    
-                    for enc in encodings_to_try:
-                        try:
-                            decoded_text = content.decode(enc)
-                            # 简单的启发式检查：如果包含大量非法字符/问号，说明可能解码错误
-                            if decoded_text.count('\ufffd') < 5: 
-                                return decoded_text
-                        except UnicodeDecodeError:
-                            continue
-                            
-                    # 如果都失败了，强制用 utf-8 忽略错误返回
-                    return content.decode('utf-8', errors='ignore')
-            except aiohttp.ClientError as e:
-                raise e
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"爬虫请求最终失败 [{request_url}]: {str(e)}")
+                    raise e
+                # V3: Exponential Backoff (带 Jitter)
+                delay = base_delay * (2 ** attempt) + random.uniform(0.1, 0.5)
+                logger.warning(f"请求遭遇异常，将在 {delay:.2f}秒后进行第{attempt+1}次重试 [{request_url}]: {type(e).__name__}")
+                await asyncio.sleep(delay)
             except Exception as e:
                 raise e
 
@@ -123,23 +145,35 @@ class BaseSpider:
     ):
         """异步发送 HTTP 请求并返回原始字节。"""
         request_url = url or self.url
-        connector = aiohttp.TCPConnector(ssl=verify_ssl)
-        async with aiohttp.ClientSession(connector=connector) as session:
+        import random
+        max_retries = 3
+        base_delay = 1.0
+
+        for attempt in range(max_retries):
+            connector = aiohttp.TCPConnector(ssl=verify_ssl)
             try:
-                request_headers = self.headers.copy()
-                if headers:
-                    request_headers.update(headers)
-                async with session.request(
-                    method=method,
-                    url=request_url,
-                    headers=request_headers,
-                    params=params,
-                    json=json,
-                    data=data,
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ) as response:
-                    response.raise_for_status()
-                    return await response.read()
+                async with aiohttp.ClientSession(connector=connector) as session:
+                    request_headers = self.dynamic_headers
+                    if headers:
+                        request_headers.update(headers)
+                    async with session.request(
+                        method=method,
+                        url=request_url,
+                        headers=request_headers,
+                        params=params,
+                        json=json,
+                        data=data,
+                        timeout=aiohttp.ClientTimeout(total=timeout),
+                    ) as response:
+                        if response.status == 404:
+                            return b""
+                        response.raise_for_status()
+                        return await response.read()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt == max_retries - 1:
+                    raise e
+                delay = base_delay * (2 ** attempt) + random.uniform(0.1, 0.5)
+                await asyncio.sleep(delay)
             except Exception as e:
                 raise e
 

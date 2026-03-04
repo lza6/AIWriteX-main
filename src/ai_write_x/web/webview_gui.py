@@ -25,7 +25,9 @@ class WebViewGUI:
     def __init__(self):
         self.server_thread = None
         self.window = None
-        self.server_port = 7000
+        self.server_port = self.find_free_port()
+        with open("port.txt", "w") as f:
+            f.write(str(self.server_port))
         self.tray_manager = TrayManager("AIWriteX")
         self.tray_thread = None
 
@@ -43,6 +45,14 @@ class WebViewGUI:
             import ctypes
 
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.iniwap.AIWriteX")
+
+    def find_free_port(self):
+        """获取系统可用空闲端口"""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # 允许系统自动分配可用端口
+            s.bind(('', 0))
+            return s.getsockname()[1]
 
     def signal_handler(self, signum, frame):
         """处理系统信号"""

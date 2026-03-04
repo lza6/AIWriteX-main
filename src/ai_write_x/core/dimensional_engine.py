@@ -98,9 +98,14 @@ class DimensionalCreativeEngine:
         检测内容类型
         
         Returns:
-            内容类型: news, technical, story, academic, business, lifestyle
+            内容类型: news, politics, technical, story, academic, business, lifestyle
         """
         text = (title + " " + content).lower()
+        
+        # 政治/军事/国际类关键词
+        politics_keywords = ['军事', '国防', '导弹', '战争', '冲突', '制裁', '外交', '峰会',
+                           '联合国', '北约', 'NATO', '核武', '军演', '领土', '主权',
+                           '政策', '议会', '选举', '政党', '外交部', '国务院']
         
         # 新闻类关键词
         news_keywords = ['报道', '新闻', '事件', '记者', '官方', '声明', '发布会', 
@@ -121,12 +126,14 @@ class DimensionalCreativeEngine:
         business_keywords = ['市场', '公司', '企业', '商业', '经济', '投资',
                            '股票', '融资', '营收', '利润', '战略', '管理', '财报']
         
+        politics_score = sum(1 for kw in politics_keywords if kw in text)
         news_score = sum(1 for kw in news_keywords if kw in text)
         tech_score = sum(1 for kw in tech_keywords if kw in text)
         academic_score = sum(1 for kw in academic_keywords if kw in text)
         business_score = sum(1 for kw in business_keywords if kw in text)
         
         scores = {
+            'politics': politics_score,
             'news': news_score,
             'technical': tech_score,
             'academic': academic_score,
@@ -144,10 +151,15 @@ class DimensionalCreativeEngine:
             (推荐维度列表, 最大维度数, 建议创意强度)
         """
         configs = {
+            'politics': {
+                'dimensions': ['audience', 'format'],
+                'max_dims': 1,
+                'intensity': 0.3
+            },
             'news': {
-                'dimensions': ['audience', 'format', 'tone'],  # 新闻类：受众、格式、语调
-                'max_dims': 2,  # 最多2个维度
-                'intensity': 0.5  # 保守强度，保持客观
+                'dimensions': ['audience', 'format', 'tone'],
+                'max_dims': 2,
+                'intensity': 0.4
             },
             'technical': {
                 'dimensions': ['audience', 'format', 'structure'],  # 技术类：受众、格式、结构
@@ -393,7 +405,7 @@ class DimensionalCreativeEngine:
         type_config = self._get_dimensions_for_content_type(content_type)
         
         # 如果是严肃内容类型，强制使用智能推荐
-        force_auto_selection = content_type in ["news", "technical", "academic", "business"]
+        force_auto_selection = content_type in ["news", "politics", "technical", "academic", "business"]
         
         # 选择维度组合（传入content和title进行内容类型检测）
         auto_selection = self.config.get("auto_dimension_selection", True)

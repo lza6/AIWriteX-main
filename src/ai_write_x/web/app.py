@@ -58,6 +58,11 @@ async def lifespan(app: FastAPI):
         app_state.config = Config.get_instance()
         if not app_state.config.load_config():
             log.print_log("配置加载失败，使用默认配置", "warning")
+            
+        # 启动清道夫引擎 (V3 Phase 4)
+        from src.ai_write_x.core.scavenger import ScavengerEngine
+        app_state.scavenger = ScavengerEngine()
+        asyncio.create_task(app_state.scavenger.start_daemon())
 
     except Exception as e:
         log.print_log(f"Web服务启动失败: {str(e)}", "error")
@@ -66,6 +71,10 @@ async def lifespan(app: FastAPI):
 
     # 关闭时执行
     app_state.is_running = False
+    
+    if hasattr(app_state, 'scavenger') and app_state.scavenger:
+        app_state.scavenger.stop_daemon()
+        
     log.print_log("AIWriteX Web服务正在关闭", "info")
 
 

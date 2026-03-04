@@ -87,3 +87,13 @@ spider.log
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
+
+# 🗄️ 数据库与本地状态 (防止用户数据被上传)
+data/*.db
+*.db
+topic_memory.json
+port.txt
+
+# 🕷️ 爬虫输出与缓存
+src/output/spider/articles/
+src/output/spider/*.json

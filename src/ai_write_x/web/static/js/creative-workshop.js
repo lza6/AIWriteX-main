@@ -313,15 +313,29 @@ class CreativeWorkshopManager {
             });
         }
 
-        // AI 自动美化开关 → 同步工作流节点可见性
+        // AI 自动美化开关 → 同步工作流节点可见性 + localStorage 持久化
         const autoReTemplateSwitch = document.getElementById('auto-retemplate-switch');
         if (autoReTemplateSwitch) {
+            // 从 localStorage 恢复用户的选择
+            const savedState = localStorage.getItem('aiwritex_auto_retemplate');
+            if (savedState !== null) {
+                autoReTemplateSwitch.checked = savedState === 'true';
+            }
+            // 初始化时同步工作流节点显隐
+            const initShow = autoReTemplateSwitch.checked ? '' : 'none';
+            const initNode = document.getElementById('wf-node-retemplate');
+            const initLine = document.getElementById('wf-line-retemplate');
+            if (initNode) initNode.style.display = initShow;
+            if (initLine) initLine.style.display = initShow;
+
             autoReTemplateSwitch.addEventListener('change', (e) => {
                 const node = document.getElementById('wf-node-retemplate');
                 const line = document.getElementById('wf-line-retemplate');
                 const show = e.target.checked ? '' : 'none';
                 if (node) node.style.display = show;
                 if (line) line.style.display = show;
+                // 持久化到 localStorage
+                localStorage.setItem('aiwritex_auto_retemplate', e.target.checked);
             });
         }
     }
@@ -595,6 +609,9 @@ class CreativeWorkshopManager {
             const articleCount = parseInt(document.getElementById('article-count')?.value || '1', 10);
             const postAction = document.getElementById('post-action')?.value || 'none';
 
+            const autoReTemplateSwitch = document.getElementById('auto-retemplate-switch');
+            const isBeautifyOn = autoReTemplateSwitch ? autoReTemplateSwitch.checked : false;
+
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: {
@@ -605,7 +622,8 @@ class CreativeWorkshopManager {
                     platform: this._hotSearchPlatform || '',
                     reference: referenceConfig,
                     article_count: articleCount,
-                    post_action: postAction
+                    post_action: postAction,
+                    ai_beautify: isBeautifyOn
                 })
             });
 
@@ -882,37 +900,42 @@ class CreativeWorkshopManager {
 
     // 处理消息队列  
     async processMessageQueue() {
+        if (this.isProcessingQueue) return;
         this.isProcessingQueue = true;
 
-        while (this.messageQueue.length > 0) {
-            const data = this.messageQueue.shift();
-            const markers = this.extractProgressMarkers(data.message);
+        try {
+            while (this.messageQueue.length > 0) {
+                const data = this.messageQueue.shift();
+                const markers = this.extractProgressMarkers(data.message);
 
-            for (const marker of markers) {
-                const { stage, progress } = this.mapMarkerToProgress(marker);
+                for (const marker of markers) {
+                    const { stage, progress } = this.mapMarkerToProgress(marker);
 
-                if (stage) {
-                    if (marker.status === 'DETAIL') {
-                        if (this.bottomProgress && typeof this.bottomProgress.setNodeDetail === 'function') {
-                            this.bottomProgress.setNodeDetail(stage, marker.detail);
-                        }
-                    } else if (progress !== null) {
-                        if (this.bottomProgress) {
-                            this.bottomProgress.updateProgress(stage, progress);
-                            this.updateLogButtonProgress(stage, progress);
+                    if (stage) {
+                        if (marker.status === 'DETAIL') {
+                            if (this.bottomProgress && typeof this.bottomProgress.setNodeDetail === 'function') {
+                                this.bottomProgress.setNodeDetail(stage, marker.detail);
+                            }
+                        } else if (progress !== null) {
+                            if (this.bottomProgress) {
+                                this.bottomProgress.updateProgress(stage, progress);
+                                this.updateLogButtonProgress(stage, progress);
 
-                            // 【新增】同步更新全局任务管理器
-                            if (window.articleManager) {
-                                window.articleManager.updateTask('article-generation', { progress });
+                                // 【新增】同步更新全局任务管理器
+                                if (window.articleManager) {
+                                    window.articleManager.updateTask('article-generation', { progress });
+                                }
                             }
                         }
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
-                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
+        } catch (error) {
+            console.error("处理消息队列出错:", error);
+        } finally {
+            this.isProcessingQueue = false;
         }
-
-        this.isProcessingQueue = false;
     }
 
     updateLogButtonProgress(stage, progress) {
@@ -934,6 +957,7 @@ class CreativeWorkshopManager {
 
     // 从消息中提取所有进度标记  
     extractProgressMarkers(message) {
+        if (!message) return [];
         const markers = [];
         const progressRegex = /\[PROGRESS:(\w+):(START|END)\]/g;
         let match;
@@ -956,7 +980,7 @@ class CreativeWorkshopManager {
         }
 
         // 特殊处理完成标记  
-        if (message.includes('[INTERNAL]: 任务执行完成')) {
+        if (message.includes('任务执行完成')) {
             markers.push({
                 stage: 'COMPLETE',
                 status: 'END'
@@ -1101,18 +1125,15 @@ class CreativeWorkshopManager {
         if (data.type === 'completed') {
             window.app?.showNotification('生成完成', 'success');
 
-            // 自动刷新文章列表
+            // 自动刷新文章列表 + 侧栏状态计数
             if (window.articleManager) {
-                window.articleManager.loadArticles();
+                await window.articleManager.loadArticles();
+                window.articleManager.renderStatusTree();
             }
 
             // 成功后删除被借鉴的文章
             if (this._selectedArticle?.id) {
                 this.deleteReferenceArticle(this._selectedArticle.id);
-            }
-
-            if (window.articleManager && typeof window.articleManager.loadArticles === 'function') {
-                window.articleManager.loadArticles();
             }
 
             // ===== AI 自动美化 =====
@@ -1370,13 +1391,13 @@ class CreativeWorkshopManager {
             }
 
             // 图标切换逻辑  
-            const btnIcon = generateBtn.querySelector('.btn-icon');
+            const btnIcon = generateBtn.querySelector('svg.btn-icon') || generateBtn.querySelector('.btn-icon');
             if (btnIcon) {
                 if (isGenerating) {
-                    // 停止状态:显示方块图标  
+                    // 停止状态:显示等待微动画和停止图标
                     btnIcon.outerHTML = `  
-                        <svg class="btn-icon" viewBox="0 0 24 24">  
-                            <rect x="4" y="4" width="16" height="16" rx="2"/>  
+                        <svg class="btn-icon" viewBox="0 0 24 24" style="animation: rotate 2s linear infinite;">  
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>  
                     `;
                 } else {
@@ -1682,10 +1703,28 @@ class CreativeWorkshopManager {
                 statusEl.style.background = 'rgba(108,92,231,.15)';
                 statusEl.style.color = 'var(--primary-color, #6c5ce7)';
             }
-            // 清空旧内容
+            // 清空旧内容，插入 V3 Skeleton 占位动画
             const contentEl = document.getElementById('live-preview-content');
             if (contentEl) {
-                contentEl.innerHTML = '';
+                contentEl.innerHTML = `
+                    <div class="skeleton-wrapper" style="padding: 20px;">
+                        <div class="skeleton-title" style="width: 60%; height: 28px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 24px; animation: skeleton-loading 1.5s infinite;"></div>
+                        <div class="skeleton-line" style="width: 100%; height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 12px; animation: skeleton-loading 1.5s infinite;"></div>
+                        <div class="skeleton-line" style="width: 90%; height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 12px; animation: skeleton-loading 1.5s infinite;"></div>
+                        <div class="skeleton-line" style="width: 95%; height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 12px; animation: skeleton-loading 1.5s infinite;"></div>
+                        <div class="skeleton-line" style="width: 70%; height: 16px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 24px; animation: skeleton-loading 1.5s infinite;"></div>
+                    </div>
+                    <style>
+                        @keyframes skeleton-loading {
+                            0% { background-position: 200% 0; }
+                            100% { background-position: -200% 0; }
+                        }
+                        [data-theme='dark'] .skeleton-title, [data-theme='dark'] .skeleton-line {
+                            background: linear-gradient(90deg, #2a2f3d 25%, #3a4154 50%, #2a2f3d 75%) !important;
+                            background-size: 200% 100% !important;
+                        }
+                    </style>
+                `;
                 this._liveChars = 0;
             }
             return;

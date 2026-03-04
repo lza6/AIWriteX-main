@@ -43,6 +43,7 @@ class GenerateRequest(BaseModel):
     reference: Optional[ReferenceConfig] = None
     article_count: Optional[int] = 1
     post_action: Optional[str] = "none"
+    ai_beautify: Optional[bool] = False
 
 
 @router.get("/config/validate")
@@ -127,12 +128,12 @@ async def generate_content(request: GenerateRequest):
         import threading
         import queue
         
-        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, log_q):
+        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, log_q, ai_beautify):
             from src.ai_write_x.config.config import Config as ProcessConfig
             import traceback
             import time
             from src.ai_write_x.web.state import get_app_state
-            from src.ai_write_x.crew_main import ai_write_x_run
+            from src.ai_write_x.crew_main import ai_write_x_main
             import src.ai_write_x.utils.log as lg
             
             # 恢复 Config 
@@ -151,7 +152,7 @@ async def generate_content(request: GenerateRequest):
                 
                 # 如果前台指定了 topic 且数量为 1，直接使用，不进行发散/批量逻辑
                 if req_topic and article_count == 1:
-                    candidate_topics = [{"title": req_topic, "platform": req_platform}]
+                    candidate_topics = [{"title": req_topic, "platform": req_platform, "date_str": "近期"}]
                     lg.print_log(f"单篇文章生成模式启动，话题: {req_topic}")
                 
                 # 如果开启了自动搜刮热点且需要多篇，或者没给明确话题，我们需要动态寻找多个热点
@@ -187,7 +188,7 @@ async def generate_content(request: GenerateRequest):
                                 t = a.get("title", "")
                                 if t and not deduplicator.is_duplicate(t) and t not in [c['title'] for c in candidate_topics]:
                                     _platform = runner.spiders.get(a.get("spider"), {}).get("source", a.get("spider"))
-                                    candidate_topics.append({"title": t, "platform": _platform})
+                                    candidate_topics.append({"title": t, "platform": _platform, "date_str": a.get("date_str", "")})
                                     if len(candidate_topics) >= article_count * 2:
                                         break
                                         
@@ -199,20 +200,23 @@ async def generate_content(request: GenerateRequest):
                             for line in fallback_text.split('\n'):
                                 line = line.strip().strip('-*0123456789. ')
                                 if line and len(line) > 5:
-                                    candidate_topics.append({"title": line, "platform": "AI发散"})
+                                    candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
                                     if len(candidate_topics) >= article_count:
                                         break
                                         
                         random.shuffle(candidate_topics)
                         candidate_topics = candidate_topics[:article_count]
                     except Exception as e:
+                        print(f"Exception preparing topics: {e}")
                         lg.print_log(f"批量话题准备异常: {e}", "error")
                 
+                print("Checking candidate_topics after spider step")
                 # 如果前台指定了 topic 或者候选不够，用前台的或者AI发散的填充
                 if not candidate_topics:
+                    print("Candidate topic was empty, filling with LLM")
                     candidate_topics = []
                     if req_topic:
-                        candidate_topics.append({"title": req_topic, "platform": req_platform})
+                        candidate_topics.append({"title": req_topic, "platform": req_platform, "date_str": "近期"})
                     
                     # 补齐
                     if len(candidate_topics) < article_count:
@@ -225,13 +229,14 @@ async def generate_content(request: GenerateRequest):
                         for line in fallback_text.split('\n'):
                             line = line.strip().strip('-*0123456789. ')
                             if line and len(line) > 5:
-                                candidate_topics.append({"title": line, "platform": "AI发散"})
+                                candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
                                 if len(candidate_topics) >= article_count:
                                     break
                 
                 for i, c_topic in enumerate(candidate_topics):
                     t = c_topic.get("title", "")
                     p = c_topic.get("platform", "")
+                    d_str = c_topic.get("date_str", "")
                     
                     lg.print_log(f"=====================================", "internal")
                     lg.print_log(f"🔜 [批量进度] 正在生成第 {i+1}/{article_count} 篇文章", "success")
@@ -245,7 +250,8 @@ async def generate_content(request: GenerateRequest):
                         "custom_template_category": ref_config_dict.get("template_category", ""),
                         "custom_template": ref_config_dict.get("template_name", ""),
                         "platform": p,
-                        "reference_content": ""
+                        "reference_content": "",
+                        "date_str": d_str
                     }
                     
                     if ref_config_dict and ref_config_dict.get("is_reference"):
@@ -257,6 +263,7 @@ async def generate_content(request: GenerateRequest):
                                 content_text = art.get('content') or art.get('article_info', '')
                                 if content_text:
                                     config_data["reference_content"] = content_text
+                                config_data["date_str"] = art.get('date_str', '')
                         
                         if ref_config_dict.get("reference_urls"):
                             urls = [u.strip() for u in ref_config_dict.get("reference_urls").split("|") if u.strip()]
@@ -265,10 +272,12 @@ async def generate_content(request: GenerateRequest):
                         config_data["reference_ratio"] = float(ref_config_dict.get("reference_ratio", 30)) / 100
                     
                     try:
+                        # 核心生成节点
+                        lg.print_log(f"[{i+1}/{article_count}] 开始执行生成线程...", "info")
                         # 确保主模块状态
                         global _current_process
                         
-                        process, p_log_queue = ai_write_x_run(config_data)
+                        process, p_log_queue = ai_write_x_main(config_data)
                         if process and p_log_queue:
                             process.start()
                             _current_process = process # 记录下来让 /generate/stop 可以停止当前进程
@@ -309,7 +318,7 @@ async def generate_content(request: GenerateRequest):
                                 try:
                                     save_res = final_result.get("save_result", {})
                                     article_path = save_res.get("path")
-                                    if article_path:
+                                    if article_path and ai_beautify:
                                             
                                         from src.ai_write_x.core.visual_assets import VisualAssetsManager
                                         lg.print_log(f"🎨 正在后台检测并自动补齐文章图片...", "info")
@@ -321,6 +330,8 @@ async def generate_content(request: GenerateRequest):
                                             daemon=True
                                         )
                                         img_thread.start()
+                                    elif article_path and not ai_beautify:
+                                        lg.print_log(f"⏭️ AI美化开关未开启，跳过自动补齐图片步骤...", "info")
                                 except Exception as img_fix_e:
                                     lg.print_log(f"自动补图过程出现异常: {img_fix_e}", "warning")
 
@@ -417,6 +428,22 @@ async def generate_content(request: GenerateRequest):
             finally:
                 # 恢复日志队列为空，防止影响后续其它请求
                 lg.set_process_queue(None)
+                
+                # P2: 自动清理临时文件（超过1小时的env_*.json）
+                try:
+                    import glob
+                    temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))), "temp")
+                    if os.path.isdir(temp_dir):
+                        cutoff = time.time() - 3600  # 1小时前
+                        for f in glob.glob(os.path.join(temp_dir, "env_*.json")):
+                            if os.path.getmtime(f) < cutoff:
+                                os.remove(f)
+                except Exception:
+                    pass  # 清理失败不影响主流程
+                
+                # P2: 强制GC回收，防止长时间运行内存泄漏
+                import gc
+                gc.collect()
 
         import queue
         log_queue = queue.Queue()
@@ -431,7 +458,7 @@ async def generate_content(request: GenerateRequest):
             "reference_ratio": request.reference.reference_ratio if request.reference else 30
         }
         
-        thread = threading.Thread(
+        worker = threading.Thread(
             target=batch_thread_worker,
             args=(
                 config.__dict__,
@@ -439,18 +466,21 @@ async def generate_content(request: GenerateRequest):
                 request.platform,
                 ref_dict["is_reference"],
                 ref_dict,
-                log_queue
+                log_queue,
+                request.ai_beautify,
             ),
-            daemon=True
+            daemon=True,
         )
         
         _task_status = {"status": "running", "error": None}
-        thread.start()
+        print(f"Starting thread for generation with topic {topic}")
+        worker.start()
         
         # 不要覆盖 _current_process，让 _current_process = thread 启动的真实子进程
 
 
         msg = "正在批量生成内容，请耐心等待..." if request.article_count > 1 else "正在生成内容，请耐心等待..."
+        print("Returning success status from API")
         return {
             "status": "success",
             "message": msg,
@@ -460,10 +490,12 @@ async def generate_content(request: GenerateRequest):
         }
 
     except HTTPException:
+        print("HTTPException caught in generate")
         raise
     except Exception as e:
         import traceback
         traceback.print_exc()
+        print(f"Exception caught in generate: {e}")
         log.print_log(f"生成启动失败: {str(e)}", "error")
         raise HTTPException(status_code=500, detail=str(e))
 

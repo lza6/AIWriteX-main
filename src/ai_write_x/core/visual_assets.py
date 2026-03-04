@@ -564,6 +564,9 @@ class VisualAssetsManager:
                 lg.print_log(f"  [失败] 图片 {idx+1} 生成异常: {e}", "error")
             
             # 替换占位符
+            if not img_path:
+                continue
+            generated_count += 1
             img_tag = f'<img src="/images/{os.path.basename(img_path)}" alt="{prompt[:50]}" style="max-width:100%;border-radius:12px;margin:16px 0;box-shadow:0 10px 30px rgba(0,0,0,0.1);display:block;">'
             
             if "original_element" in task and task["original_element"]:
@@ -586,6 +589,14 @@ class VisualAssetsManager:
             result_text = soup.decode(formatter=None)
             
         lg.print_log(f"[VisualAssets] ✅ 生成完成：成功生成并替换了 {generated_count} 张图片")
+        
+        # 兜底清理：移除所有未被替换的占位符，防止残留文本出现在最终发布内容中
+        result_text = re.sub(r'\[\[V-SCENE:.*?\]\]', '', result_text)
+        result_text = re.sub(r'\[IMG_PROMPT:.*?\]', '', result_text)
+        result_text = re.sub(r'\[图片解析[:：].*?\]', '', result_text)
+        # 清理后可能产生的连续空行
+        result_text = re.sub(r'\n{3,}', '\n\n', result_text)
+        
         return result_text
 
     @classmethod

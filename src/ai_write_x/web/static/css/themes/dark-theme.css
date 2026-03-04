@@ -1,36 +1,78 @@
-/* 暗色主题样式 */  
-[data-theme="dark"] {  
-    --primary-color: #3b82f6;  
-    --primary-color-rgb: 59, 130, 246;  
-    --primary-hover: #2563eb;
-    --primary-hover-color: #2563eb;
-    --secondary-color: #94a3b8;  
-    --success-color: #22c55e;  
-    --warning-color: #fbbf24;  
-    --error-color: #f87171;  
-    --background-color: #0f172a;  
-    --surface-color: #1e293b;
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #16213e;
-    --bg-hover: rgba(255, 255, 255, 0.05);
-    --text-primary: #f1f5f9;  
-    --text-secondary: #94a3b8;  
-    --border-color: #334155;  
-    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);  
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);  
-}  
-  
-/* 暗色主题特定样式覆盖 */  
-[data-theme="dark"] .nav-submenu {  
-    background: rgba(255, 255, 255, 0.1);  
-}  
-  
-[data-theme="dark"] .preview-placeholder {  
-    color: var(--text-secondary);  
-    background: var(--surface-color);  
-}  
-  
-[data-theme="dark"] .status-indicator {  
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);  
+/* 极简深邃的顶级暗色主题 (OLED Deep Space Style) */
+[data-theme="dark"] {
+    /* 富有质感的极光电光蓝 */
+    --primary-color: #2997ff;
+    --primary-color-rgb: 41, 151, 255;
+    --primary-hover: #0a84ff;
+    --primary-hover-color: #0a84ff;
+
+    /* 暗色下的低饱和度警示色 */
+    --secondary-color: #a1a1aa;
+    --success-color: #32d74b;
+    --warning-color: #ffd60a;
+    --error-color: #ff453a;
+
+    /* 真正的纯黑与深邃墨灰底板，释放眼部疲劳 */
+    --background-color: #000000;
+
+    /* 黑曜石级别毛玻璃面板基色 */
+    --surface-color: rgba(28, 28, 30, 0.75);
+    --bg-primary: #000000;
+    --bg-secondary: rgba(28, 28, 30, 0.85);
+    --bg-tertiary: rgba(44, 44, 46, 0.6);
+    --bg-hover: rgba(255, 255, 255, 0.08);
+
+    /* 高对比但柔和的高亮白字 */
+    --text-primary: #f5f5f7;
+    --text-secondary: #a1a1aa;
+
+    /* 极其微弱的发光边缘线 (Hairline border) */
+    --border-color: rgba(255, 255, 255, 0.1);
+
+    /* 极具深度的发散投影 (Glow shadows) */
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.8), 0 1px 2px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.9), 0 4px 16px rgba(0, 0, 0, 0.8);
+    --shadow-hover: 0 20px 48px rgba(0, 0, 0, 1), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+
+    /* 强力的背景模糊 */
+    --blur-strength: blur(32px);
+}
+
+/* 暗黑魔法：发光毛玻璃卡片 */
+[data-theme="dark"] .surface-card,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .modal-content {
+    background: var(--surface-color);
+    backdrop-filter: var(--blur-strength);
+    -webkit-backdrop-filter: var(--blur-strength);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    /* 顶部内反光边缘 */
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .surface-card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    /* Hover激发边框发光 */
+}
+
+/* 暗色主题菜单子级毛玻璃 */
+[data-theme="dark"] .nav-submenu {
+    background: rgba(28, 28, 30, 0.6);
+    backdrop-filter: var(--blur-strength);
+    -webkit-backdrop-filter: var(--blur-strength);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* 极具科技感的组件发光指示灯体系 */
+[data-theme="dark"] .preview-placeholder {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .status-indicator {
+    box-shadow: 0 0 16px rgba(41, 151, 255, 0.6);
 }

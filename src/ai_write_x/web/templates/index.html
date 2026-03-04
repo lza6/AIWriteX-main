@@ -9,40 +9,40 @@
     <link rel="icon" href="data:," />
 
     <!-- 核心样式文件 -->
-    <link rel="stylesheet" href="/static/css/main.css?v=20260301d">
+    <link rel="stylesheet" href="/static/css/main.css?v=20260304a">
     </link>
 
     <!-- 主题样式文件 -->
-    <link rel="stylesheet" href="/static/css/themes/light-theme.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/themes/dark-theme.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/themes/light-theme.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/themes/dark-theme.css?v=20260304a">
 
     <!-- 组件样式文件 -->
-    <link rel="stylesheet" href="/static/css/components/header.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/sidebar.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/footer.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/navigation.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/buttons.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/forms.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/notifications.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/modals.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/preview-panel.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/components/content-editor.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/components/header.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/sidebar.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/footer.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/navigation.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/buttons.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/forms.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/notifications.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/modals.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/preview-panel.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/components/content-editor.css?v=20260304a">
 
     <link rel="stylesheet" href="/static/lib/grapesjs/css/grapes.min.css">
     <link rel="stylesheet" href="/static/lib/grapesjs/css/grapesjs-preset-webpage.min.css">
 
     <!-- 视图样式文件  -->
-    <link rel="stylesheet" href="/static/css/views/shared-manager.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/creative-workshop.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/article-manager.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/template-manager.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/config-manager.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/mcp-manager.css?v=20260301c">
-    <link rel="stylesheet" href="/static/css/views/newshub.css?v=20260301c">
+    <link rel="stylesheet" href="/static/css/views/shared-manager.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/creative-workshop.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/article-manager.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/template-manager.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/config-manager.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/mcp-manager.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/newshub.css?v=20260304a">
 </head>
 
 <body class="window-mode-standard" data-window-mode="standard">
-    <div class="app-container">
+    <div class="app-container animate-enter">
         <!-- 组件化的头部 -->
         {% include 'components/header.html' %}
 
@@ -74,7 +74,7 @@
 
         <!-- 发布文章弹窗 -->
         <div id="publish-dialog" class="modal-overlay" style="display: none;">
-            <div class="modal-content publish-modal">
+            <div class="modal-content publish-modal surface-card">
                 <div class="modal-header">
                     <h3>发布文章</h3>
                     <button class="modal-close" onclick="window.articleManager.closePublishDialog()">×</button>
@@ -124,7 +124,7 @@
 
         <!-- AI 换模板预览弹窗 -->
         <div id="re-template-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content re-template-modal"
+            <div class="modal-content re-template-modal surface-card"
                 style="width: 95%; max-width: 1200px; height: 90vh; display: flex; flex-direction: column;">
                 <div class="modal-header">
                     <h3 style="display: flex; align-items: center; gap: 8px;">
@@ -260,7 +260,7 @@
 
         <!-- 后台任务列表弹窗 (Task List) -->
         <div id="task-list-modal" class="modal-overlay" style="display: none; z-index: 10000;">
-            <div class="modal-content"
+            <div class="modal-content surface-card"
                 style="width: 500px; max-height: 80vh; border-radius: 16px; overflow: hidden; background: white; margin: auto;">
                 <div class="modal-header"
                     style="background: var(--primary-color); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
@@ -333,7 +333,7 @@
 
     <!-- 原文与生成结果双栏对比模态框 -->
     <div id="comparison-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content comparison-modal-content"
+        <div class="modal-content comparison-modal-content surface-card"
             style="width: 98%; max-width: 1600px; height: 95vh; display: flex; flex-direction: column;">
             <div class="modal-header"
                 style="flex-shrink: 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">

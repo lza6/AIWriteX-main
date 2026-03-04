@@ -135,7 +135,7 @@ api:
       - qwen3-235b-a22b-thinking-2507
       - qwen3-235b-a22b-instruct
       - qwen3-235b
-    model_index: 8
+    model_index: 1
     api_base: https://apis.iflow.cn/v1
     vision_model:
       - qwen3-vl-plus

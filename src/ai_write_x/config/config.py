@@ -95,6 +95,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": [
                         "openrouter/deepseek/deepseek-chat-v3-0324:free",
                         "openrouter/deepseek/deepseek-r1-0528:free",
@@ -121,6 +122,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": ["deepseek/deepseek-chat", "deepseek/deepseek-reasoner"],
                     "api_base": "https://api.deepseek.com/v1",
                 },
@@ -129,6 +131,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": ["xai/grok-3"],
                     "api_base": "https://api.x.ai/v1/chat/completions",
                 },
@@ -137,6 +140,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": ["openai/qwen-plus"],
                     "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 },
@@ -145,6 +149,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": [
                         "gemini/gemini-1.5-flash",
                         "gemini/gemini-1.5-pro",
@@ -161,6 +166,7 @@ class Config:
                 "Ollama": {
                     "key": "OPENAI_API_KEY",
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "key_index": 0,
                     "api_key": [],
                     "model": ["ollama/deepseek-r1:14b", "ollama/deepseek-r1:7b"],
@@ -171,6 +177,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": [
                         "openai/deepseek-ai/DeepSeek-V3",
                         "openai/deepseek-ai/DeepSeek-R1",
@@ -192,6 +199,7 @@ class Config:
                     "key_index": 0,
                     "api_key": [],
                     "model_index": 0,
+                    "fallback_model_index": -1,
                     "model": [
                         "deepseek-v3",
                         "kimi-k2",
@@ -1556,6 +1564,24 @@ class Config:
             model = self.config["api"][self.config["api"]["api_type"]]["model"]
             model_index = self.config["api"][self.config["api"]["api_type"]]["model_index"]
             return model[model_index]
+
+    @property
+    def api_fallback_model(self):
+        """获取当前API厂商配置的备用模型，未设置时返回 None"""
+        with self._lock:
+            if not self.config:
+                return None
+            api_type = self.config["api"].get("api_type")
+            if not api_type:
+                return None
+            provider_config = self.config["api"].get(api_type, {})
+            fallback_index = provider_config.get("fallback_model_index", -1)
+            if fallback_index < 0:
+                return None
+            models = provider_config.get("model", [])
+            if 0 <= fallback_index < len(models):
+                return models[fallback_index]
+            return None
 
     @property
     def api_vision_model(self):

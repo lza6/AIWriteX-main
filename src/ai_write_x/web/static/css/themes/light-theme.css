@@ -1,33 +1,69 @@
-/* 亮色主题样式 */  
-:root,  
-[data-theme="light"] {  
-    --primary-color: #2563eb;  
-    --primary-hover: #1d4ed8;
-    --primary-hover-color: #1d4ed8;
-    --primary-color-rgb: 37, 99, 235;  
-    --secondary-color: #64748b;  
-    --success-color: #10b981;  
-    --warning-color: #f59e0b;  
-    --error-color: #ef4444;  
-    --background-color: #f8fafc;  
-    --surface-color: #ffffff;
-    --bg-primary: #f8fafc;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
-    --bg-hover: rgba(0, 0, 0, 0.05);
-    --text-primary: #1e293b;  
-    --text-secondary: #64748b;  
-    --border-color: #e2e8f0;  
-    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);  
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);  
-}  
-  
-/* 亮色主题特定样式覆盖 */  
-[data-theme="light"] .nav-submenu {  
-    background: rgba(0, 0, 0, 0.05);  
-}  
-  
-[data-theme="light"] .preview-placeholder {  
-    color: var(--text-secondary);  
-    background: var(--background-color);  
+/* 极致现代亮色主题样式 (Framer/Apple Style) */
+:root,
+[data-theme="light"] {
+    /* 果味高级科技蓝 */
+    --primary-color: #0066cc;
+    --primary-hover: #004c99;
+    --primary-hover-color: #004c99;
+    --primary-color-rgb: 0, 102, 204;
+
+    /* 辅助高级灰度体系 */
+    --secondary-color: #86868b;
+    --success-color: #34c759;
+    --warning-color: #ff9f0a;
+    --error-color: #ff3b30;
+
+    /* 极致清爽且不刺眼的底板白色 */
+    --background-color: #f5f5f7;
+
+    /* 毛玻璃面板基色 (支持 backdrop-filter) */
+    --surface-color: rgba(255, 255, 255, 0.75);
+    --bg-primary: #ffffff;
+    --bg-secondary: rgba(255, 255, 255, 0.85);
+    --bg-tertiary: rgba(245, 245, 247, 0.8);
+    --bg-hover: rgba(0, 0, 0, 0.04);
+
+    /* 顶级排版对比度文字 */
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+
+    /* 极度细微的边框，增强纯粹感 */
+    --border-color: rgba(0, 0, 0, 0.08);
+
+    /* 顺滑如丝的多层软投影体系 */
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.02);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+    --shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+
+    /* 毛玻璃高斯模糊值统一规范 */
+    --blur-strength: blur(24px);
+}
+
+/* 全局毛玻璃卡片支持，所有主要面板都要挂载这个滤镜 */
+[data-theme="light"] .surface-card,
+[data-theme="light"] .panel,
+[data-theme="light"] .modal-content {
+    background: var(--surface-color);
+    backdrop-filter: var(--blur-strength);
+    -webkit-backdrop-filter: var(--blur-strength);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] .surface-card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+}
+
+[data-theme="light"] .nav-submenu {
+    background: rgba(0, 0, 0, 0.03);
+    backdrop-filter: var(--blur-strength);
+    -webkit-backdrop-filter: var(--blur-strength);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .preview-placeholder {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px dashed var(--border-color);
 }

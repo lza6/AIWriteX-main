@@ -8,20 +8,48 @@
     --sidebar-bottom-padding: 0;
 }
 
-/* 基础重置 */
+/* 基础重置与极限平滑过渡体系 */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    /* Framer/Apple 常用多缓动过渡函数，让一切颜色、背景变化如丝般顺滑 */
+    transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    /* 使用顶配原生级字体系统体系，优先调用系统极简无衬线体 */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    /* macOS/iOS 终极字体抗锯齿优化 */
+    -moz-osx-font-smoothing: grayscale;
     background-color: var(--background-color);
     color: var(--text-primary);
     line-height: 1.6;
+    letter-spacing: -0.011em;
+    /* 增加高级文字感 */
     overflow: hidden;
+}
+
+/* --- 全局优美的入场动效架构 (SPA级) --- */
+@keyframes slickFadeUp {
+    0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.animate-enter {
+    animation: slickFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* 应用容器 */
@@ -89,28 +117,27 @@ body {
 }
 
 .view-content {
-    /* 改为相对布局，依靠 flex 填充 */
-    flex: 1;
+    /* 修复 V2 CSS 层叠上下文乱象：改为绝对定位，防止在过渡或多层开启时垂直叠加 Bug */
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--background-color);
-    display: none;
+    visibility: hidden;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
     z-index: 1;
-    position: relative;
 }
 
 .view-content.active {
+    visibility: visible;
     display: flex !important;
-    /* 统一使用 flex 让内部布局更可控 */
     flex-direction: column;
     align-items: stretch;
-    /* 确保子项（如 .manager-layout）宽度拉伸 */
     justify-content: flex-start;
-    /* 避免 space-between 等导致间距 */
     opacity: 1;
     z-index: 2;
 }

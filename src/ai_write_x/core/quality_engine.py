@@ -82,6 +82,14 @@ class ContentQualityEngine:
         r'我们应该[，,]?',
         r'我们需要[，,]?',
         r'值得注意的是[，,]?',
+        r'值得关注的是[，,]?',
+        r'不难发现[，,]?',
+        r'需要指出的是[，,]?',
+        r'毫无疑问[，,]?',
+        r'尤为重要的是[，,]?',
+        r'从本质上看[，,]?',
+        r'归根结底[，,]?',
+        r'进一步来说[，,]?',
     ]
     
     # AI常用句式模板
@@ -494,7 +502,19 @@ class ContentQualityEngine:
                 details["regular_structure"] = True
                 suggestions.append("文章结构过于规律，增加自然变化")
         
-        # 4. 情感词汇检查
+        # 4. 段落长度方差分析（AI段落长度高度一致）
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#')]
+        if len(paragraphs) >= 3:
+            para_lengths = [len(p) for p in paragraphs]
+            avg_para_len = sum(para_lengths) / len(para_lengths)
+            para_variance = sum((l - avg_para_len) ** 2 for l in para_lengths) / len(para_lengths)
+            details["paragraph_length_variance"] = round(para_variance, 1)
+            # 方差小于800说明段落长度高度一致，典型AI特征
+            if para_variance < 800:
+                score += 8
+                suggestions.append("段落长度过于均匀，建议长短段落交替使用")
+        
+        # 5. 情感词汇检查
         emotion_words = [
             "惊讶", "兴奋", "失望", "愤怒", "恐惧", "悲伤", "快乐",
             "开心", "难过", "生气", "害怕", "期待", "焦虑", "满足",

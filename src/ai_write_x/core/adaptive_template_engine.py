@@ -445,10 +445,20 @@ class ModularTemplateBuilder:
     </div>'''
     
     def _extract_date_from_text(self, text: str) -> str:
-        match = re.search(r'(20\d{2}年|19\d{2}年(?:\d{1,2}月\d{1,2}日)?|18\d{2}年(?:\d{1,2}月\d{1,2}日)?|\d{4}年\d{1,2}月\d{1,2}日|.*?月.*?日)', text)
+        match = re.search(r'(20\d{2}年\d{1,2}月\d{1,2}日|\d{4}年\d{1,2}月\d{1,2}日)', text)
         if match:
             part = match.group(1)
-            # 如果整段是以日期开头，提取更准确
+            # 日期合理性校验：与系统日期偏差超过7天则视为AI编造，不予展示
+            try:
+                from datetime import datetime, timedelta
+                # 解析提取到的日期
+                date_str = re.sub(r'[年月]', '-', part).replace('日', '')
+                parsed = datetime.strptime(date_str, '%Y-%m-%d')
+                now = datetime.now()
+                if abs((parsed - now).days) > 7:
+                    return ""  # 日期不可靠，跳过
+            except (ValueError, Exception):
+                pass  # 解析失败时仍展示原始文本
             if text.startswith(part):
                 return part
             return match.group(1)
@@ -525,6 +535,7 @@ class ModularTemplateBuilder:
                 # 风格2: 带侧边强调线的轻量卡片
                 return f'''
         <div class="event-accent-box" style="background: {self.design_tokens.get("bg", "#F8FAFC")}33; border-left: 4px solid {self.design_tokens.get("primary", "#4F46E5")}; padding: 20px 25px; margin-bottom: 30px; border-radius: 4px 12px 12px 4px; position: relative;">
+            {img_html}
             {date_html}
             <div style="font-size: 1.05em; line-height: 1.8; color: {self.design_tokens.get("text_color", "#334155")}; text-align: justify;">{self._format_inline_styles(cleaned_content)}</div>
         </div>'''
@@ -533,6 +544,7 @@ class ModularTemplateBuilder:
                 # 风格3: 极简磨砂质感 (带极细边框)
                 return f'''
         <div class="event-glass-card" style="background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,0.05); border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+            {img_html}
             {date_html}
             <div style="font-size: 1.05em; line-height: 1.8; color: {self.design_tokens.get("text_color", "#334155")}; text-align: justify;">{self._format_inline_styles(cleaned_content)}</div>
         </div>'''
@@ -542,6 +554,7 @@ class ModularTemplateBuilder:
                 symbol_svg = self._get_svg_icon("sparkles", 14, self.design_tokens.get("primary", "#4F46E5"))
                 return f'''
         <div class="event-clean-flow" style="padding: 10px 0; margin-bottom: 30px; position: relative;">
+            {img_html}
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">{symbol_svg} {date_html}</div>
             <div style="font-size: 1.1em; line-height: 1.9; color: {self.design_tokens.get("text_color", "#334155")}; text-align: justify;">{self._format_inline_styles(cleaned_content)}</div>
         </div>'''

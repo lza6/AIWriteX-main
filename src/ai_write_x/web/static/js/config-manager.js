@@ -2175,6 +2175,27 @@ class AIWriteXConfigManager {
 
         row3.appendChild(visionModelSelectGroup);
 
+        // 备用模型选择（与视觉模型同行，右侧）
+        const fallbackModelSelectGroup = document.createElement('div');
+        fallbackModelSelectGroup.className = 'form-group form-group-half';
+
+        const fallbackModelSelectLabel = document.createElement('label');
+        fallbackModelSelectLabel.textContent = '备用模型（可选）';
+        fallbackModelSelectLabel.title = '当主模型调用失败时自动切换到此模型';
+
+        const fallbackIndex = providerData.fallback_model_index ?? -1;
+        const fallbackModelSelect = this.createEditableSelect(
+            providerKey,
+            '备用模型',
+            providerData.model || [],
+            fallbackIndex
+        );
+
+        fallbackModelSelectGroup.appendChild(fallbackModelSelectLabel);
+        fallbackModelSelectGroup.appendChild(fallbackModelSelect);
+
+        row3.appendChild(fallbackModelSelectGroup);
+
         // 组装表单  
         form.appendChild(row1);
         form.appendChild(row2);
@@ -2199,7 +2220,7 @@ class AIWriteXConfigManager {
         display.className = 'select-display';
         // 如果选中的是空字符串或索引超出有效范围,显示"-- 点击添加 --"  
         const selectedItem = validItems[selectedIndex];
-        display.textContent = selectedItem || '-- 点击添加 --';
+        display.textContent = selectedItem || (type === '备用模型' ? '-- 不使用 --' : '-- 点击添加 --');
 
         // 下拉选项容器  
         const dropdown = document.createElement('div');
@@ -2212,11 +2233,28 @@ class AIWriteXConfigManager {
 
             const addOption = document.createElement('div');
             addOption.className = 'select-option select-option-add';
-            addOption.textContent = '-- 点击添加 --';
-            addOption.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showAddInput();
-            });
+            if (type === '备用模型') {
+                addOption.textContent = '-- 不使用 --';
+                addOption.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    display.textContent = '-- 不使用 --';
+                    dropdown.style.display = 'none';
+                    await this.updateConfig({
+                        api: {
+                            [providerKey]: {
+                                ...this.config.api[providerKey],
+                                fallback_model_index: -1
+                            }
+                        }
+                    });
+                });
+            } else {
+                addOption.textContent = '-- 点击添加 --';
+                addOption.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showAddInput();
+                });
+            }
             dropdown.appendChild(addOption);
 
             // 现有选项  
@@ -2235,6 +2273,7 @@ class AIWriteXConfigManager {
                     let fieldName = '';
                     if (type === 'API KEY') fieldName = 'key_index';
                     else if (type === '视觉模型') fieldName = 'vision_model_index';
+                    else if (type === '备用模型') fieldName = 'fallback_model_index';
                     else fieldName = 'model_index';
 
                     await this.updateConfig({

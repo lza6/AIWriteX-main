@@ -52,6 +52,7 @@ class OpenAIDirectLLM(LLM):
         max_tokens: int = 8192,
         timeout: Optional[float] = None,
         stream: bool = True,  # 默认启用流式输出
+        fallback_model: Optional[str] = None,  # 备用模型
         **kwargs
     ):
         """
@@ -65,6 +66,7 @@ class OpenAIDirectLLM(LLM):
             max_tokens: 最大 token 数
             timeout: 超时时间
             stream: 是否启用流式输出
+            fallback_model: 备用模型名称，主模型失败后自动切换
             **kwargs: 其他参数传递给父类
         """
         # 调用父类初始化
@@ -81,6 +83,7 @@ class OpenAIDirectLLM(LLM):
         # 保存原始模型名（用户配置的）
         self._original_model = model
         self._stream = stream
+        self._fallback_model = fallback_model  # 备用模型
         
         # 创建 OpenAI 客户端
         self._openai_client = OpenAI(
@@ -92,8 +95,9 @@ class OpenAIDirectLLM(LLM):
         # 检测是否为视觉模型
         self._is_vision = VisionModelDetector.is_vision_model(model)
         
+        fallback_info = f", fallback={fallback_model}" if fallback_model else ""
         log.print_log(
-            f"OpenAIDirectLLM 初始化: model={model}, base_url={base_url}, vision={self._is_vision}",
+            f"OpenAIDirectLLM 初始化: model={model}, base_url={base_url}, vision={self._is_vision}{fallback_info}",
             "info"
         )
     
@@ -385,6 +389,55 @@ class OpenAIDirectLLM(LLM):
                     time.sleep(wait_time)
                     continue
                 else:
+                    # ── 智能备用模型回退 (Fallback Model) ──
+                    if self._fallback_model and self._fallback_model != self._original_model:
+                        log.print_log(
+                            f"🔄 主模型 [{self._original_model}] 重试耗尽，自动切换备用模型 [{self._fallback_model}]",
+                            "warning"
+                        )
+                        saved_model = self._original_model
+                        self._original_model = self._fallback_model
+                        try:
+                            fallback_retries = 2
+                            for fb_attempt in range(fallback_retries):
+                                try:
+                                    if self._stream:
+                                        result = self._stream_call(messages, tools, **kwargs)
+                                    else:
+                                        result = self._non_stream_call(messages, tools, **kwargs)
+                                    
+                                    if result is None or (isinstance(result, str) and not result.strip()):
+                                        raise ValueError("备用模型返回空响应")
+                                    
+                                    if isinstance(result, dict) and "tool_calls" in result:
+                                        tool_calls = result["tool_calls"]
+                                        if available_functions:
+                                            for tool_call in tool_calls:
+                                                func_name = tool_call.function.name if hasattr(tool_call, 'function') else tool_call["function"]["name"]
+                                                if func_name in available_functions:
+                                                    func_args_str = tool_call.function.arguments if hasattr(tool_call, 'function') else tool_call["function"]["arguments"]
+                                                    func_args = json.loads(func_args_str)
+                                                    return available_functions[func_name](**func_args)
+                                        return tool_calls
+                                    
+                                    log.print_log(
+                                        f"✅ 备用模型 [{self._fallback_model}] 调用成功！",
+                                        "success"
+                                    )
+                                    return result
+                                except Exception as fb_e:
+                                    log.print_log(
+                                        f"备用模型重试 ({fb_attempt + 1}/{fallback_retries}): {fb_e}",
+                                        "error"
+                                    )
+                                    if fb_attempt < fallback_retries - 1:
+                                        import time
+                                        import random
+                                        time.sleep(1 + random.uniform(0, 1))
+                                        continue
+                            log.print_log("备用模型重试也全部失败", "error")
+                        finally:
+                            self._original_model = saved_model  # 恢复主模型
                     raise
         
         # 不应该到达这里

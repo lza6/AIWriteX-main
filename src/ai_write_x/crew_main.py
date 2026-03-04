@@ -128,7 +128,8 @@ def run(inputs):
             "platform": inputs.get("platform", ""),
             "urls": inputs.get("urls", []),
             "reference_ratio": inputs.get("reference_ratio", 0.0),
-            "reference_content": inputs.get("reference_content", "")
+            "reference_content": inputs.get("reference_content", ""),
+            "date_str": inputs.get("date_str", "近期 (以系统时间推测)")
         }
 
         return workflow.execute(topic=topic, **kwargs)
@@ -185,7 +186,8 @@ def ai_write_x_run(config_data=None):
         "topic": topic,
         "urls": urls,
         "reference_ratio": reference_ratio,
-        "reference_content": config_data.get("reference_content", "") if config_data else ""
+        "reference_content": config_data.get("reference_content", "") if config_data else "",
+        "date_str": config_data.get("date_str", "近期 (以系统时间推测)") if config_data else "近期 (以系统时间推测)"
     }
 
     if config_data:

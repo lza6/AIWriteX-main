@@ -1,5 +1,6 @@
 from src.ai_write_x.core.llm_client import LLMClient
 from src.ai_write_x.utils import log
+import re
 
 class FinalReviewer:
     """最终 AI 内容审查与打分器：担任主编视角对成稿进行终审"""
@@ -9,18 +10,33 @@ class FinalReviewer:
         client = LLMClient()
         topic = input_data.get("topic", "未知主题")
         
-        system_prompt = '''你是资深的新闻总编与新媒体内容操盘手。
+        from datetime import datetime
+        current_date_str = datetime.now().strftime('%Y年%m月%d日')
+        
+        system_prompt = f'''你是资深的新闻总编与新媒体内容操盘手。
 请对以下将要发布的文章进行严格的终裁判读。
-你需要硬性审查两个指标：
-1. 【原创度预估】：全篇原创度不低于 80%。
+
+【极其重要的前提说明 — 你必须严格遵守】：
+当前真实世界的时间是 {current_date_str}。
+这篇文章的素材来源于我们采编团队从各大官方新闻平台（央视、腾讯新闻、新浪、网易、新华社等）实时爬取的真实新闻报道。
+文章中提到的所有事件、人物、数据均基于真实新闻源，而非AI编造。
+你的训练数据有知识截止日期，因此你可能不了解最近发生的新闻事件——这不代表它们是假的。
+**你绝对不能因为自己不知道某个事件就判定文章"虚构"或"捏造"。**
+**你的职责仅限于审查文章的【写作质量】，不是事实核查员。**
+
+你需要硬性审查以下指标：
+1. 【原创度预估】：基于素材的二次创作原创度不低于 80%（与原始新闻稿的差异化程度）。
 2. 【可读性与排版】：是否有适当的 Markdown 格式（如 **加粗** 突出重点）和金句引用等跳跃感排版，可读性指数达到 80% 以上即可视为合格。
+3. 【信息密度】：文章是否提供了具体的信息、数据、案例或观点？读者看完能否获得至少3个有价值的收获？空洞的总结和纯抒情不计入有效信息。
+4. 【读者收获感】：如果你是普通读者，看完这篇文章你学到了什么？如果答案是"没什么"，该项严重不合格。
 
 要求：
-1. 给出【爆款指数】综合评分（0-100分）。
-2. 从“阅读连贯性”、“排版跳跃感”、“情绪价值”三个维度各给出一句犀利点评。
+1. 给出【爆款指数】综合评分（0-100分），格式必须为 `[SCORE: 数字]`，如 `[SCORE: 85]`。
+2. 从"阅读连贯性"、"排版跳跃感"、"情绪价值"、"信息密度"、"读者收获"五个维度各给出一句犀利点评。
 3. 必须在报告结尾明确给出是否达标的最终判定指令（格式必须精确为：`[PASS: true]` 或 `[PASS: false]`）。
-4. 如果判定为 false，请给出1-2条一针见血的需优化/重写指令。
-5. 保持严肃客观的媒体主编语调，直接输出纯文本报告，且禁止带前后代码块框。'''
+4. 如果判定为 false 或分数低于 70，请给出2-3条**具体可执行的**优化指令（不要说"加强XX"这种空话，要说"在第X段补充XX方面的数据"）。
+5. 保持严肃客观的媒体主编语调，直接输出纯文本报告，且禁止带前后代码块框。
+6. **再次强调：不要质疑文章中新闻事件的真实性。你不是事实核查员，你是写作质量审查员。**'''
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -30,19 +46,25 @@ class FinalReviewer:
         try:
             log.print_log("[FinalReviewer] 正在请求 Chief-Editor-AI 发起文章终审评估...")
             report = client.chat(messages=messages, temperature=0.7)
-            # Remove possible markdown fences
             report = report.replace("```markdown", "").replace("```", "").strip()
             
-            is_pass = "[PASS: true]" in report.lower() or "[pass: true]" in report.lower()
-            if "[PASS: true]" not in report and "[PASS: false]" not in report and "[pass: true]" not in report.lower() and "[pass: false]" not in report.lower():
-                # 若AI漏掉硬编码标志，则容错判定分数是否极高
-                is_pass = "9" in report or "100" in report # 粗略容错
+            # 精确提取分数（正则匹配比纯字符串更可靠）
+            score_match = re.search(r'\[SCORE:\s*(\d+)\]', report, re.IGNORECASE)
+            score = int(score_match.group(1)) if score_match else 0
+            
+            is_pass = "[pass: true]" in report.lower()
+            # 如果AI漏了PASS标志但分数够高，容错通过
+            if not is_pass and score >= 75:
+                is_pass = True
+            # 如果分数太低，强制不通过
+            if score > 0 and score < 60:
+                is_pass = False
                 
             log.print_log(f"\n\n{'='*20} [AI 首席主编终审评估报告] {'='*20}\n{report}\n{'='*64}\n")
-            return {"pass": is_pass, "report": report}
+            return {"pass": is_pass, "report": report, "score": score}
         except Exception as e:
             log.print_log(f"[Warning] 终审报告请求失败: {str(e)}")
-            return {"pass": True, "report": "暂无评审数据"}
+            return {"pass": True, "report": "暂无评审数据", "score": 0}
 
 
 class AlignmentChecker:
@@ -52,9 +74,17 @@ class AlignmentChecker:
     def check_alignment(cls, original_content: str, optimized_content: str) -> dict:
         client = LLMClient()
         
-        system_prompt = '''你是顶级新闻事实核查员（Alignment Checker）。
+        from datetime import datetime
+        current_date_str = datetime.now().strftime('%Y年%m月%d日')
+        
+        system_prompt = f'''你是顶级新闻事实核查员（Alignment Checker）。
 你当前的任务是：比对【原始文章】与【经过排版打磨后的文章】。
 在打磨排版的过程中，AI 可能会自行发散、添加不存在的上下文或改变原意。
+
+【重要前提】：
+当前真实世界的时间是 {current_date_str}。
+原始文章的内容来源于真实新闻平台的实时抓取，其中的事件、人物、数据均为真实信息。
+你的任务不是判断新闻事件本身是否真实（它们是真实的），而是判断打磨后的版本是否忠于原始版本。
 
 核心要求：
 1. 严格核对【打磨后文章】是否完全忠于【原始文章】想表达的意思、事件、观点、人物等核心基础元素。
@@ -70,12 +100,12 @@ class AlignmentChecker:
         
         try:
             log.print_log("[AlignmentChecker] 正在请求事实核查专员进行对照审查 (Zero-Context)...")
-            report = client.chat(messages=messages, temperature=0.1)  # 使用极低温度确保严谨的比对
+            report = client.chat(messages=messages, temperature=0.1)
             report = report.replace("```markdown", "").replace("```", "").strip()
             
-            is_aligned = "[ALIGNMENT: pass]" in report.lower() or "[alignment: pass]" in report.lower()
-            if "[ALIGNMENT: pass]" not in report and "[ALIGNMENT: fail]" not in report and "[alignment: pass]" not in report.lower() and "[alignment: fail]" not in report.lower():
-                is_aligned = True # 宽容处理未遵从格式的情况
+            is_aligned = "[alignment: pass]" in report.lower()
+            if "[alignment: pass]" not in report.lower() and "[alignment: fail]" not in report.lower():
+                is_aligned = True  # 宽容处理未遵从格式的情况
                 
             log.print_log(f"\n\n{'='*20} [AI 事实核对审查报告] {'='*20}\n{report}\n{'='*64}\n")
             return {"aligned": is_aligned, "report": report}
