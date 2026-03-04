@@ -26,3 +26,4 @@ aiohttp>=3.9.0
 websocket-client>=1.6.0
 lxml
 chardet
+asyncpg
