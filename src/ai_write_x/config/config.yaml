@@ -35,9 +35,9 @@ platforms:
 publish_platform: wechat
 wechat:
   credentials:
-    - appid: wx6f081e9b9754a174
-      appsecret: 7c47e848ba097b51938ea365eb30a705
-      author: 听风
+    - appid: 
+      appsecret: 
+      author: 
       draft_only: true
       call_sendall: false
       sendall: true
@@ -163,7 +163,7 @@ img_api:
   custom:
     - name: 摩达社区
       api_base: https://api-inference.modelscope.cn/v1
-      api_key: ms-529ac21e-650e-4e96-9cfe-e9c58510a6ac
+      api_key: 
       model: Tongyi-MAI/Z-Image-Turbo
       models: []
       isCurrent: true
