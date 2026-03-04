@@ -54,7 +54,6 @@ logs/*.log
 logs/
 make_exe/
 make_app/
-tools/
 aiforge_work/
 backup/
 temp/
