@@ -9,6 +9,8 @@
 secrets/api_keys.yaml
 secrets/*.yaml
 !secrets/api_keys.example.yaml
+!.env.example
+!**/.env.example
 license.dat
 build_secrets.json
 *.pem
@@ -29,6 +31,7 @@ eggs/
 lib/
 lib64/
 parts/
+!src/ai_write_x/web/static/lib/
 sdist/
 var/
 wheels/
