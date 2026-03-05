@@ -106,20 +106,55 @@ class SchedulerService:
             count = task.article_count if task.article_count > 0 else 1
             success_count = 0
             
+            used_topics_in_batch = []
+            from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+            deduplicator = TopicDeduplicator(dedup_days=3)
+            
             for i in range(count):
                 # 动态确定本次生成的话题
+                current_topic = ""
                 if not original_topic:
                     from src.ai_write_x.tools import hotnews
                     # 随机从微博、头条、百度之一取热点
                     platforms = ["微博", "今日头条", "百度热点"]
                     try:
-                        current_topic = hotnews.select_platform_topic(platforms[i % len(platforms)])
-                        log.print_log(f"🔥 [Scheduler] 话题为空，自动拾取热点: {current_topic}", "info")
+                        # 尝试获取不重复的热点
+                        retry_count = 0
+                        while retry_count < 5:
+                            platform_to_use = platforms[(i + retry_count) % len(platforms)]
+                            # 开启权威源优先模式
+                            candidate = hotnews.select_platform_topic(platform_to_use, cnt=200, exclude_topics=used_topics_in_batch, authority_priority=True)
+                            if not deduplicator.is_duplicate(candidate) and candidate not in used_topics_in_batch:
+                                current_topic = candidate
+                                break
+                            retry_count += 1
+                        
+                        if not current_topic:
+                            current_topic = f"深度解析：{platforms[i % len(platforms)]}最新动态"
+                            
+                        log.print_log(f"🔥 [Scheduler] 话题为空，自动拾取不重复热点: {current_topic}", "info")
                     except Exception as e:
                         current_topic = "最新热点科技深度解析"
                         log.print_log(f"⚠️ [Scheduler] 自动拾取话题失败: {e}，将使用备用话题", "warning")
                 else:
-                    current_topic = original_topic
+                    if i == 0:
+                        current_topic = original_topic
+                    else:
+                        # 如果是同一任务生成多篇且有初始话题，使用 AI 进行发散，防止内容高度重复
+                        from src.ai_write_x.core.llm_client import LLMClient
+                        llm = LLMClient()
+                        prompt = f"基于核心话题 '{original_topic}'，请提供一个相关的、不重复且具有深度的新闻观察切入点标题。只需输出标题，不要任何解释。已知已生成的标题: {', '.join(used_topics_in_batch)}"
+                        try:
+                            current_topic = llm.chat([{"role": "user", "content": prompt}]).strip().strip('"').strip("'")
+                            log.print_log(f"🧠 [Scheduler] 基于原话题发散新角度: {current_topic}", "info")
+                        except Exception as e:
+                            current_topic = f"{original_topic} (深度解析系列 {i+1})"
+                            log.print_log(f"⚠️ [Scheduler] 话题发散失败: {e}，使用系列标题", "warning")
+
+                # 记录已使用的话题，防止本批次内重复
+                used_topics_in_batch.append(current_topic)
+                # 同时也记入全局数据库去重器
+                deduplicator.add_topic(current_topic)
 
                 log.print_log(f"🚀 [Scheduler] 正在执行任务: {current_topic} ({i+1}/{count})", "info")
                 results = workflow.execute(current_topic, **kwargs)

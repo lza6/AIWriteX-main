@@ -170,8 +170,10 @@ async def generate_content(request: GenerateRequest):
                     import random
                     import asyncio
                     
+                    # 提前初始化 deduplicator，确保后续代码可用
+                    deduplicator = TopicDeduplicator(dedup_days=3)
+                    
                     try:
-                        deduplicator = TopicDeduplicator(dedup_days=3)
                         runner = SpiderRunner()
                         enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
                         
@@ -194,18 +196,29 @@ async def generate_content(request: GenerateRequest):
                                 if t and not deduplicator.is_duplicate(t) and t not in [c['title'] for c in candidate_topics]:
                                     _platform = runner.spiders.get(a.get("spider"), {}).get("source", a.get("spider"))
                                     candidate_topics.append({"title": t, "platform": _platform, "date_str": a.get("date_str", "")})
+                                    # 立即标记为已用
+                                    deduplicator.add_topic(t)
                                     if len(candidate_topics) >= article_count * 2:
                                         break
+                                        
+                        # 如果没有抓取到足够的，或者需要从权威源补充
+                        if len(candidate_topics) < article_count:
+                            # 优先从权威源加持
+                            candidate = hotnews.select_platform_topic(_platform, cnt=200, exclude_topics=[c['title'] for c in candidate_topics], authority_priority=True)
+                            if candidate and not deduplicator.is_duplicate(candidate) and candidate not in [c['title'] for c in candidate_topics]:
+                                candidate_topics.append({"title": candidate, "platform": "权威源", "date_str": "最新"})
+                                deduplicator.add_topic(candidate)
                                         
                         if len(candidate_topics) < article_count:
                             lg.print_log("抓取的热点数量不足以支撑批量生成，将交由 LLM 发散补足...", "info")
                             llm = LLMClient()
-                            prompt = f"请提供 {article_count - len(candidate_topics)} 个当下的热门互联网资讯或科技社会热点话题，只需输出标题列表，每行一个。"
+                            prompt = f"请提供 {article_count - len(candidate_topics)} 个当下的热门互联网资讯或科技社会热点话题，确保每个话题都独特且具有国际新闻价值（类似BBC/华尔街日报风格）。只需输出标题列表，每行一个。不要包含这些已存在的话题: {', '.join([c['title'] for c in candidate_topics])}"
                             fallback_text = llm.chat([{"role": "user", "content": prompt}])
                             for line in fallback_text.split('\n'):
                                 line = line.strip().strip('-*0123456789. ')
-                                if line and len(line) > 5:
+                                if line and len(line) > 5 and not deduplicator.is_duplicate(line):
                                     candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
+                                    deduplicator.add_topic(line)
                                     if len(candidate_topics) >= article_count:
                                         break
                                         
@@ -219,6 +232,9 @@ async def generate_content(request: GenerateRequest):
                 # 如果前台指定了 topic 或者候选不够，用前台的或者AI发散的填充
                 if not candidate_topics:
                     print("Candidate topic was empty, filling with LLM")
+                    # 此代码块独立，需要自己初始化 deduplicator
+                    from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+                    deduplicator = TopicDeduplicator(dedup_days=3)
                     candidate_topics = []
                     if req_topic:
                         candidate_topics.append({"title": req_topic, "platform": req_platform, "date_str": "近期"})
@@ -229,12 +245,13 @@ async def generate_content(request: GenerateRequest):
                         lg.print_log("使用 LLM 为固定话题发散更多相关话题...", "info")
                         from src.ai_write_x.core.llm_client import LLMClient
                         llm = LLMClient()
-                        prompt = f"以“{req_topic or '最新热点'}”为核心，请提供 {article_count - len(candidate_topics)} 个延伸或相关的新闻话题，只需输出标题列表，每行一个。"
+                        prompt = f"以“{req_topic or '最新热点'}”为核心，请提供 {article_count - len(candidate_topics)} 个互不相同、切入点独特的延伸或相关新闻话题。只需输出标题列表，每行一个。避开以下已选标题: {', '.join([c['title'] for c in candidate_topics])}"
                         fallback_text = llm.chat([{"role": "user", "content": prompt}])
                         for line in fallback_text.split('\n'):
                             line = line.strip().strip('-*0123456789. ')
-                            if line and len(line) > 5:
+                            if line and len(line) > 5 and not deduplicator.is_duplicate(line):
                                 candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
+                                deduplicator.add_topic(line)
                                 if len(candidate_topics) >= article_count:
                                     break
                 
@@ -751,6 +768,11 @@ async def websocket_logs(websocket: WebSocket):
 async def get_hot_topics():
     """
     获取热搜话题（自动执行爬虫抓取并返回带有 Vision 解析的 article_id）
+    
+    优先级策略：
+    1. 强制优先并发运行权威媒体爬虫（BBC、纽约时报、新华社等）
+    2. 如果候选不足，再运行其他普通爬虫
+    3. 最后兜底：热点聚合（NewsHub缓存）
     """
     try:
         from src.ai_write_x.tools.spider_runner import SpiderRunner
@@ -774,39 +796,53 @@ async def get_hot_topics():
         target_article_count = 15  # 期望至少收集15个候选话题供AI甄选
         all_candidate_articles = []
 
-        # 1. 优先尝试从 NewsHub 缓存获取（高质量聚合结果）
-        try:
-            from src.ai_write_x.web.api.newshub import get_hub_manager
-            hub_manager = get_hub_manager()
-            cached_news = hub_manager.get_cached_news(limit=15)
-            for item in cached_news:
-                if not deduplicator.is_duplicate(item["title"]):
-                    all_candidate_articles.append({
-                        "id": item["id"],
-                        "title": item["title"],
-                        "spider": "newshub",
-                        "url": item["url"],
-                        "_platform_name": "热点聚合 ⭐"
-                    })
-            if all_candidate_articles:
-                log.print_log(f"已从 NewsHub 拾取 {len(all_candidate_articles)} 个优质聚合话题", "info")
-        except Exception as e:
-            print(f"Hot-topics NewsHub cache error: {e}")
-
-        # 2. 如果不够，再启动跨平台爬虫抓取
+        # 权威媒体列表（高公信力、国际视野）
         high_authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua", "voa"]
-        if len(all_candidate_articles) < target_article_count:
-            priority_spiders = [s for s in enabled_spiders if s in high_authority_spiders]
-            normal_spiders = [s for s in enabled_spiders if s not in high_authority_spiders]
+
+        # ========== 第1优先级：强制并发运行权威媒体爬虫 ==========
+        priority_spiders = [s for s in enabled_spiders if s in high_authority_spiders]
+        if priority_spiders:
+            log.print_log(f"🚀 第1优先级：正在并发抓取权威媒体（{', '.join(priority_spiders)}）...", "info")
             
-            random.shuffle(priority_spiders)
+            tasks = []
+            for spider_name in priority_spiders:
+                task = asyncio.wait_for(runner.run_spider(spider_name, limit=10), timeout=20.0)
+                tasks.append(task)
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for spider_name, result in zip(priority_spiders, results):
+                if isinstance(result, Exception):
+                    log.print_log(f"[{spider_name}] 权威媒体获取超时或异常: {str(result)}", "warn")
+                    continue
+                    
+                if result and result.get("success") and result.get("saved", 0) > 0:
+                    articles = spider_data_manager.get_articles(limit=50)
+                    spider_articles = [a for a in articles if a.get("spider") == spider_name]
+                    spider_articles.sort(key=lambda x: x.get("fetch_time", ""), reverse=True)
+                    
+                    for article in spider_articles:
+                        topic = article.get("title", "")
+                        if not topic or deduplicator.is_duplicate(topic):
+                            continue
+                        if any(a.get("title") == topic for a in all_candidate_articles):
+                            continue
+                        spider_info = runner.spiders.get(spider_name, {})
+                        article['_platform_name'] = spider_info.get("source", spider_name)
+                        all_candidate_articles.append(article)
+            
+            log.print_log(f"权威媒体抓取完成，已获取 {len(all_candidate_articles)} 个候选话题", "info")
+
+        # ========== 第2优先级：运行其他普通爬虫 ==========
+        normal_spiders = [s for s in enabled_spiders if s not in high_authority_spiders]
+        if len(all_candidate_articles) < target_article_count and normal_spiders:
+            log.print_log(f"📰 第2优先级：正在抓取其他平台...", "info")
+            
             random.shuffle(normal_spiders)
-            sorted_spiders = priority_spiders + normal_spiders
+            batch_size = 5
             
-            batch_size = 5 # 每次并发启动多少个爬虫
-            
-            for i in range(0, len(sorted_spiders), batch_size):
-                batch_spiders = sorted_spiders[i:i+batch_size]
+            for i in range(0, len(normal_spiders), batch_size):
+                batch_spiders = normal_spiders[i:i+batch_size]
                 
                 tasks = []
                 for spider_name in batch_spiders:
@@ -829,34 +865,58 @@ async def get_hot_topics():
                             topic = article.get("title", "")
                             if not topic or deduplicator.is_duplicate(topic):
                                 continue
-                            
-                            # 避免在本次收集中出现完全相同的标题
                             if any(a.get("title") == topic for a in all_candidate_articles):
                                 continue
-                                
-                            # 添加该文章所属的平台信息
                             spider_info = runner.spiders.get(spider_name, {})
                             article['_platform_name'] = spider_info.get("source", spider_name)
                             all_candidate_articles.append(article)
                             
-                # 如果这一批并发抓取后已经满足候选数量要求，就直接跳出，不用继续发请求了
                 if len(all_candidate_articles) >= target_article_count:
                     break
+
+        # ========== 最后兜底：热点聚合（NewsHub缓存）==========
+        if len(all_candidate_articles) < target_article_count:
+            log.print_log(f"📦 最后兜底：正在从热点聚合缓存获取...", "info")
+            try:
+                from src.ai_write_x.web.api.newshub import get_hub_manager
+                hub_manager = get_hub_manager()
+                cached_news = hub_manager.get_cached_news(limit=15)
+                for item in cached_news:
+                    if not deduplicator.is_duplicate(item["title"]):
+                        if any(a.get("title") == item["title"] for a in all_candidate_articles):
+                            continue
+                        all_candidate_articles.append({
+                            "id": item["id"],
+                            "title": item["title"],
+                            "spider": "newshub",
+                            "url": item["url"],
+                            "_platform_name": "热点聚合"
+                        })
+                if cached_news:
+                    log.print_log(f"热点聚合兜底获取 {len(cached_news)} 个话题", "info")
+            except Exception as e:
+                print(f"Hot-topics NewsHub cache error: {e}")
         
         if not all_candidate_articles:
             raise ValueError("未能获取到全新热门内容，所有抓取话题均已写过或为空，请稍后再试或手动输入")
             
-        # 让AI选择最佳话题
+        # ========== AI主编甄选 ==========
         llm = LLMClient()
-        prompt = "你是一个资深新媒体爆款操盘手。以下是我们刚刚从各大新闻、社交平台抓取的最新热点话题列表。\n"
-        prompt += "【优先建议】：请优先考虑来自 BBC、纽约时报、华尔街日报、联合早报等具备高度权威和国际流量的平台话题。\n"
-        prompt += "请你从以下列表中，挑选出一个【最具爆款潜质、最吸引眼球、点击率最高、且具备社会公信力】的话题。\n"
+        prompt = "你是一位资深国际新闻主编，具有极高的新闻敏感度和专业判断力。\n\n"
+        prompt += "以下是我们从各大权威媒体和平台抓取的最新话题列表。\n\n"
+        prompt += "【核心甄选标准 - 按权重排序】：\n"
+        prompt += "1. 【最高权重】优先选择来自 BBC、纽约时报、华尔街日报、联合早报、新华社 等权威国际媒体的话题\n"
+        prompt += "2. 【高权重】话题应具备国际视野和深度，能引发读者深度思考\n"
+        prompt += "3. 【中权重】话题应具有社会公信力，避免八卦娱乐类浅层内容\n"
+        prompt += "4. 【基础权重】话题应具有传播价值，能吸引读者关注\n\n"
+        prompt += "请你从以下列表中，挑选出一个【最符合上述标准】的话题。\n"
         prompt += "你只能返回你选中的那个话题的数字序号(ID)，不要回复任何解释、思考或其他文字。必须且只能输出数字！\n\n"
         
         for idx, art in enumerate(all_candidate_articles):
             p_name = art.get('_platform_name')
             # 为权威平台添加特殊标记，引导AI选择
-            authority_tag = "⭐[高权威/大流量]" if art.get('spider') in high_authority_spiders else ""
+            is_authority = art.get('spider') in high_authority_spiders
+            authority_tag = "⭐⭐⭐【权威国际媒体】" if is_authority else ""
             prompt += f"[{idx}] 平台: {p_name} {authority_tag} | 标题: {art.get('title')}\n"
             
         log.print_log(f"已收集到 {len(all_candidate_articles)} 个新鲜候选话题，正在请AI主编进行智能甄选...", "info")

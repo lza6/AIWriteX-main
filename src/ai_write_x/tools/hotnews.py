@@ -1,17 +1,6 @@
-# -*- coding: utf-8 -*-
-# Author: iniwap
-# Date: 2025-06-03
-# Description: 用于热搜话题获取，关注项目 https://github.com/iniwap/ai_write_x
-
-# 版权所有 (c) 2025 iniwap
-# 本文件受 AIWriteX 附加授权条款约束，不可单独使用、传播或部署。
-# 禁止在未经作者书面授权的情况下将本文件用于商业服务、分发或嵌入产品。
-# 如需授权，请联系 iniwaper@gmail.com 或 522765228@qq.com
-# 本项目整体授权协议请见根目录下 LICENSE 和 NOTICE 文件。
-
-
 import requests
 import random
+import time
 from typing import Any, Optional, List, Dict
 from bs4 import BeautifulSoup
 
@@ -131,58 +120,115 @@ def get_vvhan_hotnews() -> Optional[List[Dict]]:
         return None
 
 
-def get_platform_news(platform: str, cnt: int = 10) -> List[str]:
+def get_platform_news(platform: str, cnt: int = 10, exclude_topics: List[str] = None) -> List[str]:
     """
-    获取指定平台的新闻标题，优先从知微数据获取，失败则从 tophub.today 获取，最后从 vvhan 获取
-    参数 platform: 平台名称（中文，如“微博”）
-    参数 cnt: 返回的新闻数量
-    返回: 新闻标题列表（仅使用 name 字段）
+    获取指定平台的新闻标题，深度支持到 200 条
     """
-    # 查找平台对应的知微数据标识和 tophub 标识
+    if exclude_topics is None:
+        exclude_topics = []
+    
+    # 查找平台对应的标识
     platform_info = next((p for p in PLATFORMS if p["name"] == platform), None)
     if not platform_info:
         return []
 
+    topics = []
     # 1. 优先尝试知微数据
-
     if platform_info["zhiwei_id"] in ZHIWEI_PLATFORMS:
         hotnews = get_zhiwei_hotnews(platform_info["zhiwei_id"])
         if hotnews:
-            return [item.get("name", "") for item in hotnews[:cnt] if item.get("name")]
+            # 增加抓取深度到 200
+            topics = [item.get("name", "") for item in hotnews[:200] if item.get("name")]
 
     # 2. 回退到 tophub.today
-    if platform_info["tophub_id"] in TOPHUB_PLATFORMS:
-        hotnews = get_tophub_hotnews(platform, cnt)
+    if not topics and platform_info["tophub_id"] in TOPHUB_PLATFORMS:
+        hotnews = get_tophub_hotnews(platform, 200)
         if hotnews:
-            return [item.get("name", "") for item in hotnews[:cnt] if item.get("name")]
+            topics = [item.get("name", "") for item in hotnews[:200] if item.get("name")]
 
     # 3. 回退到 vvhan API
-    hotnews = get_vvhan_hotnews()
-    if not hotnews:
+    if not topics:
+        hotnews = get_vvhan_hotnews()
+        if hotnews:
+            platform_data = next((pf["data"] for pf in hotnews if pf["name"] == platform), [])
+            topics = [item["title"] for item in platform_data[:200]]
+
+    # 过滤掉已存在的话题
+    filtered_topics = [t for t in topics if t not in exclude_topics]
+    return filtered_topics
+
+
+def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None) -> List[str]:
+    """
+    从高权重源（BBC, NYTimes, WSJ等）抓取优质话题
+    """
+    if exclude_topics is None:
+        exclude_topics = []
+        
+    try:
+        from src.ai_write_x.tools.spider_runner import spider_runner
+        import asyncio
+        
+        authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua"]
+        all_authority_news = []
+        
+        # 为了避免异步嵌套复杂性，优先从 spider_data_manager 获取最近抓取的
+        from src.ai_write_x.tools.spider_manager import spider_data_manager
+        
+        for s in authority_spiders:
+            # 获取最近抓取的文章标题作为话题
+            articles = spider_data_manager.get_articles(limit=limit, source=spider_runner.spiders.get(s, {}).get("source", s))
+            all_authority_news.extend([a['title'] for a in articles])
+
+        if not all_authority_news:
+             # 如果数据库没有，尝试实时跑一下（仅在必要时）
+             log.print_log("数据库中无权威源数据，尝试实时采集...", "info")
+             try:
+                 # 同步环境下运行异步
+                 async def run_sync():
+                     tasks = [spider_runner.run_spider(s, limit=10) for s in authority_spiders]
+                     await asyncio.gather(*tasks)
+                 asyncio.run(run_sync())
+                 
+                 for s in authority_spiders:
+                    articles = spider_data_manager.get_articles(limit=limit, source=spider_runner.spiders.get(s, {}).get("source", s))
+                    all_authority_news.extend([a['title'] for a in articles])
+             except:
+                 pass
+
+        filtered = [t for t in all_authority_news if t not in exclude_topics]
+        # 去重
+        seen = set()
+        unique_filtered = [x for x in filtered if not (x in seen or seen.add(x))]
+        return unique_filtered[:limit]
+    except Exception as e:
+        log.print_log(f"获取权威源话题失败: {e}", "warning")
         return []
 
-    platform_data = next((pf["data"] for pf in hotnews if pf["name"] == platform), [])
-    return [item["title"] for item in platform_data[:cnt]]
 
-
-def select_platform_topic(platform: Any, cnt: int = 10) -> str:
+def select_platform_topic(platform: Any, cnt: int = 10, exclude_topics: List[str] = None, authority_priority: bool = False) -> str:
     """
-    获取指定平台的新闻话题，并按排名加权随机选择一个话题。
-    若无话题，返回默认话题。
-    参数 platform: 平台名称（中文，如“微博”）
-    参数 cnt: 最大返回的新闻数量
-    返回: 选中的话题字符串
+    获取话题，支持权威源优先
     """
-    topics = get_platform_news(platform, cnt)
+    topics = []
+    if authority_priority:
+        topics = get_authority_topics(limit=cnt, exclude_topics=exclude_topics)
+        if topics:
+            log.print_log(f"已从中外权威媒体（BBC/新华社等）选取高质量话题", "success")
+    
     if not topics:
-        topics = ["历史上的今天"]
-        log.print_log(f"平台 {platform} 无法获取到热榜，接口暂时不可用，将使用默认话题。")
+        topics = get_platform_news(platform, cnt, exclude_topics)
+        
+    if not topics:
+        if exclude_topics:
+            topics = get_platform_news(platform, cnt)
+        if not topics:
+            topics = ["历史上的今天"]
+            log.print_log(f"所有源均不可用，将使用默认话题。")
 
-    # 加权随机选择：排名靠前的话题权重更高
-    weights = [1 / (i + 1) ** 2 for i in range(len(topics))]
+    # 加权随机选择
+    weights = [1 / (i + 1) ** 1.5 for i in range(len(topics))]
     selected_topic = random.choices(topics, weights=weights, k=1)[0]
-
-    # 替换标题中的 | 为 ——
     selected_topic = selected_topic.replace("|", "——")
 
     return selected_topic
