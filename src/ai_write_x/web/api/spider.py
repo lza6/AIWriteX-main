@@ -43,8 +43,32 @@ async def get_articles(
     source: Optional[str] = None,
     category: Optional[str] = None
 ):
-    """获取爬取的文章列表"""
+    """获取爬取的文章列表 (整合 NewsHub 缓存)"""
+    # 1. 获取基础爬虫文章
     articles = spider_runner.get_articles(limit, source, category)
+    
+    # 2. 如果没有指定源或指定了 NewsHub，则加入 NewsHub 缓存
+    if not source or source == "newshub":
+        try:
+            from src.ai_write_x.web.api.newshub import get_hub_manager
+            hub_manager = get_hub_manager()
+            cached_news = hub_manager.get_cached_news(limit=50)
+            
+            # 转换为兼容格式
+            for item in cached_news:
+                articles.append({
+                    "id": item.get("id"),
+                    "title": item.get("title"),
+                    "source": "热点聚合", # 统一标记为热点聚合
+                    "url": item.get("url"),
+                    "save_date": item.get("published_at", "")[:10] if item.get("published_at") else ""
+                })
+        except Exception as e:
+            print(f"Merge NewsHub error: {e}")
+
+    # 3. 按日期/ID排序（简单处理）
+    articles = articles[:limit]
+    
     return {
         "success": True,
         "articles": articles,

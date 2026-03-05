@@ -27,6 +27,19 @@ class CreativeWorkshopManager {
         this.livePreviewContent = '';
         this.isCapturingContent = false;
 
+        // v5: 增强 WebSocket 重连控制与耗时计时器
+        this._wsReconnectAttempts = 0;
+        this._wsMaxReconnects = 10;
+        this._wsReconnectTimer = null;
+        this._wsHeartbeatTimer = null;
+        this._generationStartTime = 0;
+        this._generationTimer = null;
+
+        // v2: 幂等性控制 - 防止handleGenerationComplete被重复调用
+        this._generationCompleteHandled = false;
+        // v2: 轮询启动时间戳
+        this._pollingStartTime = 0;
+
         this.initialized = false;
         this.initializing = false;
     }
@@ -59,6 +72,45 @@ class CreativeWorkshopManager {
 
         // 停止状态轮询  
         this.stopStatusPolling();
+
+        // v5: 清理重连定时器、心跳和计时器
+        if (this._wsReconnectTimer) {
+            clearTimeout(this._wsReconnectTimer);
+            this._wsReconnectTimer = null;
+        }
+        this._stopHeartbeat();
+        this._stopGenerationTimer();
+    }
+
+    // ========== 耗时计时器 (v5新增) ==========
+    _startGenerationTimer() {
+        this._stopGenerationTimer();
+        this._generationStartTime = Date.now();
+        this._generationTimer = setInterval(() => {
+            if (!this.isGenerating) {
+                this._stopGenerationTimer();
+                return;
+            }
+            const progressText = document.getElementById('progress-text');
+            if (progressText && progressText.textContent) {
+                let baseText = progressText.textContent;
+                // 去除可能已有的时间文本，只取基础进度
+                if (baseText.includes(' (')) {
+                    baseText = baseText.split(' (')[0];
+                }
+                const elapsed = Math.floor((Date.now() - this._generationStartTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                progressText.textContent = `${baseText} (${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')})`;
+            }
+        }, 1000);
+    }
+
+    _stopGenerationTimer() {
+        if (this._generationTimer) {
+            clearInterval(this._generationTimer);
+            this._generationTimer = null;
+        }
     }
 
     // ========== 模板数据加载 ==========      
@@ -509,6 +561,7 @@ class CreativeWorkshopManager {
         // 提前设置生成状态, 让UI立即响应
         this.isGenerating = true;
         this.updateGenerationUI(true);
+        this._startGenerationTimer(); // V5 启动计时器
 
         // 启动进度条  
         if (this.bottomProgress) {
@@ -814,6 +867,7 @@ class CreativeWorkshopManager {
         } finally {
             this.isGenerating = false;
             this.updateGenerationUI(false);
+            this._stopGenerationTimer(); // 关闭计时器
 
             // 【新增】从全局任务管理器移除
             if (window.articleManager) {
@@ -836,11 +890,16 @@ class CreativeWorkshopManager {
             btnIcon.classList.remove('rotating');
         }
     }
-    // ========== WebSocket 日志流式传输 ==========      
+    // ========== WebSocket 日志流式传输 (v2: 自动重连+心跳) ==========      
 
     connectLogWebSocket() {
         if (this.logWebSocket) {
             this.logWebSocket.close();
+        }
+
+        // v2: 重置重连计数器（首次连接时）
+        if (this._wsReconnectAttempts === 0) {
+            this._generationCompleteHandled = false;
         }
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -851,11 +910,16 @@ class CreativeWorkshopManager {
 
             this.logWebSocket.onopen = () => {
                 console.log('日志 WebSocket 已连接');
+                this._wsReconnectAttempts = 0; // v2: 连接成功后重置重连计数
+                this._startHeartbeat(); // v2: 启动心跳
             };
 
             this.logWebSocket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+
+                    // v2: 心跳pong响应忽略
+                    if (data.type === 'pong') return;
 
                     if (data.message && data.message.includes('[PROGRESS:')) {
                         // 提取所有进度标记  
@@ -879,6 +943,7 @@ class CreativeWorkshopManager {
 
                     // 检查完成状态      
                     if (data.type === 'completed' || data.type === 'failed') {
+                        this._stopHeartbeat(); // v2: 停止心跳
                         this.handleGenerationComplete(data);
                     }
                 } catch (error) {
@@ -890,11 +955,51 @@ class CreativeWorkshopManager {
                 console.error('WebSocket 错误:', error);
             };
 
-            this.logWebSocket.onclose = () => {
+            this.logWebSocket.onclose = (event) => {
+                this._stopHeartbeat(); // v2: 停止心跳
                 this.logWebSocket = null;
+
+                // v5: 智能重连 - 仅在生成进行中且未收到完成消息时重连
+                if (this.isGenerating && !this._generationCompleteHandled) {
+                    if (this._wsReconnectAttempts < this._wsMaxReconnects) {
+                        this._wsReconnectAttempts++;
+                        // v5 指数退避: 限制最大为 16s (1s, 2s, 4s, 8s, 16s...)
+                        const delay = Math.min(1000 * Math.pow(2, this._wsReconnectAttempts - 1), 16000);
+                        console.log(`[WebSocket] 断连，${delay / 1000}秒后第${this._wsReconnectAttempts}次重连...`);
+                        this._wsReconnectTimer = setTimeout(() => {
+                            if (this.isGenerating && !this._generationCompleteHandled) {
+                                this.connectLogWebSocket();
+                            }
+                        }, delay);
+                    } else {
+                        console.warn('[WebSocket] 重连次数耗尽，已回退至状态轮询');
+                    }
+                }
             };
         } catch (error) {
             console.error('创建 WebSocket 连接失败:', error);
+        }
+    }
+
+    // v2: 心跳机制 - 每30秒发送ping，保持连接活跃
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this._wsHeartbeatTimer = setInterval(() => {
+            if (this.logWebSocket && this.logWebSocket.readyState === WebSocket.OPEN) {
+                try {
+                    this.logWebSocket.send(JSON.stringify({ type: 'ping' }));
+                } catch (e) {
+                    // 发送失败表示连接已断，让onclose处理重连
+                    console.warn('心跳发送失败:', e.message);
+                }
+            }
+        }, 30000);
+    }
+
+    _stopHeartbeat() {
+        if (this._wsHeartbeatTimer) {
+            clearInterval(this._wsHeartbeatTimer);
+            this._wsHeartbeatTimer = null;
         }
     }
 
@@ -947,8 +1052,17 @@ class CreativeWorkshopManager {
         const stageConfig = this.bottomProgress.stages[stage];
         if (!stageConfig) return;
 
-        const currentProgress = Math.round(this.bottomProgress.currentProgress);
-        progressText.textContent = `${stageConfig.name} ${currentProgress}%`;
+        const currentProgress = Math.round(this.bottomProgress.currentProgress || 0);
+        if (isNaN(currentProgress)) return;
+
+        let timerStr = "";
+        if (this._generationStartTime) {
+            const elapsed = Math.floor((Date.now() - this._generationStartTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            timerStr = ` (${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')})`;
+        }
+        progressText.textContent = `${stageConfig.name} ${currentProgress}%${timerStr}`;
 
         // 更新SVG图标并添加旋转动画  
         btnIcon.innerHTML = stageConfig.icon;
@@ -1025,9 +1139,16 @@ class CreativeWorkshopManager {
     }
 
     /**      
-     * 处理生成完成      
+     * 处理生成完成 (v2: 幂等性保护，防止WebSocket和轮询双重触发)  
      */
     async handleGenerationComplete(data) {
+        // v2: 幂等保护 - 避免被WebSocket和轮询同时触发
+        if (this._generationCompleteHandled) {
+            console.log('handleGenerationComplete 已处理过，跳过重复调用');
+            return;
+        }
+        this._generationCompleteHandled = true;
+
         // 等待队列处理完毕  
         while (this.isProcessingQueue) {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -1035,46 +1156,58 @@ class CreativeWorkshopManager {
 
         this.isGenerating = false;
 
-        // 【新增】标记全局任务为完成
-        if (window.articleManager) {
-            window.articleManager.updateTask('article-generation', {
-                progress: 100,
-                status: data.type === 'completed' ? 'done' : 'failed'
-            });
-            setTimeout(() => window.articleManager.removeTask('article-generation'), 3000);
-        }
+        // V4: 用 try/finally 保证 UI 始终重置，即使中间步骤抛错也不会卡死
+        try {
+            // 标记全局任务为完成
+            try {
+                if (window.articleManager) {
+                    window.articleManager.updateTask('article-generation', {
+                        progress: 100,
+                        status: data.type === 'completed' ? 'done' : 'failed'
+                    });
+                    setTimeout(() => window.articleManager.removeTask('article-generation'), 3000);
+                }
+            } catch (e) { console.warn('更新任务管理器状态失败:', e); }
 
-        // 智能恢复借鉴按钮状态  
-        const refPanel = document.getElementById('reference-mode-panel');
-        const logPanel = document.getElementById('generation-progress');
-        const referenceModeBtn = document.getElementById('reference-mode-btn');
+            // 智能恢复借鉴按钮状态  
+            const refPanel = document.getElementById('reference-mode-panel');
+            const logPanel = document.getElementById('generation-progress');
+            const referenceModeBtn = document.getElementById('reference-mode-btn');
 
-        if (refPanel && logPanel && referenceModeBtn) {
-            const refPanelCollapsed = refPanel.classList.contains('collapsed');
-            const logPanelCollapsed = logPanel.classList.contains('collapsed');
-
-            // 情况1: 借鉴面板折叠 + 日志面板展开 → 用户切换到了日志视图,移除 active  
-            // 情况2: 两个面板都折叠 → 用户关闭了所有面板,移除 active  
-            // 情况3: 借鉴面板展开 → 保持 active 状态  
-            if (refPanelCollapsed) {
-                referenceModeBtn.classList.remove('active');
-            }
-        }
-
-        if (data.type === 'completed') {
-            if (this.bottomProgress) {
-                this.bottomProgress.complete();
+            if (refPanel && logPanel && referenceModeBtn) {
+                if (refPanel.classList.contains('collapsed')) {
+                    referenceModeBtn.classList.remove('active');
+                }
             }
 
-            // 等待进度条动画到达100%后再停止  
-            setTimeout(() => {
+            if (data.type === 'completed') {
                 if (this.bottomProgress) {
-                    this.bottomProgress.stop();
+                    this.bottomProgress.complete();
                 }
 
-                // 【新增】重置日志按钮  
-                this.resetLogButton();
+                // 等待进度条动画到达100%后再停止  
+                setTimeout(() => {
+                    if (this.bottomProgress) {
+                        this.bottomProgress.stop();
+                    }
+                    this.resetLogButton();
+                    setTimeout(() => {
+                        const progressEl = document.getElementById('bottom-progress');
+                        if (progressEl) {
+                            progressEl.classList.add('hidden');
+                        }
+                        if (this.bottomProgress) {
+                            this.bottomProgress.reset();
+                        }
+                        try { this.autoPreviewGeneratedArticle(); } catch (e) { console.warn('自动预览失败:', e); }
+                    }, 1000);
+                }, 1000);
 
+            } else if (data.type === 'failed') {
+                if (this.bottomProgress) {
+                    this.bottomProgress.showError(data.error || '未知错误');
+                }
+                this.resetLogButton();
                 setTimeout(() => {
                     const progressEl = document.getElementById('bottom-progress');
                     if (progressEl) {
@@ -1083,20 +1216,9 @@ class CreativeWorkshopManager {
                     if (this.bottomProgress) {
                         this.bottomProgress.reset();
                     }
-
-                    this.autoPreviewGeneratedArticle();
                 }, 1000);
-            }, 1000);
 
-        } else if (data.type === 'failed') {
-            if (this.bottomProgress) {
-                this.bottomProgress.showError(data.error || '未知错误');
-            }
-
-            // 【新增】重置日志按钮  
-            this.resetLogButton();
-
-            setTimeout(() => {
+            } else if (data.type === 'stopped') {
                 const progressEl = document.getElementById('bottom-progress');
                 if (progressEl) {
                     progressEl.classList.add('hidden');
@@ -1104,82 +1226,86 @@ class CreativeWorkshopManager {
                 if (this.bottomProgress) {
                     this.bottomProgress.reset();
                 }
-            }, 1000);
-
-        } else if (data.type === 'stopped') {
-            const progressEl = document.getElementById('bottom-progress');
-            if (progressEl) {
-                progressEl.classList.add('hidden');
-            }
-            if (this.bottomProgress) {
-                this.bottomProgress.reset();
+                this.resetLogButton();
             }
 
-            // 【新增】重置日志按钮  
-            this.resetLogButton();
-        }
+            // 完成后的通知和后续操作
+            if (data.type === 'completed') {
+                window.app?.showNotification('🎉 生成完成', 'success');
 
-        this.updateGenerationUI(false);
-        this.stopStatusPolling();
+                // V5: 触发前端增强体验
+                window.app?.playSuccessSound();
+                window.app?.triggerCelebration();
 
-        if (data.type === 'completed') {
-            window.app?.showNotification('生成完成', 'success');
+                const duration = this._generationStartTime ? Math.floor((Date.now() - this._generationStartTime) / 1000) : 0;
+                window.app?.trackPerformance('article_generation_completed', { duration_sec: duration, topic: this.currentTopic });
 
-            // 自动刷新文章列表 + 侧栏状态计数
-            if (window.articleManager) {
-                await window.articleManager.loadArticles();
-                window.articleManager.renderStatusTree();
-            }
-
-            // 成功后删除被借鉴的文章
-            if (this._selectedArticle?.id) {
-                this.deleteReferenceArticle(this._selectedArticle.id);
-            }
-
-            // ===== AI 自动美化 =====
-            const autoReTemplateSwitch = document.getElementById('auto-retemplate-switch');
-            if (autoReTemplateSwitch?.checked) {
-                this.appendLog('🎨 AI 自动美化已开启，正在获取最新文章...', 'info', false, Date.now() / 1000);
-
-                // 等待文章列表刷新完成
-                setTimeout(async () => {
-                    try {
-                        const res = await fetch('/api/articles');
-                        if (res.ok) {
-                            const result = await res.json();
-                            const articles = result.data || [];
-                            if (articles.length > 0) {
-                                const latestArticle = articles[0];
-                                this.appendLog(`🎨 开始自动美化: ${latestArticle.title}`, 'status', false, Date.now() / 1000);
-
-                                if (window.articleManager?.triggerAutoReTemplate) {
-                                    window.articleManager.triggerAutoReTemplate(latestArticle);
-                                } else {
-                                    this.appendLog('⚠️ 文章管理器未就绪，无法执行自动美化', 'warning', false, Date.now() / 1000);
-                                }
-                            } else {
-                                this.appendLog('⚠️ 未找到可美化的文章', 'warning', false, Date.now() / 1000);
-                            }
-                        }
-                    } catch (err) {
-                        console.error('自动美化失败:', err);
-                        this.appendLog(`❌ 自动美化失败: ${err.message}`, 'error', false, Date.now() / 1000);
+                // 自动刷新文章列表 + 侧栏状态计数
+                try {
+                    if (window.articleManager) {
+                        await window.articleManager.loadArticles();
+                        window.articleManager.renderStatusTree();
                     }
-                }, 2000);
+                } catch (e) { console.warn('刷新文章列表失败:', e); }
+
+                // 成功后删除被借鉴的文章
+                try {
+                    if (this._selectedArticle?.id) {
+                        this.deleteReferenceArticle(this._selectedArticle.id);
+                    }
+                } catch (e) { console.warn('删除借鉴文章失败:', e); }
+
+                // ===== AI 自动美化 =====
+                const autoReTemplateSwitch = document.getElementById('auto-retemplate-switch');
+                if (autoReTemplateSwitch?.checked) {
+                    this.appendLog('🎨 AI 自动美化已开启，正在获取最新文章...', 'info', false, Date.now() / 1000);
+
+                    setTimeout(async () => {
+                        try {
+                            const res = await fetch('/api/articles');
+                            if (res.ok) {
+                                const result = await res.json();
+                                const articles = result.data || [];
+                                if (articles.length > 0) {
+                                    const latestArticle = articles[0];
+                                    this.appendLog(`🎨 开始自动美化: ${latestArticle.title}`, 'status', false, Date.now() / 1000);
+
+                                    if (window.articleManager?.triggerAutoReTemplate) {
+                                        window.articleManager.triggerAutoReTemplate(latestArticle);
+                                    } else {
+                                        this.appendLog('⚠️ 文章管理器未就绪，无法执行自动美化', 'warning', false, Date.now() / 1000);
+                                    }
+                                } else {
+                                    this.appendLog('⚠️ 未找到可美化的文章', 'warning', false, Date.now() / 1000);
+                                }
+                            }
+                        } catch (err) {
+                            console.error('自动美化失败:', err);
+                            this.appendLog(`❌ 自动美化失败: ${err.message}`, 'error', false, Date.now() / 1000);
+                        }
+                    }, 2000);
+                }
+
+            } else if (data.type === 'failed') {
+                window.app?.showNotification('生成失败: ' + (data.error || '未知错误'), 'error');
+            } else if (data.type === 'stopped') {
+                window.app?.showNotification('生成已停止', 'info');
             }
 
-        } else if (data.type === 'failed') {
-            window.app?.showNotification('生成失败: ' + (data.error || '未知错误'), 'error');
-        } else if (data.type === 'stopped') {
-            window.app?.showNotification('生成已停止', 'info');
-        }
+        } catch (outerError) {
+            console.error('handleGenerationComplete 内部异常:', outerError);
+            window.app?.showNotification('生成流程出现异常，UI 已重置', 'warning');
+        } finally {
+            // V4: 无论如何都要执行 UI 重置，这是防止 UI 卡死的最后保障
+            this.updateGenerationUI(false);
+            this.stopStatusPolling();
 
-        this._hotSearchPlatform = '';
-
-        const topicInput = document.getElementById('topic-input');
-        if (topicInput) {
-            topicInput.value = '';
-            this.currentTopic = '';
+            this._hotSearchPlatform = '';
+            const topicInput = document.getElementById('topic-input');
+            if (topicInput) {
+                topicInput.value = '';
+                this.currentTopic = '';
+            }
         }
 
         if (this.logWebSocket) {
@@ -1327,12 +1453,14 @@ class CreativeWorkshopManager {
         }
     }
 
-    // ========== 状态轮询 ==========  
+    // ========== 状态轮询 (v2: 智能降频) ==========  
 
     startStatusPolling() {
         this.stopStatusPolling();
+        this._pollingStartTime = Date.now();
 
-        this.statusPollInterval = setInterval(async () => {
+        // v2: 使用动态间隔 - 前10秒高频(1s)确保快速响应，后续降频(3s)节省资源
+        const pollOnce = async () => {
             if (!this.isGenerating) {
                 this.stopStatusPolling();
                 return;
@@ -1358,12 +1486,22 @@ class CreativeWorkshopManager {
             } catch (error) {
                 console.error('轮询状态失败:', error);
             }
-        }, 2000);
+
+            // v2: 动态计算下次轮询间隔
+            if (this.isGenerating) {
+                const elapsed = Date.now() - this._pollingStartTime;
+                const interval = elapsed < 10000 ? 1000 : 3000;
+                this.statusPollInterval = setTimeout(pollOnce, interval);
+            }
+        };
+
+        // 首次轮询延迟1秒启动
+        this.statusPollInterval = setTimeout(pollOnce, 1000);
     }
 
     stopStatusPolling() {
         if (this.statusPollInterval) {
-            clearInterval(this.statusPollInterval);
+            clearTimeout(this.statusPollInterval); // v2: 改为clearTimeout匹配setTimeout
             this.statusPollInterval = null;
         }
     }

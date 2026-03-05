@@ -56,6 +56,15 @@ class TrendItemResponse(BaseModel):
     sources: List[str]
 
 
+class SourceAddRequest(BaseModel):
+    """添加数据源请求"""
+    name: str
+    url: str
+    category: str = "tech"
+    type: str = "rss"
+    priority: int = 5
+
+
 class AggregateResponse(BaseModel):
     """聚合响应"""
     status: str
@@ -206,6 +215,53 @@ async def disable_source(source_id: str):
         manager = get_hub_manager()
         manager.disable_source(source_id)
         return {"status": "success", "message": f"数据源 {source_id} 已禁用"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sources")
+async def add_source(request: SourceAddRequest):
+    """添加自定义数据源"""
+    try:
+        from src.ai_write_x.news_aggregator.data_sources import DataSource, DataSourceCategory, DataSourceType
+        import uuid
+        
+        manager = get_hub_manager()
+        
+        # 验证分类和类型
+        try:
+            cat = DataSourceCategory(request.category)
+            stype = DataSourceType(request.type)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的分类或类型")
+            
+        source_id = f"custom_{uuid.uuid4().hex[:8]}"
+        new_source = DataSource(
+            id=source_id,
+            name=request.name,
+            url=request.url,
+            category=cat,
+            type=stype,
+            api_endpoint=request.url if stype == DataSourceType.RSS else "",
+            priority=request.priority,
+            enabled=True
+        )
+        
+        manager.registry.register_custom_source(new_source)
+        return {"status": "success", "message": f"数据源 {request.name} 已添加", "id": source_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/sources/{source_id}")
+async def remove_source_api(source_id: str):
+    """删除数据源"""
+    try:
+        manager = get_hub_manager()
+        manager.registry.remove_source(source_id)
+        return {"status": "success", "message": f"数据源 {source_id} 已删除"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

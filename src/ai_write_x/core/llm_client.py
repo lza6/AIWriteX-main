@@ -1,11 +1,13 @@
 """
-统一LLM调用层 - 使用OpenAI官方库
+统一LLM调用层 V5 - 使用OpenAI官方库
 
 功能：
 1. 完全使用OpenAI官方SDK，不依赖litellm
 2. 自动检测视觉模型（VL/vision/gpt-4o/gpt-4-vision等标识）
 3. 支持动态切换文本模型和视觉模型
 4. 与CrewAI集成
+5. V4: 重试抖动(Jitter)、智能模型降级、流式容错增强
+6. V5: 请求追踪ID(req_id)、缓存键增强(含max_tokens)、API耗时日志
 
 模型命名规则：
 - 文本模型：直接使用模型名称（如 glm-4-flash, deepseek-chat）
@@ -14,11 +16,54 @@
 
 import base64
 import re
+import time
+import uuid
+import random
+import hashlib
+import json
+import threading
 from typing import Any, Dict, List, Optional, Union
 from openai import OpenAI
 
 from src.ai_write_x.config.config import Config
 from src.ai_write_x.utils import log
+
+
+# V3: 请求级LRU缓存 — 相同prompt+model在60秒内命中缓存，避免重复消耗API配额
+class _ResponseCache:
+    """线程安全的LRU响应缓存，TTL 60秒，最大128条"""
+    def __init__(self, maxsize=128, ttl=60):
+        self._cache = {}  # key -> (response, timestamp)
+        self._lock = threading.Lock()
+        self._maxsize = maxsize
+        self._ttl = ttl
+
+    def _make_key(self, messages, model, temperature, max_tokens=4096):
+        # V5: 缓存键加入max_tokens，防止不同配额参数命中同一缓存
+        raw = json.dumps({"m": messages, "model": model, "t": temperature, "mt": max_tokens}, sort_keys=True, ensure_ascii=False)
+        return hashlib.md5(raw.encode('utf-8')).hexdigest()
+
+    def get(self, messages, model, temperature, max_tokens=4096):
+        key = self._make_key(messages, model, temperature, max_tokens)
+        with self._lock:
+            if key in self._cache:
+                resp, ts = self._cache[key]
+                if time.time() - ts < self._ttl:
+                    return resp
+                else:
+                    del self._cache[key]  # 已过期
+        return None
+
+    def put(self, messages, model, temperature, response, max_tokens=4096):
+        key = self._make_key(messages, model, temperature, max_tokens)
+        with self._lock:
+            # LRU淘汰：超出容量时删除最旧的条目
+            if len(self._cache) >= self._maxsize:
+                oldest_key = min(self._cache, key=lambda k: self._cache[k][1])
+                del self._cache[oldest_key]
+            self._cache[key] = (response, time.time())
+
+_response_cache = _ResponseCache()
 
 
 class VisionModelDetector:
@@ -90,14 +135,24 @@ class LLMClient:
         self._vision_model: Optional[str] = None
         self._auto_vision_switch = True
         
+        # V3: Token用量追踪系统 — 累计记录所有API调用的token消耗
+        self._token_usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "request_count": 0,
+            "cache_hits": 0,
+        }
+        self._usage_lock = threading.Lock()
+        
     def _get_client(self, api_key: str, base_url: str) -> OpenAI:
-        """获取或创建OpenAI客户端 (带高级连接池优化以减小满载时的内存峰值)"""
+        """获取或创建OpenAI客户端 (V3: 连接池限制10连接/provider防泄露)"""
         import httpx
         cache_key = f"{api_key[:8]}_{base_url}"
         if cache_key not in self._client_cache:
-            # 使用自定义 httpx 客户端提升高并发流式处理的连接回收率及内存表现
+            # V3: 降低max_connections到10/provider防止连接泄露，keepalive降到5
             http_client = httpx.Client(
-                limits=httpx.Limits(max_keepalive_connections=50, max_connections=100),
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
                 timeout=httpx.Timeout(120.0)
             )
             self._client_cache[cache_key] = OpenAI(
@@ -106,6 +161,47 @@ class LLMClient:
                 http_client=http_client
             )
         return self._client_cache[cache_key]
+
+    def _track_token_usage(self, usage):
+        """V3: 累计追踪token用量"""
+        if not usage:
+            return
+        with self._usage_lock:
+            self._token_usage["prompt_tokens"] += getattr(usage, 'prompt_tokens', 0) or 0
+            self._token_usage["completion_tokens"] += getattr(usage, 'completion_tokens', 0) or 0
+            self._token_usage["total_tokens"] += getattr(usage, 'total_tokens', 0) or 0
+            self._token_usage["request_count"] += 1
+
+    def get_token_usage(self) -> Dict[str, int]:
+        """V3: 获取累计token用量报告"""
+        with self._usage_lock:
+            return dict(self._token_usage)
+
+    def reset_token_usage(self):
+        """V3: 重置token用量计数器"""
+        with self._usage_lock:
+            for k in self._token_usage:
+                self._token_usage[k] = 0
+
+    @staticmethod
+    def _humanize_error(e: Exception) -> str:
+        """V3: 将SDK异常包装为用户友好的中文提示"""
+        msg = str(e)
+        if '401' in msg or 'Unauthorized' in msg:
+            return "API密钥无效或已过期，请检查API Key配置"
+        elif '403' in msg or 'Forbidden' in msg:
+            return "API访问被拒绝，可能是权限不足或IP白名单未配置"
+        elif '404' in msg or 'not found' in msg.lower():
+            return f"模型不存在或API地址错误，请确认模型名称和Base URL"
+        elif '429' in msg or 'rate' in msg.lower():
+            return "API请求频率超限(429)，正在自动退避重试..."
+        elif '500' in msg or '502' in msg or '503' in msg:
+            return "API服务端暂时不可用，请稍后重试"
+        elif 'timeout' in msg.lower() or 'timed out' in msg.lower():
+            return "API请求超时(120s)，可能是网络问题或模型响应过慢"
+        elif 'Connection' in msg or 'connect' in msg.lower():
+            return "无法连接到API服务器，请检查网络和Base URL配置"
+        return f"LLM调用异常: {msg}"
     
     def _get_current_client(self) -> OpenAI:
         """获取当前配置的主客户端"""
@@ -173,6 +269,18 @@ class LLMClient:
             return self.current_model
         return None
     
+    # V4: 智能模型降级映射 — 同一 provider 内先尝试更便宜/更稳定的模型
+    MODEL_DOWNGRADE_MAP = {
+        'gpt-4o': 'gpt-4o-mini',
+        'gpt-4-turbo': 'gpt-3.5-turbo',
+        'gpt-4': 'gpt-3.5-turbo',
+        'deepseek-chat': 'deepseek-chat',  # deepseek 只有一个，不降级
+        'glm-4-plus': 'glm-4-flash',
+        'glm-4': 'glm-4-flash',
+        'qwen-max': 'qwen-turbo',
+        'qwen-plus': 'qwen-turbo',
+    }
+
     def chat(
         self,
         messages: List[Dict[str, Any]],
@@ -183,7 +291,7 @@ class LLMClient:
         **kwargs
     ) -> str:
         """
-        发送聊天请求（支持多提供商自动故障转移）
+        V4: 发送聊天请求（重试抖动 + 智能模型降级 + 多提供商故障转移）
         
         Args:
             messages: 消息列表
@@ -198,39 +306,104 @@ class LLMClient:
         """
         client = self._get_current_client()
         model_name = model or self.current_model
+        effective_timeout = timeout or 120.0
         
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=messages,
-                temperature=temperature,
-                timeout=timeout,
-                **kwargs
-            )
-            return response.choices[0].message.content
-        except Exception as primary_e:
-            log.print_log(f"主LLM调用失败 [{model_name}]: {primary_e}", "error")
-            
-            # 多提供商故障转移 (Multi-Provider Fallback)
-            fallbacks = self._get_fallback_clients()
-            if fallbacks:
-                for fallback_key, fallback_base, fallback_model, provider_name in fallbacks:
-                    log.print_log(f"正在尝试备用提供商: {provider_name} ({fallback_model})", "warning")
+        # V5: 请求级唯一追踪ID — 贯穿日志链路便于故障追踪
+        req_id = uuid.uuid4().hex[:8]
+        
+        # V5: LRU缓存命中检查(含max_tokens维度)
+        cached = _response_cache.get(messages, model_name, temperature, max_tokens)
+        if cached is not None:
+            with self._usage_lock:
+                self._token_usage["cache_hits"] += 1
+            log.print_log(f"[req:{req_id}] 缓存命中 [{model_name}]，跳过API调用", "info")
+            return cached
+        
+        # V4: 重试逻辑 — 指数退避 + 随机抖动(Jitter)防止雷群效应
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            try:
+                t0 = time.time()
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    temperature=temperature,
+                    timeout=effective_timeout,
+                    **kwargs
+                )
+                elapsed_ms = int((time.time() - t0) * 1000)
+                self._track_token_usage(response.usage)
+                result = response.choices[0].message.content
+                _response_cache.put(messages, model_name, temperature, result, max_tokens)
+                # V5: 记录API响应耗时，便于性能瓶颈定位
+                log.print_log(f"[req:{req_id}] [{model_name}] 响应完成 {elapsed_ms}ms", "info")
+                return result
+            except Exception as e:
+                error_str = str(e)
+                # V4: 429速率限制 → 指数退避 + ±30%随机抖动
+                if ('429' in error_str or 'rate' in error_str.lower()) and attempt < max_retries:
+                    base_wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
+                    jitter = base_wait * random.uniform(-0.3, 0.3)
+                    wait_time = max(1.0, base_wait + jitter)
+                    log.print_log(f"⏳ API速率限制(429)，{wait_time:.1f}秒后自动重试 (第{attempt+1}/{max_retries}次)", "warning")
+                    time.sleep(wait_time)
+                    continue
+                
+                # V4: 500/502/503服务端错误也重试（最多1次）
+                if any(code in error_str for code in ['500', '502', '503']) and attempt < 1:
+                    log.print_log(f"⚠️ API服务端错误，1.5秒后自动重试...", "warning")
+                    time.sleep(1.5)
+                    continue
+                
+                human_msg = self._humanize_error(e)
+                log.print_log(f"主LLM调用失败 [{model_name}]: {human_msg}", "error")
+                
+                # V4 Step 1: 同 provider 智能模型降级 — 先试同一服务商的便宜模型
+                downgrade_model = self.MODEL_DOWNGRADE_MAP.get(model_name)
+                if downgrade_model and downgrade_model != model_name:
+                    log.print_log(f"⬇️ 尝试同服务商模型降级: {model_name} → {downgrade_model}", "warning")
                     try:
-                        fallback_client = self._get_client(fallback_key, fallback_base)
-                        response = fallback_client.chat.completions.create(
-                            model=fallback_model,
+                        response = client.chat.completions.create(
+                            model=downgrade_model,
                             messages=messages,
                             temperature=temperature,
+                            timeout=effective_timeout,
                             **kwargs
                         )
-                        log.print_log(f"备用提供商 {provider_name} 调用成功!", "success")
-                        return response.choices[0].message.content
-                    except Exception as fallback_e:
-                        log.print_log(f"备用提供商 {provider_name} 调用也失败: {fallback_e}", "error")
-                        continue
-            
-            raise Exception(f"所有LLM提供商均调用失败。主端点报错: {primary_e}")
+                        self._track_token_usage(response.usage)
+                        log.print_log(f"✅ 降级模型 {downgrade_model} 调用成功!", "success")
+                        result = response.choices[0].message.content
+                        _response_cache.put(messages, model_name, temperature, result)
+                        return result
+                    except Exception as dg_e:
+                        log.print_log(f"降级模型 {downgrade_model} 也失败: {self._humanize_error(dg_e)}", "error")
+                
+                # V4 Step 2: 跨 provider 故障转移
+                fallbacks = self._get_fallback_clients()
+                if fallbacks:
+                    for fallback_key, fallback_base, fallback_model, provider_name in fallbacks:
+                        log.print_log(f"🔄 正在尝试备用提供商: {provider_name} ({fallback_model})", "warning")
+                        try:
+                            fallback_client = self._get_client(fallback_key, fallback_base)
+                            response = fallback_client.chat.completions.create(
+                                model=fallback_model,
+                                messages=messages,
+                                temperature=temperature,
+                                timeout=effective_timeout,
+                                **kwargs
+                            )
+                            self._track_token_usage(response.usage)
+                            log.print_log(f"✅ 备用提供商 {provider_name} 调用成功!", "success")
+                            result = response.choices[0].message.content
+                            _response_cache.put(messages, model_name, temperature, result)
+                            return result
+                        except Exception as fallback_e:
+                            log.print_log(f"备用提供商 {provider_name} 调用也失败: {self._humanize_error(fallback_e)}", "error")
+                            continue
+                
+                raise Exception(f"所有LLM提供商均调用失败。{human_msg}")
+        
+        raise Exception("LLM请求重试次数耗尽")
     
     def chat_with_vision(
         self,
@@ -347,7 +520,7 @@ class LLMClient:
         **kwargs
     ):
         """
-        异步流式聊天
+        V4: 异步流式聊天（增强容错 + token追踪）
         
         Yields:
             文本片段
@@ -357,12 +530,12 @@ class LLMClient:
         
         model_name = model or self.current_model
         
-        # 使用 AsyncOpenAI 客户端进行真正的异步流式处理
         async_client = AsyncOpenAI(
             api_key=self._config.api_key,
             base_url=self._config.api_apibase
         )
         
+        total_chunks = 0
         try:
             stream = await async_client.chat.completions.create(
                 model=model_name,
@@ -373,9 +546,16 @@ class LLMClient:
             )
             async for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta.content:
+                    total_chunks += 1
                     yield chunk.choices[0].delta.content
+            
+            # V4: 流式完成后追踪粗略 token 用量
+            with self._usage_lock:
+                self._token_usage["request_count"] += 1
+                self._token_usage["completion_tokens"] += total_chunks * 3  # 粗略估算
         except Exception as e:
-            log.print_log(f"LLM异步流式调用失败: {e}", "error")
+            human_msg = self._humanize_error(e)
+            log.print_log(f"LLM异步流式调用失败: {human_msg}", "error")
             raise
         finally:
             await async_client.close()

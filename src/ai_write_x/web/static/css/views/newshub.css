@@ -181,6 +181,11 @@
     padding: 20px;
     border: 1px solid var(--border-color);
     transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    min-height: 280px;
+    /* 增加最小高度确保对齐 */
+    height: 100%;
 }
 
 .news-card:hover {
@@ -221,6 +226,14 @@
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 15px;
+    flex: 1;
+    /* 占据剩余空间，使底部对齐 */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    /* 限制摘要行数，保持一致性 */
+    -webkit-box-orient: vertical;
 }
 
 .news-footer {

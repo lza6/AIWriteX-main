@@ -36,6 +36,7 @@ class WebSocketManager {
             this.reconnectAttempts = 0;
             this.callbacks.onOpen.forEach(callback => callback(event));
             this.startHeartbeat();
+            this._updateStatusIndicator('connected');  // V3: 连接状态指示器
         };
 
         this.ws.onmessage = (event) => {
@@ -51,12 +52,53 @@ class WebSocketManager {
         this.ws.onclose = (event) => {
             this.stopHeartbeat();
             this.callbacks.onClose.forEach(callback => callback(event));
+            this._updateStatusIndicator('disconnected');  // V3: 连接状态指示器
             this.handleReconnect();
         };
 
         this.ws.onerror = (error) => {
             this.callbacks.onError.forEach(callback => callback(error));
+            this._updateStatusIndicator('error');  // V3: 连接状态指示器
         };
+    }
+
+    // V3: 连接状态指示器 — 在header显示实时连接质量
+    _updateStatusIndicator(status) {
+        let indicator = document.getElementById('ws-status-indicator');
+        if (!indicator) {
+            // 自动创建指示器并插入header
+            indicator = document.createElement('div');
+            indicator.id = 'ws-status-indicator';
+            indicator.className = 'ws-status-dot';
+            indicator.title = '实时连接状态';
+            const header = document.querySelector('.header-actions, .header-right, header');
+            if (header) {
+                header.prepend(indicator);
+            } else {
+                document.body.appendChild(indicator);
+            }
+        }
+
+        // 更新状态样式
+        indicator.className = 'ws-status-dot';
+        switch (status) {
+            case 'connected':
+                indicator.classList.add('ws-connected');
+                indicator.title = '✓ 实时连接正常';
+                break;
+            case 'reconnecting':
+                indicator.classList.add('ws-reconnecting');
+                indicator.title = '⚠ 正在重连...';
+                break;
+            case 'disconnected':
+                indicator.classList.add('ws-disconnected');
+                indicator.title = '✗ 连接断开';
+                break;
+            case 'error':
+                indicator.classList.add('ws-error');
+                indicator.title = '✗ 连接错误';
+                break;
+        }
     }
 
     // V3: 心跳保活机制

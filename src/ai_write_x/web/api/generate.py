@@ -22,7 +22,9 @@ router = APIRouter(prefix="/api", tags=["generate"])
 # 全局任务管理
 _current_process = None
 _current_log_queue = None
-_task_status = {"status": "idle", "error": None}
+_current_worker_thread = None  # 外层批量生成线程
+# V5: 增加时间戳供前端展示生成耗时
+_task_status = {"status": "idle", "error": None, "started_at": None, "finished_at": None}
 
 
 class ReferenceConfig(BaseModel):
@@ -82,9 +84,11 @@ async def validate_config():
 
 @router.post("/generate")
 async def generate_content(request: GenerateRequest):
-    global _current_process, _current_log_queue, _task_status
+    global _current_process, _current_log_queue, _task_status, _current_worker_thread
 
-    if _current_process and _current_process.is_alive():
+    # 防重入：同时检查子进程和外层worker线程
+    if (_current_process and _current_process.is_alive()) or \
+       (_current_worker_thread and _current_worker_thread.is_alive()):
         raise HTTPException(status_code=409, detail="任务正在运行中,请先停止当前任务")
 
     try:
@@ -129,6 +133,7 @@ async def generate_content(request: GenerateRequest):
         import queue
         
         def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, log_q, ai_beautify):
+            global _task_status
             from src.ai_write_x.config.config import Config as ProcessConfig
             import traceback
             import time
@@ -313,8 +318,17 @@ async def generate_content(request: GenerateRequest):
                             # 自动化动作
                             post_action = getattr(cfg, "post_action", "none")
                             
-                            # === [新增] 文章生成后自动补图与源文本保存逻辑 ===
+                            # === [新增] V6: 文章生成后入库及自动补图逻辑 ===
                             if final_result and final_result.get("success"):
+                                try:
+                                    from src.ai_write_x.database import db_manager
+                                    db_title = final_result.get("save_result", {}).get("title", t)
+                                    db_content = final_result.get("formatted_content", "")
+                                    db_manager.save_article(topic_title=db_title, content=db_content, fmt="HTML")
+                                    lg.print_log(f"💾 文章已归档到本地知识库引擎", "success")
+                                except Exception as db_e:
+                                    lg.print_log(f"数据库保存异常: {db_e}", "warning")
+                                    
                                 try:
                                     save_res = final_result.get("save_result", {})
                                     article_path = save_res.get("path")
@@ -429,6 +443,14 @@ async def generate_content(request: GenerateRequest):
                 # 恢复日志队列为空，防止影响后续其它请求
                 lg.set_process_queue(None)
                 
+                # 显式更新全局任务状态，确保前端轮询能检测到任务完成
+                if success_count > 0:
+                    _task_status = {"status": "completed", "error": None, "started_at": _task_status.get("started_at"), "finished_at": time.time()}
+                    print(f"[batch_thread_worker] 任务状态已更新为 completed，成功 {success_count} 篇")
+                else:
+                    _task_status = {"status": "failed", "error": "所有文章生成均失败", "started_at": _task_status.get("started_at"), "finished_at": time.time()}
+                    print(f"[batch_thread_worker] 任务状态已更新为 failed")
+                
                 # P2: 自动清理临时文件（超过1小时的env_*.json）
                 try:
                     import glob
@@ -472,15 +494,16 @@ async def generate_content(request: GenerateRequest):
             daemon=True,
         )
         
-        _task_status = {"status": "running", "error": None}
-        print(f"Starting thread for generation with topic {topic}")
+        _task_status = {"status": "running", "error": None, "started_at": time.time(), "finished_at": None}
+        log.print_log(f"生成线程启动中，话题: {topic}", "info")
         worker.start()
         
-        # 不要覆盖 _current_process，让 _current_process = thread 启动的真实子进程
+        # 保存外层worker线程引用，供状态轮询检测
+        _current_worker_thread = worker
 
 
         msg = "正在批量生成内容，请耐心等待..." if request.article_count > 1 else "正在生成内容，请耐心等待..."
-        print("Returning success status from API")
+        log.print_log("生成请求已接受，正在后台处理...", "info")
         return {
             "status": "success",
             "message": msg,
@@ -506,7 +529,7 @@ async def stop_generation():
     停止当前生成任务
 
     """
-    global _current_process, _current_log_queue, _task_status
+    global _current_process, _current_log_queue, _task_status, _current_worker_thread
 
     if not _current_process or not _current_process.is_alive():
         return {"status": "info", "message": "没有正在运行的任务"}
@@ -542,6 +565,7 @@ async def stop_generation():
         # 重置状态
         _current_process = None
         _current_log_queue = None
+        _current_worker_thread = None
         _task_status = {"status": "stopped", "error": None}
 
         return {"status": "success", "message": "任务已停止"}
@@ -552,6 +576,7 @@ async def stop_generation():
         # 即使出错也要重置状态
         _current_process = None
         _current_log_queue = None
+        _current_worker_thread = None
         _task_status = {"status": "error", "error": str(e)}
 
         raise HTTPException(status_code=500, detail=str(e))
@@ -559,9 +584,26 @@ async def stop_generation():
 
 @router.get("/generate/status")
 async def get_generation_status():
-    global _current_process, _task_status, _current_log_queue
+    global _current_process, _task_status, _current_log_queue, _current_worker_thread
 
-    # 检查进程状态
+    # 检查外层worker线程状态（批量生成线程）
+    if _current_worker_thread and _current_worker_thread.is_alive():
+        return {"status": "running", "error": None}
+    
+    # 如果外层线程已结束，检查其设置的状态
+    if _current_worker_thread and not _current_worker_thread.is_alive():
+        # 线程已结束，返回其设置的最终状态
+        status = _task_status.copy()
+        if status.get("status") in ("completed", "failed"):
+            print(f"[generate/status] 外层线程已结束，返回状态: {status['status']}")
+            # 清理资源
+            _current_worker_thread = None
+            _current_process = None
+            _current_log_queue = None
+            _task_status = {"status": "idle", "error": None}
+            return status
+
+    # 检查子进程状态（向后兼容）
     if _current_process:
         if _current_process.is_alive():
             return {"status": "running", "error": None}
@@ -576,6 +618,7 @@ async def get_generation_status():
             # 清理资源
             _current_process = None
             _current_log_queue = None
+            _current_worker_thread = None
             _task_status = {"status": "idle", "error": None}
 
             return status
@@ -728,62 +771,78 @@ async def get_hot_topics():
         log.print_log("UI自动拾取: 正在跨平台抓取最新前沿资讯以供AI评估...", "info")
 
         import asyncio
-        # 1. 甄选高权重/权威平台优先抓取
-        high_authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua", "voa"]
-        
-        # 将爬虫分为两组：高权威和普通
-        priority_spiders = [s for s in enabled_spiders if s in high_authority_spiders]
-        normal_spiders = [s for s in enabled_spiders if s not in high_authority_spiders]
-        
-        # 随机排列以保证多样性，但优先级组始终在前
-        random.shuffle(priority_spiders)
-        random.shuffle(normal_spiders)
-        
-        sorted_spiders = priority_spiders + normal_spiders
-        
-        all_candidate_articles = []
         target_article_count = 15  # 期望至少收集15个候选话题供AI甄选
-        batch_size = 5 # 每次并发启动多少个爬虫
-        
-        for i in range(0, len(sorted_spiders), batch_size):
-            batch_spiders = sorted_spiders[i:i+batch_size]
+        all_candidate_articles = []
+
+        # 1. 优先尝试从 NewsHub 缓存获取（高质量聚合结果）
+        try:
+            from src.ai_write_x.web.api.newshub import get_hub_manager
+            hub_manager = get_hub_manager()
+            cached_news = hub_manager.get_cached_news(limit=15)
+            for item in cached_news:
+                if not deduplicator.is_duplicate(item["title"]):
+                    all_candidate_articles.append({
+                        "id": item["id"],
+                        "title": item["title"],
+                        "spider": "newshub",
+                        "url": item["url"],
+                        "_platform_name": "热点聚合 ⭐"
+                    })
+            if all_candidate_articles:
+                log.print_log(f"已从 NewsHub 拾取 {len(all_candidate_articles)} 个优质聚合话题", "info")
+        except Exception as e:
+            print(f"Hot-topics NewsHub cache error: {e}")
+
+        # 2. 如果不够，再启动跨平台爬虫抓取
+        high_authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua", "voa"]
+        if len(all_candidate_articles) < target_article_count:
+            priority_spiders = [s for s in enabled_spiders if s in high_authority_spiders]
+            normal_spiders = [s for s in enabled_spiders if s not in high_authority_spiders]
             
-            # 使用 asyncio.wait_for 为每个爬虫设置超时时间，防止单个网站卡死整个流程
-            tasks = []
-            for spider_name in batch_spiders:
-                task = asyncio.wait_for(runner.run_spider(spider_name, limit=10), timeout=15.0)
-                tasks.append(task)
+            random.shuffle(priority_spiders)
+            random.shuffle(normal_spiders)
+            sorted_spiders = priority_spiders + normal_spiders
             
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            batch_size = 5 # 每次并发启动多少个爬虫
             
-            for spider_name, result in zip(batch_spiders, results):
-                if isinstance(result, Exception):
-                    log.print_log(f"[{spider_name}] 获取超时或异常: {str(result)}", "warn")
-                    continue
-                    
-                if result and result.get("success") and result.get("saved", 0) > 0:
-                    articles = spider_data_manager.get_articles(limit=50)
-                    spider_articles = [a for a in articles if a.get("spider") == spider_name]
-                    spider_articles.sort(key=lambda x: x.get("fetch_time", ""), reverse=True)
-                    
-                    for article in spider_articles:
-                        topic = article.get("title", "")
-                        if not topic or deduplicator.is_duplicate(topic):
-                            continue
+            for i in range(0, len(sorted_spiders), batch_size):
+                batch_spiders = sorted_spiders[i:i+batch_size]
+                
+                tasks = []
+                for spider_name in batch_spiders:
+                    task = asyncio.wait_for(runner.run_spider(spider_name, limit=10), timeout=15.0)
+                    tasks.append(task)
+                
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for spider_name, result in zip(batch_spiders, results):
+                    if isinstance(result, Exception):
+                        log.print_log(f"[{spider_name}] 获取超时或异常: {str(result)}", "warn")
+                        continue
                         
-                        # 避免在本次收集中出现完全相同的标题
-                        if any(a.get("title") == topic for a in all_candidate_articles):
-                            continue
+                    if result and result.get("success") and result.get("saved", 0) > 0:
+                        articles = spider_data_manager.get_articles(limit=50)
+                        spider_articles = [a for a in articles if a.get("spider") == spider_name]
+                        spider_articles.sort(key=lambda x: x.get("fetch_time", ""), reverse=True)
+                        
+                        for article in spider_articles:
+                            topic = article.get("title", "")
+                            if not topic or deduplicator.is_duplicate(topic):
+                                continue
                             
-                        # 添加该文章所属的平台信息
-                        spider_info = runner.spiders.get(spider_name, {})
-                        article['_platform_name'] = spider_info.get("source", spider_name)
-                        all_candidate_articles.append(article)
-                        
-            # 如果这一批并发抓取后已经满足候选数量要求，就直接跳出，不用继续发请求了
-            if len(all_candidate_articles) >= target_article_count:
-                break
-                    
+                            # 避免在本次收集中出现完全相同的标题
+                            if any(a.get("title") == topic for a in all_candidate_articles):
+                                continue
+                                
+                            # 添加该文章所属的平台信息
+                            spider_info = runner.spiders.get(spider_name, {})
+                            article['_platform_name'] = spider_info.get("source", spider_name)
+                            all_candidate_articles.append(article)
+                            
+                # 如果这一批并发抓取后已经满足候选数量要求，就直接跳出，不用继续发请求了
+                if len(all_candidate_articles) >= target_article_count:
+                    break
+        
         if not all_candidate_articles:
             raise ValueError("未能获取到全新热门内容，所有抓取话题均已写过或为空，请稍后再试或手动输入")
             

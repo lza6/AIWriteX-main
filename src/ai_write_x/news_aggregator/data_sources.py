@@ -409,24 +409,86 @@ class DataSourceRegistry:
         ),
     ]
     
-    def __init__(self):
+    def __init__(self, config_path: str = "knowledge/newshub_sources.json"):
+        self.config_path = config_path
         self.sources: Dict[str, DataSource] = {}
-        self._register_default_sources()
-    
-    def _register_default_sources(self):
-        """注册默认数据源"""
+        self._load_sources()
+
+    def _load_sources(self):
+        """加载数据源（优先从文件加载，否则使用默认）"""
+        import os
+        import json
+
+        # 1. 先注册默认的
         for source in self.DEFAULT_SOURCES:
             self.sources[source.id] = source
-        log.print_log(f"[NewsHub] 已注册 {len(self.sources)} 个数据源")
-    
+
+        # 2. 尝试从文件加载覆盖/新增
+        if os.path.exists(self.config_path):
+            try:
+                with open(self.config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    for s_data in data:
+                        # 转换枚举
+                        cat = DataSourceCategory(s_data["category"])
+                        stype = DataSourceType(s_data["type"])
+                        
+                        source = DataSource(
+                            id=s_data["id"],
+                            name=s_data["name"],
+                            category=cat,
+                            type=stype,
+                            enabled=s_data.get("enabled", True),
+                            url=s_data.get("url", ""),
+                            api_endpoint=s_data.get("api_endpoint", ""),
+                            update_interval=s_data.get("update_interval", 300),
+                            priority=s_data.get("priority", 5),
+                            weight=s_data.get("weight", 1.0),
+                            config=s_data.get("config", {})
+                        )
+                        self.sources[source.id] = source
+            except Exception as e:
+                log.print_log(f"[NewsHub] 加载自定义数据源失败: {e}", "error")
+
+        log.print_log(f"[NewsHub] 已加载 {len(self.sources)} 个数据源")
+
+    def _save_sources(self):
+        """保存当前数据源到文件"""
+        import json
+        import os
+        
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+        
+        data = []
+        for s in self.sources.values():
+            data.append({
+                "id": s.id,
+                "name": s.name,
+                "category": s.category.value,
+                "type": s.type.value,
+                "enabled": s.enabled,
+                "url": s.url,
+                "api_endpoint": s.api_endpoint,
+                "update_interval": s.update_interval,
+                "priority": s.priority,
+                "weight": s.weight,
+                "config": s.config
+            })
+            
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            log.print_log(f"[NewsHub] 保存数据源失败: {e}", "error")
+
     def get_source(self, source_id: str) -> Optional[DataSource]:
         """获取数据源"""
         return self.sources.get(source_id)
-    
+
     def get_sources_by_category(self, category: DataSourceCategory) -> List[DataSource]:
         """按分类获取数据源"""
         return [s for s in self.sources.values() if s.category == category and s.enabled]
-    
+
     def get_enabled_sources(self) -> List[DataSource]:
         """获取所有启用的数据源"""
         return [s for s in self.sources.values() if s.enabled]
@@ -434,17 +496,29 @@ class DataSourceRegistry:
     def register_custom_source(self, source: DataSource):
         """注册自定义数据源"""
         self.sources[source.id] = source
+        self._save_sources()
         log.print_log(f"[NewsHub] 注册自定义数据源: {source.name}")
     
     def enable_source(self, source_id: str):
         """启用数据源"""
         if source_id in self.sources:
             self.sources[source_id].enabled = True
+            self._save_sources()
     
     def disable_source(self, source_id: str):
         """禁用数据源"""
         if source_id in self.sources:
             self.sources[source_id].enabled = False
+            self._save_sources()
+            
+    def remove_source(self, source_id: str):
+        """删除数据源"""
+        if source_id in self.sources:
+            # 只有非默认的才能删除比较好，或者允许全部删除
+            name = self.sources[source_id].name
+            del self.sources[source_id]
+            self._save_sources()
+            log.print_log(f"[NewsHub] 已删除数据源: {name}")
     
     def get_sources_info(self) -> List[Dict[str, Any]]:
         """获取所有数据源信息"""

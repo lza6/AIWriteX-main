@@ -43,28 +43,38 @@ class FinalReviewer:
             {"role": "user", "content": f"核心话题：{topic}\n\n待审文章内容：\n{content}"}
         ]
         
-        try:
-            log.print_log("[FinalReviewer] 正在请求 Chief-Editor-AI 发起文章终审评估...")
-            report = client.chat(messages=messages, temperature=0.7)
-            report = report.replace("```markdown", "").replace("```", "").strip()
-            
-            # 精确提取分数（正则匹配比纯字符串更可靠）
-            score_match = re.search(r'\[SCORE:\s*(\d+)\]', report, re.IGNORECASE)
-            score = int(score_match.group(1)) if score_match else 0
-            
-            is_pass = "[pass: true]" in report.lower()
-            # 如果AI漏了PASS标志但分数够高，容错通过
-            if not is_pass and score >= 75:
-                is_pass = True
-            # 如果分数太低，强制不通过
-            if score > 0 and score < 60:
-                is_pass = False
+        import time
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                start_time = time.time()
+                log.print_log(f"[FinalReviewer] 正在请求 Chief-Editor-AI 发起文章终审评估...(尝试 {attempt+1}/{max_retries})")
+                report = client.chat(messages=messages, temperature=0.7)
+                cost_time = time.time() - start_time
+                report = report.replace("```markdown", "").replace("```", "").strip()
                 
-            log.print_log(f"\n\n{'='*20} [AI 首席主编终审评估报告] {'='*20}\n{report}\n{'='*64}\n")
-            return {"pass": is_pass, "report": report, "score": score}
-        except Exception as e:
-            log.print_log(f"[Warning] 终审报告请求失败: {str(e)}")
-            return {"pass": True, "report": "暂无评审数据", "score": 0}
+                # 精确提取分数（正则匹配比纯字符串更可靠）
+                score_match = re.search(r'\[SCORE:\s*(\d+)\]', report, re.IGNORECASE)
+                if not score_match:
+                    # 备选正则容错：寻找末尾的"评分：85"等字样
+                    score_match = re.search(r'(?:分数|评分|得分|爆款指数).*?(\d{2,3})', report[-100:], re.IGNORECASE)
+                score = int(score_match.group(1)) if score_match else 0
+                
+                is_pass = "[pass: true]" in report.lower()
+                # 如果AI漏了PASS标志但分数够高，容错通过
+                if not is_pass and score >= 75:
+                    is_pass = True
+                # 如果分数太低，强制不通过
+                if score > 0 and score < 60:
+                    is_pass = False
+                    
+                log.print_log(f"\n\n{'='*20} [AI 首席主编终审评估报告] 耗时: {cost_time:.2f}s {'='*20}\n{report}\n{'='*64}\n")
+                return {"pass": is_pass, "report": report, "score": score}
+            except Exception as e:
+                log.print_log(f"[Warning] 终审报告请求失败(尝试 {attempt+1}/{max_retries}): {str(e)}")
+                if attempt == max_retries - 1:
+                    return {"pass": True, "report": f"暂无评审数据 (错误: {str(e)})", "score": 0}
+                time.sleep(2)
 
 
 class AlignmentChecker:
@@ -98,17 +108,24 @@ class AlignmentChecker:
             {"role": "user", "content": f"【原始文章】:\n{original_content}\n\n【打磨后文章】:\n{optimized_content}"}
         ]
         
-        try:
-            log.print_log("[AlignmentChecker] 正在请求事实核查专员进行对照审查 (Zero-Context)...")
-            report = client.chat(messages=messages, temperature=0.1)
-            report = report.replace("```markdown", "").replace("```", "").strip()
-            
-            is_aligned = "[alignment: pass]" in report.lower()
-            if "[alignment: pass]" not in report.lower() and "[alignment: fail]" not in report.lower():
-                is_aligned = True  # 宽容处理未遵从格式的情况
+        import time
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                start_time = time.time()
+                log.print_log(f"[AlignmentChecker] 正在请求事实核查专员进行对照审查 (尝试 {attempt+1}/{max_retries})...")
+                report = client.chat(messages=messages, temperature=0.1)
+                cost_time = time.time() - start_time
+                report = report.replace("```markdown", "").replace("```", "").strip()
                 
-            log.print_log(f"\n\n{'='*20} [AI 事实核对审查报告] {'='*20}\n{report}\n{'='*64}\n")
-            return {"aligned": is_aligned, "report": report}
-        except Exception as e:
-            log.print_log(f"[Warning] 事实核对请求失败: {str(e)}")
-            return {"aligned": True, "report": "无法执行核对"}
+                is_aligned = "[alignment: pass]" in report.lower()
+                if "[alignment: pass]" not in report.lower() and "[alignment: fail]" not in report.lower():
+                    is_aligned = True  # 宽容处理未遵从格式的情况
+                    
+                log.print_log(f"\n\n{'='*20} [AI 事实核对审查报告] 耗时: {cost_time:.2f}s {'='*20}\n{report}\n{'='*64}\n")
+                return {"aligned": is_aligned, "report": report}
+            except Exception as e:
+                log.print_log(f"[Warning] 事实核对请求失败(尝试 {attempt+1}/{max_retries}): {str(e)}")
+                if attempt == max_retries - 1:
+                    return {"aligned": True, "report": "无法执行核对"}
+                time.sleep(2)

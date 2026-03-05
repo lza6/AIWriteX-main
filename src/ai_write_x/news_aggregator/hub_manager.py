@@ -52,6 +52,9 @@ class NewsHubManager:
         self.aggregation_task = None
         self.callbacks = []
         
+        # 缓存路径
+        self.cache_path = "knowledge/newshub_cache.json"
+        
         log.print_log("[NewsHub] 管理器初始化完成")
     
     async def aggregate_once(self, 
@@ -149,6 +152,9 @@ class NewsHubManager:
             }
             
             log.print_log(f"[NewsHub] 聚合完成，耗时: {elapsed:.2f}s")
+            
+            # 9. 缓存结果到本地文件供其他模块共享
+            self._cache_results(result)
             
             # 触发回调
             await self._trigger_callbacks(result)
@@ -466,6 +472,51 @@ class NewsHubManager:
     def is_trending(self, keyword: str) -> bool:
         """检查关键词是否正在 trending"""
         return self.realtime_detector.is_trending(keyword)
+
+    def _cache_results(self, result: AggregationResult):
+        """缓存聚合结果到文件"""
+        import os
+        try:
+            os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
+            
+            data = {
+                "generated_at": result.generated_at.isoformat(),
+                "contents": [
+                    {
+                        "id": c.id,
+                        "title": c.title,
+                        "summary": c.summary,
+                        "url": c.metadata.get("url", ""),
+                        "source": c.metadata.get("source", "热点聚合"),
+                        "score": c.score.overall,
+                        "keywords": c.keywords,
+                        "published_at": c.metadata.get("published_at", datetime.now()).isoformat() if isinstance(c.metadata.get("published_at"), datetime) else str(c.metadata.get("published_at"))
+                    }
+                    for c in result.contents
+                ],
+                "trends": [
+                    {"keyword": t.keyword, "score": t.hot_score}
+                    for t in result.trends.top_trends
+                ]
+            }
+            
+            with open(self.cache_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            log.print_log(f"[NewsHub] 缓存结果失败: {e}", "error")
+
+    def get_cached_news(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """从缓存加载最近的新闻"""
+        import os
+        if not os.path.exists(self.cache_path):
+            return []
+            
+        try:
+            with open(self.cache_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("contents", [])[:limit]
+        except Exception as e:
+            return []
 
 
 # 便捷函数

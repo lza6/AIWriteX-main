@@ -27,3 +27,6 @@ websocket-client>=1.6.0
 lxml
 chardet
 asyncpg
+feedparser>=6.0.0
+psutil>=5.9.0
+playwright>=1.40.0

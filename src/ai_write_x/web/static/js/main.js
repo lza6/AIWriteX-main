@@ -1,7 +1,50 @@
 /**    
- * AIWriteX 主应用类    
- * 职责:应用初始化、视图路由、全局通知    
+ * AIWriteX 主应用类 (V3增强)    
+ * 职责:应用初始化、视图路由、全局通知(V3队列化)、键盘快捷键    
  */
+
+// V3: 通用防抖/节流工具（供全局使用）
+function debounce(fn, delay = 300) {
+    let timer;
+    return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+function throttle(fn, interval = 1000) {
+    let lastTime = 0;
+    return function (...args) {
+        const now = Date.now();
+        if (now - lastTime >= interval) {
+            lastTime = now;
+            fn.apply(this, args);
+        }
+    };
+}
+
+// V3: 骨架屏加载系统
+function showSkeleton(container) {
+    if (!container) return;
+    const skeleton = document.createElement('div');
+    skeleton.className = 'skeleton-container';
+    skeleton.innerHTML = `
+        <div class="skeleton-line" style="width:90%"></div>
+        <div class="skeleton-line" style="width:75%"></div>
+        <div class="skeleton-line" style="width:85%"></div>
+        <div class="skeleton-line short" style="width:60%"></div>
+    `;
+    container.appendChild(skeleton);
+}
+
+function hideSkeleton(container) {
+    if (!container) return;
+    const skeleton = container.querySelector('.skeleton-container');
+    if (skeleton) {
+        skeleton.classList.add('skeleton-fade-out');
+        setTimeout(() => skeleton.remove(), 300);
+    }
+}
 class AIWriteXApp {
     constructor() {
         this.currentView = 'creative-workshop';
@@ -51,6 +94,7 @@ class AIWriteXApp {
         this.setupNavigation();
         this.showView(this.currentView);
         this.setupResizeListener();
+        this._setupKeyboardShortcuts();  // V3: 初始化键盘快捷键
         new UpdateChecker();
     }
 
@@ -208,6 +252,11 @@ class AIWriteXApp {
                     window.newshubManager.init();
                 }
                 break;
+            case 'scheduler':
+                if (window.schedulerManager && typeof window.schedulerManager.init === 'function') {
+                    window.schedulerManager.init();
+                }
+                break;
         }
     }
 
@@ -250,25 +299,131 @@ class AIWriteXApp {
         }
     }
 
-    // ========== 全局通知系统 ==========    
+    // ========== V3: 通知系统重构（队列化 + 去重 + 优先级） ==========
+    _notificationQueue = [];
+    _activeNotifications = [];
+    _maxVisible = 3;
+    _lastNotifications = {};  // type -> {message, timestamp}
+
     showNotification(message, type = 'info') {
+        // V3: 同类型2秒内去重
+        const now = Date.now();
+        const lastKey = `${type}:${message}`;
+        if (this._lastNotifications[lastKey] && (now - this._lastNotifications[lastKey]) < 2000) {
+            return;
+        }
+        this._lastNotifications[lastKey] = now;
+
+        // V3: 优先级排序 (error=4, warning=3, success=2, info=1)
+        const priorityMap = { error: 4, warning: 3, success: 2, info: 1 };
+        const priority = priorityMap[type] || 1;
+
+        // V3: 差异化自动消失时间
+        const durationMap = { error: 8000, warning: 5000, success: 3000, info: 3000 };
+        const duration = durationMap[type] || 3000;
+
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.innerHTML = `    
-            <div class="notification-content">    
-                <span>${message}</span>    
-                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>    
-            </div>    
+        notification.dataset.priority = priority;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <span>${message}</span>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove(); window.app?._onNotificationRemoved();">×</button>
+            </div>
         `;
 
-        document.body.appendChild(notification);
+        // V3: 如果已达最大显示数，先移除最低优先级的
+        if (this._activeNotifications.length >= this._maxVisible) {
+            const lowest = this._activeNotifications.reduce((min, n) =>
+                parseInt(n.dataset.priority) < parseInt(min.dataset.priority) ? n : min
+            );
+            lowest.remove();
+            this._activeNotifications = this._activeNotifications.filter(n => n !== lowest);
+        }
 
-        // 3秒后自动移除    
+        document.body.appendChild(notification);
+        this._activeNotifications.push(notification);
+
+        // 自动移除
         setTimeout(() => {
             if (notification.parentElement) {
-                notification.remove();
+                notification.classList.add('notification-fade-out');
+                setTimeout(() => {
+                    notification.remove();
+                    this._onNotificationRemoved();
+                }, 300);
             }
-        }, 3000);
+        }, duration);
+    }
+
+    _onNotificationRemoved() {
+        this._activeNotifications = this._activeNotifications.filter(n => n.parentElement);
+    }
+
+    // ========== V3: 全局键盘快捷键系统 ==========
+    _setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // 忽略输入框中的快捷键
+            const tag = e.target.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+                // 只拦截 Ctrl+S 保存
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    this._shortcutSaveConfig();
+                }
+                return;
+            }
+
+            if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+                switch (e.key) {
+                    case 'Enter':  // Ctrl+Enter: 开始/停止生成
+                        e.preventDefault();
+                        this._shortcutToggleGenerate();
+                        break;
+                    case 's':  // Ctrl+S: 保存配置
+                        e.preventDefault();
+                        this._shortcutSaveConfig();
+                        break;
+                    case 'd':  // Ctrl+D: 切换主题
+                        e.preventDefault();
+                        if (window.themeManager) window.themeManager.toggleTheme();
+                        break;
+                    case '1': case '2': case '3': case '4': case '5':  // Ctrl+1~5: 切换面板
+                        e.preventDefault();
+                        this._shortcutSwitchPanel(parseInt(e.key));
+                        break;
+                }
+            }
+        });
+    }
+
+    _shortcutToggleGenerate() {
+        const startBtn = document.querySelector('.start-btn, #start-generate-btn');
+        const stopBtn = document.querySelector('.stop-btn, #stop-generate-btn');
+        if (stopBtn && stopBtn.offsetParent) {
+            stopBtn.click();
+        } else if (startBtn) {
+            startBtn.click();
+        }
+    }
+
+    _shortcutSaveConfig() {
+        if (window.configManager && typeof window.configManager.saveConfig === 'function') {
+            window.configManager.saveConfig();
+            this.showNotification('⌨️ 配置已保存 (Ctrl+S)', 'success');
+        }
+    }
+
+    _shortcutSwitchPanel(panelNum) {
+        const viewMap = {
+            1: 'creative-workshop',
+            2: 'article-manager',
+            3: 'template-manager',
+            4: 'spider-manager',
+            5: 'config-manager'
+        };
+        const view = viewMap[panelNum];
+        if (view) this.showView(view);
     }
 
     // ========== 预览面板控制 ==========    
@@ -281,6 +436,51 @@ class AIWriteXApp {
     hidePreview() {
         if (window.previewPanelManager) {
             window.previewPanelManager.hide();
+        }
+    }
+
+    // ========== V5: 前端体验进阶 ==========
+    playSuccessSound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            oscillator.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1); // C6
+
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.3);
+        } catch (e) { console.warn('Audio playback failed', e); }
+    }
+
+    trackPerformance(action, params = {}) {
+        if (window.performance && performance.mark && performance.measure) {
+            performance.mark(`${action}_mark`);
+            console.debug(`[Perf] Action: ${action}`, params);
+        }
+    }
+
+    triggerCelebration() {
+        const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        for (let i = 0; i < 40; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'v5-confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+            confetti.style.animationDelay = (Math.random() * 0.5) + 's';
+            document.body.appendChild(confetti);
+
+            setTimeout(() => confetti.remove(), 4000);
         }
     }
 }

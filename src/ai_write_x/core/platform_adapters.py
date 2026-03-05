@@ -8,6 +8,11 @@ from src.ai_write_x.tools.wx_publisher import pub2wx
 from src.ai_write_x.core.base_framework import ContentResult
 from src.ai_write_x.utils import utils
 
+from src.ai_write_x.tools.publishers.toutiao_publisher import ToutiaoPublisher
+from src.ai_write_x.tools.publishers.xiaohongshu_publisher import XiaohongshuPublisher
+from src.ai_write_x.tools.publishers.zhihu_publisher import ZhihuPublisher
+from src.ai_write_x.tools.publishers.baijiahao_publisher import BaijiahaoPublisher
+
 
 class PlatformType(Enum):
     """统一的平台类型定义"""
@@ -302,14 +307,29 @@ class XiaohongshuAdapter(PlatformAdapter):
         }
 
     def publish_content(self, content_result: ContentResult, **kwargs) -> PublishResult:
-        """小红书发布（待开发）"""
-        # 未来实现时,也会调用 self.save_publish_record()
-        return PublishResult(
-            success=False,
-            message="小红书发布功能待开发",
-            platform_id=PlatformType.XIAOHONGSHU.value,
-            error_code="NOT_IMPLEMENTED",
-        )
+        """小红书发布"""
+        try:
+            publisher = XiaohongshuPublisher(headless=False) # 可以选择有头或无头
+            # TODO: 获取images路径传入
+            success, msg = publisher.publish(
+                title=content_result.title,
+                content=self.format_content(content_result, **kwargs),
+                images=kwargs.get("images", [])
+            )
+            
+            return PublishResult(
+                success=success,
+                message=msg,
+                platform_id=PlatformType.XIAOHONGSHU.value,
+                error_code=None if success else "PUBLISH_FAILED",
+            )
+        except Exception as e:
+            return PublishResult(
+                success=False,
+                message=str(e),
+                platform_id=PlatformType.XIAOHONGSHU.value,
+                error_code="EXCEPTION",
+            )
 
 
 class DouyinAdapter(PlatformAdapter):
@@ -413,13 +433,28 @@ class ToutiaoAdapter(PlatformAdapter):
         }
 
     def publish_content(self, content_result: ContentResult, **kwargs) -> PublishResult:
-        """今日头条发布（待开发）"""
-        return PublishResult(
-            success=False,
-            message="今日头条发布功能待开发 - 需要接入头条号开放平台API",
-            platform_id=PlatformType.TOUTIAO.value,
-            error_code="NOT_IMPLEMENTED",
-        )
+        """今日头条发布"""
+        try:
+            publisher = ToutiaoPublisher(headless=False)
+            success, msg = publisher.publish(
+                title=content_result.title,
+                content=self.format_content(content_result, **kwargs),
+                images=kwargs.get("images", [])
+            )
+            
+            return PublishResult(
+                success=success,
+                message=msg,
+                platform_id=PlatformType.TOUTIAO.value,
+                error_code=None if success else "PUBLISH_FAILED",
+            )
+        except Exception as e:
+            return PublishResult(
+                success=False,
+                message=str(e),
+                platform_id=PlatformType.TOUTIAO.value,
+                error_code="EXCEPTION",
+            )
 
 
 class BaijiahaoAdapter(PlatformAdapter):
@@ -505,13 +540,28 @@ class BaijiahaoAdapter(PlatformAdapter):
         }
 
     def publish_content(self, content_result: ContentResult, **kwargs) -> PublishResult:
-        """百家号发布（待开发）"""
-        return PublishResult(
-            success=False,
-            message="百家号发布功能待开发 - 需要接入百度百家号API",
-            platform_id=PlatformType.BAIJIAHAO.value,
-            error_code="NOT_IMPLEMENTED",
-        )
+        """百家号发布"""
+        try:
+            publisher = BaijiahaoPublisher(headless=False)
+            success, msg = publisher.publish(
+                title=content_result.title,
+                content=self.format_content(content_result, **kwargs),
+                images=kwargs.get("images", [])
+            )
+            
+            return PublishResult(
+                success=success,
+                message=msg,
+                platform_id=PlatformType.BAIJIAHAO.value,
+                error_code=None if success else "PUBLISH_FAILED",
+            )
+        except Exception as e:
+            return PublishResult(
+                success=False,
+                message=str(e),
+                platform_id=PlatformType.BAIJIAHAO.value,
+                error_code="EXCEPTION",
+            )
 
 
 class ZhihuAdapter(PlatformAdapter):
@@ -573,13 +623,28 @@ class ZhihuAdapter(PlatformAdapter):
         }
 
     def publish_content(self, content_result: ContentResult, **kwargs) -> PublishResult:
-        """知乎发布（待开发）"""
-        return PublishResult(
-            success=False,
-            message="知乎发布功能待开发 - 需要接入知乎API或使用浏览器自动化",
-            platform_id=PlatformType.ZHIHU.value,
-            error_code="NOT_IMPLEMENTED",
-        )
+        """知乎发布"""
+        try:
+            publisher = ZhihuPublisher(headless=False)
+            success, msg = publisher.publish(
+                title=content_result.title,
+                content=self.format_content(content_result, **kwargs),
+                images=kwargs.get("images", [])
+            )
+            
+            return PublishResult(
+                success=success,
+                message=msg,
+                platform_id=PlatformType.ZHIHU.value,
+                error_code=None if success else "PUBLISH_FAILED",
+            )
+        except Exception as e:
+            return PublishResult(
+                success=False,
+                message=str(e),
+                platform_id=PlatformType.ZHIHU.value,
+                error_code="EXCEPTION",
+            )
 
 
 class DoubanAdapter(PlatformAdapter):

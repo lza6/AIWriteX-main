@@ -81,16 +81,32 @@ class UnifiedContentWorkflow:
             "2. 绝对去水印去废话（De-watermark）：全面封杀AI常用套话（如“总而言之”、“在这个飞速发展的时代”、“让人不禁思考”、“综上所述”等大词空话）。不要居高临下的总结陈词！每一句话都要有极高的信息密度。\n"
         )
         
-        # V3: 全景记忆系统 - 获取防止长线同质化重复的上下文
+        # V3 & V6: 全景记忆系统与 RAG 经验检索
         try:
             from src.ai_write_x.core.memory_manager import MemoryManager
-            memory_context = MemoryManager().get_similarity_context(topic)
+            _topic = kwargs.get("topic", "")
+            memory_manager = MemoryManager()
+            memory_context = memory_manager.get_similarity_context(_topic) if _topic else ""
+            
+            # V6: 读取长期经验教训
+            rag_context = memory_manager.get_rag_context()
+            if rag_context:
+                memory_context += "\n" + rag_context
         except Exception as e:
             lg.print_log(f"读取记忆库失败: {e}", "warning")
             memory_context = ""
         
+        # V6: Prompt Persona 骨架引入
+        persona_framework = (
+            "【V6 创作者人设骨架 (Persona Framework)】：\n"
+            "设定：你现在不是一个AI助手，而是一个拥有十年爆款经验、文字极为犀利、逻辑严密且带有一点幽默感的'资深主编'。\n"
+            "语气：自信、一针见血、偶尔巧妙自嘲。你不喜欢冰冷说教，必须用极其精炼的口语化短句和生动的比喻来阐述复杂事实。\n"
+            "规则：绝对禁止使用任何典型的AI起手式和客服式机器人语气（例如'总而言之'、'在这个飞速发展的时代'、'综上所述'）。\n"
+        )
+        
         if reference_content:
-            writer_des = f"""{date_context}
+            writer_des = f"""{persona_framework}
+{date_context}
 {value_extraction_rules}
 {memory_context}
 
@@ -119,7 +135,8 @@ class UnifiedContentWorkflow:
 - 格式：标准Markdown格式（且必须大量使用强视觉高亮：加粗、引用区块）。
 - **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。"""
         else:
-            writer_des = f"""{date_context}
+            writer_des = f"""{persona_framework}
+{date_context}
 {value_extraction_rules}
 {memory_context}
 
@@ -213,44 +230,81 @@ class UnifiedContentWorkflow:
                 results = step["content"]
         return results
 
+    # V4: 每阶段最大允许时长（秒）
+    STAGE_TIMEOUT = {
+        "INIT": 300,       # 5分钟 — 深度洞察
+        "CREATIVE": 120,   # 2分钟 — 创意蓝图
+        "WRITING": 60,     # 1分钟 — 大师撰稿（已在Step1完成，这里只取用）
+        "REVIEW": 600,     # 10分钟 — 打磨重塑（含多轮反思）
+        "VISUAL": 900,     # 15分钟 — 视觉美化（含 ComfyUI 生图，6张图约需8-10分钟）
+        "SAVE": 30,        # 30秒 — 持久化
+        "COMPLETE": 120,   # 2分钟 — 发布交付
+    }
+
+    def _check_stage_timeout(self, stage_name: str, stage_start: float):
+        """V4: 检查当前阶段是否超时"""
+        elapsed = time.time() - stage_start
+        max_time = self.STAGE_TIMEOUT.get(stage_name, 300)
+        if elapsed > max_time:
+            raise TimeoutError(f"阶段 [{stage_name}] 超时: 已耗时 {elapsed:.0f}秒 (上限 {max_time}秒)")
+
+    @staticmethod
+    def _assert_content(content_str: str, stage: str):
+        """V4: 内容断言 — 确保生成内容符合最低质量标准"""
+        if not content_str or not content_str.strip():
+            raise ValueError(f"V4断言失败 [{stage}]: 内容为空")
+        clean = content_str.strip()
+        if len(clean) < 100:
+            raise ValueError(f"V4断言失败 [{stage}]: 内容过短 ({len(clean)}字 < 100字下限)")
+
     def execute_stepwise(self, topic: str, **kwargs):
-        """核心 7 阶 Agent 驱动工作流 (Generator)"""
+        """V4: 核心 7 阶 Agent 驱动工作流 (Generator) — 增加超时保护、内容断言、细粒度进度"""
         start_time = time.time()
         success = False
         config = Config.get_instance()
-        publish_platform = config.publish_platform
+        # 优先从 kwargs 获取，如果没有则从配置获取
+        publish_platform = kwargs.get("publish_platform", config.publish_platform)
+        # 统一存入 kwargs 供子流程使用
+        kwargs["publish_platform"] = publish_platform
+        
+        quality_score = None  # V4: 用于记忆库质量反馈
         
         try:
             # --- Step 1: Deep Insight Agent (深度洞察) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:INIT:START]"}
             yield {"type": "log", "message": "🧠 Agent Step 1: 正在深度解构话题语境并检索核心事实..."}
-            # 基础内容生成前的分析
             base_content = self._generate_base_content(
-                topic, publish_platform=publish_platform, **kwargs
+                topic, **kwargs
             )
-            yield {"type": "log", "message": "✅ 话题深度分析完成，已锁定 3-5 个核心观察维度"}
+            self._check_stage_timeout("INIT", stage_start)
+            self._assert_content(base_content.content, "Step1-深度洞察")
+            yield {"type": "log", "message": f"✅ 话题深度分析完成 ({time.time()-stage_start:.1f}s)，已锁定 3-5 个核心观察维度"}
             yield {"type": "progress", "message": "[PROGRESS:INIT:END]"}
             
             # --- Step 2: Creative Blueprint Agent (创意蓝图) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:CREATIVE:START]"}
             yield {"type": "log", "message": "🎨 Agent Step 2: 正在构建维度化创意蓝图与情感锚点..."}
             final_content = self._apply_dimensional_creative_transformation(base_content, **kwargs)
+            self._check_stage_timeout("CREATIVE", stage_start)
             yield {"type": "log", "message": "✨ 创意框架已落定：已注入差异化认知角度"}
             yield {"type": "progress", "message": "[PROGRESS:CREATIVE:END]"}
             
             # --- Step 3: Master Drafting Agent (大师撰稿) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:WRITING:START]"}
             yield {"type": "log", "message": "✍️ Agent Step 3: 首席撰稿手正在进行高感知度正文创作..."}
-            # 模拟流式输出效果 (如果 content 较大，可以分块 yield)
             yield {"type": "chunk", "message": final_content.content}
-            yield {"type": "log", "message": f"📝 初稿已生成 (约 {len(final_content.content)} 字)"}
+            self._assert_content(final_content.content, "Step3-大师撰稿")
+            yield {"type": "log", "message": f"📝 初稿已生成 (约 {len(final_content.content)} 字, V4断言通过)"}
             yield {"type": "progress", "message": "[PROGRESS:WRITING:END]"}
             
             # --- Step 4: Reflexion & Polish Agent (打磨重塑) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:REVIEW:START]"}
             yield {"type": "log", "message": "💎 Agent Step 4: 正在进行语境打磨、去 AI 化处理及深度优化..."}
             
-            # 这里注入原本在 ContentGenerationEngine 中的打磨逻辑
             from src.ai_write_x.core.final_reviewer import FinalReviewer
             from src.ai_write_x.core.llm_client import LLMClient
             from src.ai_write_x.core.anti_ai import AntiAIEngine
@@ -261,11 +315,26 @@ class UnifiedContentWorkflow:
             anchor_result_str = result_str
             
             while iteration < max_reflections:
+                self._check_stage_timeout("REVIEW", stage_start)  # V4: 超时检查
+                yield {"type": "log", "message": f"🔍 Reflexion Round {iteration+1}/{max_reflections}: 评估中..."}
                 review_result = FinalReviewer.assess_quality(result_str, {"topic": topic})
                 if review_result.get("pass", True):
+                    yield {"type": "log", "message": f"✅ Reflexion Round {iteration+1}: 质量达标，跳过优化"}
                     break
                     
                 lg.print_log(f"[Reflexion] 正在启动第 {iteration+1} 轮深度打磨优化...")
+                
+                # V6: 将被打回的关键原因记录到潜意识经验库 (RAG)
+                try:
+                    from src.ai_write_x.core.memory_manager import MemoryManager
+                    report_text = review_result.get('report', '')
+                    if report_text and len(report_text) > 10:
+                        lesson = f"曾经在写标题为'{title if 'title' in locals() else topic}'时犯错: {report_text[:200]}..."
+                        MemoryManager().save_rag_lesson(lesson)
+                        yield {"type": "log", "message": f"🧠 已将本次失败教训写入 RAG 潜意识库"}
+                except Exception as e:
+                    pass
+
                 client = LLMClient()
                 messages = [
                     {"role": "system", "content": "你是一位资深内容专家。根据反馈优化文章，保持事实准确，字数稳定。\n\n【关键前提】：这篇文章的素材来源于采编团队从央视、腾讯新闻、新浪等官方新闻平台实时爬取的真实新闻。文中的事件、人物、数据均为真实信息。审查反馈中如果提到\"虚构\"\"捏造\"\"假新闻\"等评价，请忽略该部分反馈，因为那是审查AI的误判。你只需要关注写作质量方面的有效反馈。\n\n优化要求：1. 严禁删除或修改任何形式的图片占位符（如 [图片解析:] 或 V-SCENE）；2. 必须保留并刻意增强粗体 `**重点**`、小标题和引用块 `> 金句` 等高密度视觉排版，始终保持干脆利落的短句分段呼吸感。直接输出正文内容。"},
@@ -273,40 +342,62 @@ class UnifiedContentWorkflow:
                 ]
                 
                 new_version = ""
-                # 使用 stream_chat 保持 UI 活性
                 for chunk in client.stream_chat(messages=messages):
                     if chunk:
                         new_version += chunk
                 
                 result_str = utils.remove_code_blocks(new_version)
                 iteration += 1
+                yield {"type": "log", "message": f"📝 Reflexion Round {iteration}: 优化完成"}
             
-            # 统一执行一次抗AI粉碎 (放在注入图片前，避免损坏标签)
+            # 统一执行一次抗AI粉碎
             result_str = AntiAIEngine.pulverize(result_str)
             final_content.content = result_str
             
-            yield {"type": "log", "message": "🖋️ 完成人类感重塑：强化阅读呼吸感与抗 AI 特征注入"}
+            # V4: 进行质量评估以获得分数
+            try:
+                from src.ai_write_x.core.quality_engine import ContentQualityEngine
+                qe = ContentQualityEngine()
+                qa_result = qe.analyze_content(result_str)
+                quality_score = qa_result.overall_score / 20.0  # 转为 0-5 分
+                yield {"type": "log", "message": f"📊 V4质量评估: 综合分 {qa_result.overall_score}, AI检测 {qa_result.ai_detection_score}"}
+            except Exception as qe_err:
+                lg.print_log(f"V4质量评估跳过: {qe_err}", "warning")
+            
+            yield {"type": "log", "message": f"🖋️ 完成人类感重塑 ({time.time()-stage_start:.1f}s)：强化阅读呼吸感与抗 AI 特征注入"}
             yield {"type": "progress", "message": "[PROGRESS:REVIEW:END]"}
 
             # --- Step 5: Visual & Template Agent (视觉与排版美化) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:VISUAL:START]"}
             yield {"type": "log", "message": "📸 Agent Step 5: 正在进行视觉美化、注入图像占位符及 HTML 适配..."}
             
-            # 1. 注入图像占位符 (在打磨好的纯净内容上注入)
             from src.ai_write_x.core.visual_assets import VisualAssetsManager
             final_content.content = VisualAssetsManager.inject_image_prompts(final_content.content)
+            yield {"type": "log", "message": "🖼️ 图像占位符已注入，正在进行模板转换..."}
             
-            # 2. 进行模板分发转换 (HTML 渲染)
-            transform_content = self._transform_content(final_content, publish_platform, **kwargs)
+            # _transform_content 已经接收 publish_platform 作为参数，kwargs 中不应包含它
+            transform_kwargs = kwargs.copy()
+            if "publish_platform" in transform_kwargs:
+                del transform_kwargs["publish_platform"]
             
-            # 3. 触发真实生图 (现在这里是安全的，因为内容已经稳定且带有了正确的图片提示词)
+            transform_content = self._transform_content(final_content, publish_platform, **transform_kwargs)
+            yield {"type": "log", "message": "📐 HTML 模板转换完成，正在触发实际生图..."}
+            
             transform_content.content = VisualAssetsManager.sync_trigger_image_generation(transform_content.content)
             
+            # V4: VISUAL 阶段用软警告而非硬超时 — 图片已生成完毕时不应丢弃成果
+            visual_elapsed = time.time() - stage_start
+            visual_max = self.STAGE_TIMEOUT.get("VISUAL", 900)
+            if visual_elapsed > visual_max:
+                yield {"type": "log", "message": f"⚠️ VISUAL 阶段耗时 {visual_elapsed:.0f}s 超出预期 ({visual_max}s)，但图片已生成成功，继续保存"}
+            
             yield {"type": "chunk", "message": transform_content.content} 
-            yield {"type": "log", "message": "🖼️ 视觉资产已同步：封面图与正文配图已就绪"}
+            yield {"type": "log", "message": f"🖼️ 视觉资产已同步 ({time.time()-stage_start:.1f}s)：封面图与正文配图已就绪"}
             yield {"type": "progress", "message": "[PROGRESS:VISUAL:END]"}
             
             # --- Step 6: Persistence & Orchestration Agent (持久化管理) ---
+            stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:SAVE:START]"}
             yield {"type": "log", "message": "💾 Agent Step 6: 正在将灵感编码并安全存储至本地知识库..."}
             title = kwargs.get("title", topic)
@@ -319,11 +410,11 @@ class UnifiedContentWorkflow:
                 yield {"type": "log", "message": f"📁 存储成功：文章已归档至 `{os.path.basename(article_path)}`"}
             yield {"type": "progress", "message": "[PROGRESS:SAVE:END]"}
             
-            # V3: 成功后将话题写入全景记忆库
+            # V4: 成功后将话题写入全景记忆库（含质量反馈分数）
             try:
                 from src.ai_write_x.core.memory_manager import MemoryManager
-                MemoryManager().add_topic(topic)
-                yield {"type": "log", "message": "🧠 全景记忆库已更新当前话题特征"}
+                MemoryManager().add_topic(topic, quality_score=quality_score)
+                yield {"type": "log", "message": f"🧠 全景记忆库已更新当前话题特征 (质量反馈: {quality_score:.1f}/5.0)" if quality_score else "🧠 全景记忆库已更新当前话题特征"}
             except Exception as e:
                 self.monitor.log_error("unified_workflow", f"写入记忆库失败: {e}", {"topic": topic})
 
@@ -335,11 +426,18 @@ class UnifiedContentWorkflow:
             if self._should_publish():
                 yield {"type": "log", "message": "📤 正在自动同步并发布至平台..."}
                 transform_content.title = final_title
+                
+                # _publish_content 已经接收 publish_platform 作为参数，kwargs 中不应包含它
+                publish_kwargs = kwargs.copy()
+                if "publish_platform" in publish_kwargs:
+                    del publish_kwargs["publish_platform"]
+                    
                 publish_result = self._publish_content(
-                    transform_content, publish_platform, **kwargs
+                    transform_content, publish_platform, **publish_kwargs
                 )
                 yield {"type": "log", "message": f"🚀 发布任务已下发：{publish_result.get('message')}"}
             
+            total_duration = time.time() - start_time
             success = True
             results = {
                 "base_content": base_content,
@@ -347,11 +445,18 @@ class UnifiedContentWorkflow:
                 "formatted_content": transform_content.content,
                 "save_result": save_result,
                 "publish_result": publish_result,
+                "quality_score": quality_score,
+                "total_duration": round(total_duration, 1),
                 "success": True,
             }
+            yield {"type": "log", "message": f"⏱️ V4工作流总耗时: {total_duration:.1f}秒"}
             yield {"type": "final_results", "content": results}
             yield {"type": "done"}
 
+        except TimeoutError as te:
+            self.monitor.log_error("unified_workflow", f"V4阶段超时: {te}", {"topic": topic})
+            yield {"type": "log", "message": f"⏰ V4超时保护触发: {str(te)}"}
+            raise
         except Exception as e:
             self.monitor.log_error("unified_workflow", str(e), {"topic": topic})
             yield {"type": "log", "message": f"❌ Agent 遭遇异常中断: {str(e)}"}

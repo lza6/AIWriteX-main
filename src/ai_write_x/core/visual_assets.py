@@ -52,8 +52,10 @@ class VisualAssetsManager:
 
         # 艺术化动态策略：从“机械字数配给”转向“叙事呼吸感分析”
         content_len = len(markdown_text)
-        # 仅作为安全底线，不直接喂给 AI，而是内置在提示词规则中
-        safe_min = 2 if content_len < 1000 else 3
+        # 根据字数动态约束图片数量区间
+        safe_min = max(2, content_len // 800)
+        safe_max = max(3, content_len // 400)
+        if safe_max > 12: safe_max = 12 # 硬上限，防止过度生成
         
         system_prompt = f'''你是一位具有顶级审美和叙事节奏感的视觉总监。
 你的任务是深度分析文章的“叙事张力(Tension)”与“信息密度(Density)”，自主决定配图位置。
@@ -65,7 +67,7 @@ class VisualAssetsManager:
 3. **情感爆发点**：极具感染力的描写或金句出现时，用强视觉冲击力的图片锚定情感。
 
 ## 约束准则
-- **配图底线**：根据本文内容量，正文建议插图 **不少于 {safe_min} 张**。
+- **数量限制**：根据本文内容量，正文插图数量必须在 **{safe_min} 到 {safe_max} 张之间**，绝不可过多（导致排版杂乱）或过少。
 - **首图强制**：首段（或引言）后必须插入 2.35:1 的封面大图。
 - **构图多样性**：禁止单一比例。16:9 适合全景，3:4 适合人物/特写，4:3 适合标准叙事。
 - **提示词艺术**：输出专业级 Midjourney 英文提示词，并在末尾附上简短中文说明。
@@ -84,7 +86,7 @@ class VisualAssetsManager:
         try:
             lg.print_log("[PROGRESS:VISUAL:START]", "internal")
             lg.print_log(f"[PROGRESS:VISUAL:DETAIL] 模型: {client.current_model}<br>模式: 叙事呼吸感分析", "internal")
-            lg.print_log(f"[VisualAssets] 🧠 正在分析全文信息密度与叙事节奏 (保障正文不少于 {safe_min} 张图)...")
+            lg.print_log(f"[VisualAssets] 🧠 正在分析全文信息密度与叙事节奏 (智能限制 {safe_min}-{safe_max} 张图)...")
             lg.print_log("[VisualAssets] 正在测算“视觉缓冲区”并植入绘画提示词...")
             
             heartbeat = HeartbeatLogger(interval=8.0)
@@ -316,7 +318,8 @@ class VisualAssetsManager:
                                 if is_modelscope:
                                     poll_headers["X-ModelScope-Task-Type"] = "image_generation"
                                     
-                                for _ in range(20):
+                                # V5: 兼容工作流的超长生成时间，轮询次数由 20 提高到 150 次 (约 7-8 分钟超时)
+                                for poll_idx in range(150):
                                     time.sleep(3)
                                     task_res = req_lib.get(task_url, headers=poll_headers, timeout=10)
                                     t_json = task_res.json()
@@ -614,6 +617,15 @@ class VisualAssetsManager:
         try:
             lg.print_log(f"开始自动修复文章图片: {article_path_str}", "info")
             content = file_path.read_text(encoding="utf-8")
+            
+            # V4: 短路检测 — 如果工作流 Step 5 已经完成了所有图片替换，直接跳过
+            has_vscene = bool(re.search(r'\[\[V-SCENE:', content))
+            has_img_prompt = bool(re.search(r'\[(?:IMG_PROMPT|图片解析)[:：]', content))
+            has_empty_placeholder = bool(re.search(r'<div[^>]*class="img-placeholder"[^>]*>(?!.*data-img-prompt)', content))
+            
+            if not has_vscene and not has_img_prompt and not has_empty_placeholder:
+                lg.print_log(f"[VisualAssets] 文章 {file_path.name} 中无未替换的占位符，跳过自动补图 ✅", "success")
+                return {"status": "skipped", "message": "所有图片占位符已在工作流中替换完毕"}
             
             # 1. 扫描是否已有提示词 (避免对已包含 prompts 的 HTML 重复注入)
             # 如果文章已经有提示词标记（[IMG_PROMPT]）或者 placeholder 已包含数据属性，说明 LLM 已经完成了分析

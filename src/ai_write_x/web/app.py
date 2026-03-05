@@ -12,6 +12,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
 
+import uuid
+import psutil
+import threading
 import uvicorn
 
 from src.ai_write_x.version import get_version
@@ -33,6 +36,7 @@ from .api.quality import router as quality_router
 from .api.knowledge import router as knowledge_router
 from .api.mcp import router as mcp_router
 from .api.newshub import router as newshub_router
+from .api.scheduler import router as scheduler_router
 
 # 添加全局状态
 app_shutdown_event = asyncio.Event()
@@ -63,6 +67,39 @@ async def lifespan(app: FastAPI):
         from src.ai_write_x.core.scavenger import ScavengerEngine
         app_state.scavenger = ScavengerEngine()
         asyncio.create_task(app_state.scavenger.start_daemon())
+        
+        # 启动定时任务调度服务 (V6 Scheduler)
+        from src.ai_write_x.core.scheduler import scheduler_service
+        scheduler_service.start()
+        
+        # V6: 控制台大盘历史沉淀数据看板
+        try:
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.table import Table
+            from src.ai_write_x.database.db_manager import db_manager
+            
+            stats = db_manager.get_system_stats()
+            console = Console()
+            
+            table = Table(show_header=False, box=None)
+            table.add_column("Metric", style="cyan", justify="right")
+            table.add_column("Value", style="bold magenta")
+            table.add_row("🚀 总收录话题 (Topics):", str(stats.get("total_topics", 0)))
+            table.add_row("📚 沉淀自研文章 (Articles):", str(stats.get("total_articles", 0)))
+            table.add_row("🧠 AI 长期记忆总计 (Memories):", str(stats.get("total_memories", 0)))
+            table.add_row("⚠️ P0级失败血泪教训 (Lessons):", str(stats.get("lessons_learned", 0)))
+            
+            panel = Panel(
+                table,
+                title=f"[bold green]AIWriteX V{get_version()} Core Dash[/bold green]",
+                subtitle="[italic]Powered by Phase 4 UI Engine[/italic]",
+                border_style="deep_sky_blue1",
+                expand=False
+            )
+            console.print(panel)
+        except Exception as dash_err:
+            log.print_log(f"控制台看板渲染失败: {dash_err}", "warning")
 
     except Exception as e:
         log.print_log(f"Web服务启动失败: {str(e)}", "error")
@@ -115,10 +152,43 @@ app.include_router(quality_router)
 app.include_router(knowledge_router)
 app.include_router(mcp_router)
 app.include_router(newshub_router)
+app.include_router(scheduler_router)
 
 
 # 全局允许的客户端令牌集合
 allowed_tokens = set()
+
+@app.middleware("http")
+async def structured_request_logging(request: Request, call_next):
+    req_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+    
+    # 增加 req_id 到 state
+    request.state.req_id = req_id
+    
+    try:
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = f"{process_time:.3f}"
+        response.headers["X-Request-ID"] = req_id
+        
+        path = request.url.path
+        if not path.startswith("/static") and not path.startswith("/images"):
+            from src.ai_write_x.utils import log
+            msg = f"[REQ:{req_id}] {request.method} {path} | Status: {response.status_code} | Time: {process_time:.3f}s"
+            if response.status_code >= 500:
+                log.print_log(msg, "error")
+            elif response.status_code >= 400:
+                log.print_log(msg, "warning")
+            else:
+                log.print_log(msg, "info")
+                
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        from src.ai_write_x.utils import log
+        log.print_log(f"[REQ:{req_id}] {request.method} {request.url.path} | Error: {str(e)} | Time: {process_time:.3f}s", "error")
+        raise
 
 @app.middleware("http")
 async def verify_client_token(request: Request, call_next):
@@ -158,8 +228,26 @@ async def read_root(request: Request):
 
 @app.get("/health")
 async def health_check():
-    """健康检查接口"""
-    return {"status": "healthy", "timestamp": time.time()}
+    """健康检查接口 (V5 增强)"""
+    try:
+        process = psutil.Process()
+        memory_mb = round(process.memory_info().rss / 1024 / 1024, 2)
+    except:
+        memory_mb = -1
+        
+    status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": get_version(),
+        "memory_mb": memory_mb,
+        "active_threads": threading.active_count(),
+        "components": {
+            "config_loaded": hasattr(app_state, 'config') and app_state.config is not None,
+            "scavenger_running": hasattr(app_state, 'scavenger') and getattr(app_state.scavenger, 'is_running', False),
+            "log_queue_ready": hasattr(app_state, 'log_queue') and app_state.log_queue is not None
+        }
+    }
+    return status
 
 
 # 添加关闭接口

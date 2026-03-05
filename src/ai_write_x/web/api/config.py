@@ -2,6 +2,8 @@
 # -*- coding: UTF-8 -*-
 
 import json
+import time
+import asyncio
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -441,7 +443,7 @@ class WechatCredentialTest(BaseModel):
 @router.post("/test-wechat")
 async def test_wechat_credential(cred: WechatCredentialTest):
     """
-    测试微信公众号凭证
+    测试微信公众号凭证 (v2: 改用aiohttp异步，避免阻塞FastAPI事件循环)
     
     验证：
     1. AppID格式是否正确
@@ -450,6 +452,9 @@ async def test_wechat_credential(cred: WechatCredentialTest):
     4. IP白名单是否配置
     """
     import re
+    import aiohttp
+    
+    log.print_log(f"[微信验证] 开始验证凭证 AppID={cred.appid[:6]}***", "info")
     
     result = {
         "status": "error",
@@ -460,24 +465,34 @@ async def test_wechat_credential(cred: WechatCredentialTest):
     # 1. 验证AppID格式
     if not cred.appid or not cred.appsecret:
         result["message"] = "AppID和AppSecret不能为空"
+        log.print_log(f"[微信验证] ❌ 验证失败: {result['message']}", "error")
         return result
     
     # AppID通常是wx开头的16位字符串
     if not re.match(r'^wx[a-z0-9]{16}$', cred.appid):
         result["message"] = "AppID格式不正确（应为wx开头的18位字符串）"
+        log.print_log(f"[微信验证] ❌ 验证失败: {result['message']}，实际长度={len(cred.appid)}", "error")
         return result
     
     # AppSecret通常是32位字符串
     if len(cred.appsecret) != 32:
         result["message"] = "AppSecret格式不正确（应为32位字符串）"
+        log.print_log(f"[微信验证] ❌ 验证失败: {result['message']}，实际长度={len(cred.appsecret)}", "error")
         return result
     
-    # 2. 尝试获取access_token
+    log.print_log(f"[微信验证] 格式校验通过，正在请求微信API获取access_token...", "info")
+    
+    # 2. 尝试获取access_token (v2: 用aiohttp异步请求，不阻塞事件循环)
     token_url = f"https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={cred.appid}&secret={cred.appsecret}"
     
     try:
-        response = requests.get(token_url, timeout=10)
-        data = response.json()
+        log.print_log(f"[微信验证] 请求地址: https://api.weixin.qq.com/cgi-bin/token", "info")
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(token_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                data = await response.json(content_type=None)
+        
+        log.print_log(f"[微信验证] 微信API响应: {data}", "info")
         
         if "errcode" in data:
             error_code = data.get("errcode")
@@ -496,25 +511,44 @@ async def test_wechat_credential(cred: WechatCredentialTest):
             result["details"]["error_msg"] = error_msg
             result["message"] = error_messages.get(error_code, f"验证失败: {error_msg}")
             
-            # 特殊提示IP白名单问题
+            # IP白名单错误时从微信错误消息中提取真实IP（最可靠的方法）
             if error_code == 40164:
-                result["message"] = f"IP白名单未配置！请在公众号后台→设置与开发→基本配置→IP白名单中添加服务器IP"
+                import re as _re
+                ip_match = _re.search(r'invalid ip ([\d.]+)', error_msg)
+                real_ip = ip_match.group(1) if ip_match else None
+                
+                if real_ip:
+                    # 微信告诉我们的IP才是真实出口IP，回写到缓存
+                    _ip_cache["ip"] = real_ip
+                    _ip_cache["source"] = "微信API检测"
+                    _ip_cache["timestamp"] = time.time()
+                    result["message"] = f"IP白名单未配置！微信检测到的服务器IP为 {real_ip}，请在公众号后台→设置与开发→基本配置→IP白名单中添加"
+                    result["details"]["server_ip"] = real_ip
+                    log.print_log(f"[微信验证] 🎯 微信检测到的真实出口IP: {real_ip}", "warning")
+                else:
+                    result["message"] = f"IP白名单未配置！请在公众号后台→设置与开发→基本配置→IP白名单中添加服务器IP"
             
+            log.print_log(f"[微信验证] ❌ 验证失败 (错误码={error_code}): {result['message']}", "error")
             return result
         
         access_token = data.get("access_token")
         if not access_token:
             result["message"] = "获取access_token失败，响应格式异常"
+            log.print_log(f"[微信验证] ❌ {result['message']}", "error")
             return result
         
+        log.print_log(f"[微信验证] ✅ access_token获取成功，有效期={data.get('expires_in', 7200)}秒", "success")
         result["details"]["access_token_valid"] = True
         result["details"]["expires_in"] = data.get("expires_in", 7200)
         
-        # 3. 获取账号基本信息
+        # 3. 获取账号基本信息 (v2: 同样用aiohttp异步)
         try:
             info_url = f"https://api.weixin.qq.com/cgi-bin/account/getaccountbasicinfo?access_token={access_token}"
-            info_response = requests.get(info_url, timeout=10)
-            info_data = info_response.json()
+            log.print_log(f"[微信验证] 正在获取账号基本信息...", "info")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(info_url, timeout=aiohttp.ClientTimeout(total=10)) as info_response:
+                    info_data = await info_response.json(content_type=None)
             
             if "errcode" not in info_data:
                 # 获取账号信息成功
@@ -529,58 +563,125 @@ async def test_wechat_credential(cred: WechatCredentialTest):
                 if is_verified:
                     result["status"] = "success"
                     result["message"] = f"验证成功！账号「{result['details']['nickname']}」已认证，支持直接发布"
+                    log.print_log(f"[微信验证] ✅ {result['message']}", "success")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"验证成功！账号「{result['details']['nickname']}」未认证，仅支持保存到草稿箱"
+                    log.print_log(f"[微信验证] ⚠️ {result['message']}", "warning")
+            else:
+                log.print_log(f"[微信验证] 获取账号信息返回错误: {info_data}，但token有效", "warning")
+                result["status"] = "success"
+                result["message"] = "验证成功！AppID和AppSecret有效"
+                result["details"]["is_verified"] = False
+                log.print_log(f"[微信验证] ✅ {result['message']}", "success")
                     
         except Exception as e:
             # 获取账号信息失败，但token获取成功
+            log.print_log(f"[微信验证] 获取账号信息异常: {str(e)}，但token有效", "warning")
             result["status"] = "success"
             result["message"] = "验证成功！AppID和AppSecret有效"
             result["details"]["is_verified"] = False
+            log.print_log(f"[微信验证] ✅ {result['message']}", "success")
         
         return result
         
-    except requests.exceptions.Timeout:
+    except asyncio.TimeoutError:
         result["message"] = "连接超时，请检查网络连接"
+        log.print_log(f"[微信验证] ❌ {result['message']}", "error")
         return result
-    except requests.exceptions.ConnectionError:
-        result["message"] = "网络连接失败，请检查网络设置"
+    except aiohttp.ClientError as e:
+        result["message"] = f"网络连接失败: {str(e)}"
+        log.print_log(f"[微信验证] ❌ {result['message']}", "error")
         return result
     except Exception as e:
         result["message"] = f"验证失败: {str(e)}"
+        log.print_log(f"[微信验证] ❌ {result['message']}", "error")
         return result
+
+
+# v2: IP缓存 - 5分钟TTL，避免每次切换面板都重新请求外部服务
+_ip_cache = {"ip": None, "source": None, "timestamp": 0, "ttl": 300}
 
 
 @router.get("/wechat/server-ip")
 async def get_server_ip():
-    """获取当前服务器的出口IP（用于配置微信IP白名单）"""
+    """获取当前服务器的出口IP (v2: 并发竞速+缓存)"""
     import aiohttp
+    import asyncio
+    
+    # v2: 检查缓存是否有效
+    now = time.time()
+    if _ip_cache["ip"] and (now - _ip_cache["timestamp"]) < _ip_cache["ttl"]:
+        remaining = int(_ip_cache["ttl"] - (now - _ip_cache["timestamp"]))
+        log.print_log(f"[出口IP] 命中缓存: {_ip_cache['ip']} (来源: {_ip_cache['source']}，剩余{remaining}秒)", "info")
+        return {
+            "status": "success",
+            "ip": _ip_cache["ip"],
+            "source": _ip_cache["source"],
+            "cached": True,
+            "message": f"请将此IP添加到微信公众号后台的IP白名单中"
+        }
+    
+    log.print_log(f"[出口IP] 正在并发获取服务器出口IP...", "info")
     
     try:
-        # 使用多个IP查询服务，提高可靠性
+        # 优先国内服务（与微信走同样的国内线路，确保IP一致）
         ip_services = [
+            "https://myip.ipip.net/json",
             "https://api.ipify.org?format=json",
-            "https://api.ip.sb/jsonip",
             "https://ipinfo.io/json"
         ]
         
+        # v2: 并发竞速 - 同时请求所有服务，取最快成功的结果
+        async def fetch_ip(session, service):
+            """单个服务的IP获取，返回(ip, service)或抛异常"""
+            async with session.get(service, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                if response.status == 200:
+                    data = await response.json(content_type=None)
+                    # 兼容不同服务的响应格式
+                    ip = data.get("ip") or data.get("IP")
+                    if not ip and "data" in data:
+                        ip = data["data"].get("ip") if isinstance(data.get("data"), dict) else None
+                    if ip:
+                        return ip, service
+            raise ValueError(f"{service} 返回无效响应")
+        
         async with aiohttp.ClientSession() as session:
-            for service in ip_services:
+            # 创建并发任务
+            tasks = [fetch_ip(session, svc) for svc in ip_services]
+            
+            # 竞速模式: 第一个成功的立即返回，取消其余
+            done, pending = await asyncio.wait(
+                [asyncio.create_task(t) for t in tasks],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # 取消尚未完成的任务
+            for task in pending:
+                task.cancel()
+            
+            # 从已完成的任务中找第一个成功的
+            for task in done:
                 try:
-                    async with session.get(service, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            ip = data.get("ip") or data.get("IP")
-                            if ip:
-                                return {
-                                    "status": "success",
-                                    "ip": ip,
-                                    "message": f"请将此IP添加到微信公众号后台的IP白名单中"
-                                }
+                    ip, source = task.result()
+                    # v2: 更新缓存
+                    _ip_cache["ip"] = ip
+                    _ip_cache["source"] = source
+                    _ip_cache["timestamp"] = time.time()
+                    
+                    log.print_log(f"[出口IP] ✅ 获取成功: {ip} (来源: {source})", "success")
+                    return {
+                        "status": "success",
+                        "ip": ip,
+                        "source": source,
+                        "cached": False,
+                        "message": f"请将此IP添加到微信公众号后台的IP白名单中"
+                    }
                 except Exception:
                     continue
         
+        log.print_log(f"[出口IP] ❌ 所有服务均获取失败", "error")
         return {"status": "error", "message": "无法获取服务器IP，请手动查询"}
     except Exception as e:
+        log.print_log(f"[出口IP] ❌ 获取IP异常: {str(e)}", "error")
         return {"status": "error", "message": f"获取IP失败: {str(e)}"}

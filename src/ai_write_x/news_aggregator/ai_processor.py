@@ -353,24 +353,26 @@ class AIContentProcessor:
         return [s[0] for s in scored_sentences[:num_points] if s[0]]
     
     async def batch_process(self, contents: List[Dict[str, str]], 
-                           batch_size: int = 5) -> List[ProcessedContent]:
-        """批量处理内容"""
+                           max_concurrent: int = 50) -> List[ProcessedContent]:
+        """并发处理内容，使用信号量控制并发数量"""
         results = []
+        semaphore = asyncio.Semaphore(max_concurrent)
         
-        for i in range(0, len(contents), batch_size):
-            batch = contents[i:i+batch_size]
-            tasks = [
-                self.process_content(
-                    content_id=c.get('id', str(i+idx)),
+        async def _process_with_sem(idx: int, c: Dict[str, str]):
+            async with semaphore:
+                return await self.process_content(
+                    content_id=c.get('id', str(idx)),
                     title=c['title'],
                     content=c['content'],
                     source=c.get('source', '')
                 )
-                for idx, c in enumerate(batch)
-            ]
-            batch_results = await asyncio.gather(*tasks)
-            results.extend(batch_results)
+                
+        tasks = [
+            _process_with_sem(idx, c)
+            for idx, c in enumerate(contents)
+        ]
         
+        results = await asyncio.gather(*tasks)
         return results
     
     def get_stats(self) -> Dict[str, Any]:

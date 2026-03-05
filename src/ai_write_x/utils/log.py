@@ -425,6 +425,29 @@ def setup_logging(log_name, queue):
 # ==================== 统一日志接口 ====================
 
 
+def _rich_print(msg, msg_type):
+    """V6新增: 使用 Rich 库进行彩色美化输出"""
+    try:
+        from rich.console import Console
+        from rich.text import Text
+        console = Console()
+        color_map = {
+            "info": "cyan",
+            "warning": "yellow",
+            "error": "red",
+            "status": "green",
+            "internal": "magenta",
+            "print": "white"
+        }
+        color = color_map.get(msg_type.lower(), "white")
+        timestamp = time.strftime("%H:%M:%S")
+        text = Text()
+        text.append(f"[{timestamp}] [{msg_type.upper()}] ", style=f"bold {color}")
+        text.append(str(msg), style=color)
+        console.print(text)
+    except ImportError:
+        print(utils.format_log_message(str(msg), msg_type))
+
 def print_log(msg, msg_type="status", show_in_ui=True):
     """
     统一日志接口函数 - 不再需要外部传参，自动从 LogManager 获取状态
@@ -436,7 +459,7 @@ def print_log(msg, msg_type="status", show_in_ui=True):
     """
     if not show_in_ui:
         # 只输出到终端
-        print(utils.format_log_message(msg, msg_type))
+        _rich_print(msg, msg_type)
         return
 
     # 从日志管理器获取当前状态
@@ -451,7 +474,7 @@ def print_log(msg, msg_type="status", show_in_ui=True):
                 process_log_queue.put({"type": msg_type, "message": msg, "timestamp": time.time()})
             except Exception:
                 # 队列已关闭或其他错误，回退到控制台输出
-                print(utils.format_log_message(msg, msg_type))
+                _rich_print(msg, msg_type)
                 return
         else:
             # 主进程模式：发送到线程队列
@@ -459,20 +482,18 @@ def print_log(msg, msg_type="status", show_in_ui=True):
                 comm.send_update(msg_type, msg)
             except Exception:
                 # comm 模块不可用，回退到控制台输出
-                print(utils.format_log_message(msg, msg_type))
+                _rich_print(msg, msg_type)
                 return
 
         # 在开发模式下同时输出到终端
         if not utils.get_is_release_ver():
             try:
-                terminal_msg = utils.format_log_message(msg, msg_type)
-                sys.__stdout__.write(terminal_msg + "\n")  # type: ignore
-                sys.__stdout__.flush()  # type: ignore
+                _rich_print(msg, msg_type)
             except Exception:
                 pass
     else:
         # 命令行模式：直接打印
-        print(utils.format_log_message(msg, msg_type))
+        _rich_print(msg, msg_type)
 
 
 def print_traceback(what, e):

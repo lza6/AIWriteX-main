@@ -30,6 +30,8 @@ if not exist ".venv" (
 echo Installing/Updating dependencies...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
+echo Installing Playwright browsers...
+".venv\Scripts\playwright.exe" install chromium
 if not exist ".env" (
     if exist ".env.example" (
         copy ".env.example" ".env" >nul

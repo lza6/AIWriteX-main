@@ -1,9 +1,10 @@
 """
-内容质量检测与优化引擎
+内容质量检测与优化引擎 V4
 - AI检测对抗
 - 原创性分析
 - 语义相似度检测
 - 自动优化循环
+- V4: 情感极性分析、Hook/CTA评分、主题过渡检测
 """
 
 import re
@@ -111,7 +112,7 @@ class ContentQualityEngine:
         self.max_optimization_iterations = self.config.get("max_iterations", 5)
         
     def analyze_content(self, content: str) -> ContentAnalysisResult:
-        """分析内容质量"""
+        """V4: 分析内容质量（新增情感极性+Hook/CTA+主题过渡三大维度）"""
         result = ContentAnalysisResult(original_content=content)
         
         # 执行各项质量检测
@@ -123,10 +124,39 @@ class ContentQualityEngine:
         result.quality_scores["ai_likelihood"] = self._analyze_ai_likelihood(content)
         result.quality_scores["semantic_depth"] = self._analyze_semantic_depth(content)
         
+        # V4: 新增三大分析维度
+        result.quality_scores["emotional_polarity"] = self._analyze_emotional_polarity(content)
+        result.quality_scores["hook_cta"] = self._analyze_hook_and_cta(content)
+        result.quality_scores["topic_transition"] = self._analyze_topic_transition(content)
+        
         # 计算综合分数
         result.overall_score = self._calculate_overall_score(result.quality_scores)
         result.ai_detection_score = result.quality_scores["ai_likelihood"].score
         result.originality_score = result.quality_scores["originality"].score
+        
+        # V3: 新增统计学指标（作为额外补充信息，不影响主评分）
+        v3_entropy = self._calculate_entropy(content)
+        v3_ngram = self._detect_ngram_repetition(content)
+        v3_reading_time = self.estimate_reading_time(content)
+        v3_perplexity = self._estimate_perplexity_proxy(content)
+        
+        # 将V3指标注入到各相关维度的details中
+        if "ai_likelihood" in result.quality_scores:
+            result.quality_scores["ai_likelihood"].details["v3_entropy"] = v3_entropy
+            result.quality_scores["ai_likelihood"].details["v3_ngram_repetition"] = v3_ngram
+            result.quality_scores["ai_likelihood"].details["v3_perplexity_proxy"] = v3_perplexity
+            if v3_entropy < 3.5:
+                result.quality_scores["ai_likelihood"].score = min(100, result.quality_scores["ai_likelihood"].score + 8)
+                result.quality_scores["ai_likelihood"].suggestions.append("V3信息熵过低，内容可能存在大量重复模式")
+            if v3_ngram.get("3gram_repeat_ratio", 0) > 0.15:
+                result.quality_scores["ai_likelihood"].score = min(100, result.quality_scores["ai_likelihood"].score + 6)
+                result.quality_scores["ai_likelihood"].suggestions.append("V3 N-gram检测到高频短语重复，建AI特征明显")
+        if "readability" in result.quality_scores:
+            result.quality_scores["readability"].details["v3_reading_time"] = v3_reading_time
+        
+        # 重新计算综合分（因为AI分数可能已被调整）
+        result.overall_score = self._calculate_overall_score(result.quality_scores)
+        result.ai_detection_score = result.quality_scores["ai_likelihood"].score
         
         return result
     
@@ -514,6 +544,19 @@ class ContentQualityEngine:
                 score += 8
                 suggestions.append("段落长度过于均匀，建议长短段落交替使用")
         
+        # 5. (V5新增) 段首词多样性检测: AI常常用类似的过渡词开头
+        if len(paragraphs) >= 4:
+            starters = [p[:2] for p in paragraphs if len(p) >= 2]
+            if starters:
+                unique_starters = len(set(starters))
+                starter_diversity = unique_starters / len(starters)
+                details["paragraph_starter_diversity"] = round(starter_diversity, 2)
+                
+                # AI段首经常雷同，比如总是"首先"、"此外"、"总之"
+                if starter_diversity < 0.4:
+                    score += 15
+                    suggestions.append("检测到段落开头词汇高度雷同，这是典型的AI特征，建议增加句式变化")
+        
         # 5. 情感词汇检查
         emotion_words = [
             "惊讶", "兴奋", "失望", "愤怒", "恐惧", "悲伤", "快乐",
@@ -530,7 +573,7 @@ class ContentQualityEngine:
             details["emotion_word_count"] = emotion_count
             score -= min(emotion_count * 2, 10)  # 有情感词汇降低AI概率
         
-        # 5. 个人经历和具体细节
+        # 7. 个人经历和具体细节
         personal_patterns = [
             r'我曾经[，,]?',
             r'我朋友[，,]?',
@@ -632,18 +675,335 @@ class ContentQualityEngine:
                 phrases.append(phrase)
         
         return phrases
+
+    def _calculate_entropy(self, content: str) -> float:
+        """V3新增：基于Shannon字符级信息熵，衡量内容信息密度。低熵(<3.5)暗示重复/AI模式"""
+        text = re.sub(r'\s+', '', content)  # 移除空白
+        if not text:
+            return 0.0
+        
+        freq = Counter(text)
+        total = len(text)
+        entropy = -sum((count / total) * math.log2(count / total) for count in freq.values())
+        return round(entropy, 3)
+
+    def _detect_ngram_repetition(self, content: str, ns=(3, 5)) -> Dict[str, Any]:
+        """V3新增：N-gram重复检测，检测AI生成常见的短语重复"""
+        text = re.sub(r'[\s\n\r，。！？、；：\"\"\'\'\[\]\(\)\{\}《》]+', '', content)
+        result = {}
+        
+        for n in ns:
+            if len(text) < n:
+                result[f"{n}gram_repeat_ratio"] = 0.0
+                continue
+            
+            ngrams = [text[i:i+n] for i in range(len(text) - n + 1)]
+            total = len(ngrams)
+            freq = Counter(ngrams)
+            # 重复率 = 出现>1次的n-gram数 / 总数
+            repeated = sum(1 for count in freq.values() if count > 1)
+            ratio = repeated / len(freq) if freq else 0
+            result[f"{n}gram_repeat_ratio"] = round(ratio, 3)
+            result[f"{n}gram_top_repeats"] = [ng for ng, c in freq.most_common(5) if c > 1]
+        
+        return result
+
+    @staticmethod
+    def estimate_reading_time(content: str) -> str:
+        """V3新增：阅读时间预估，中文按500字/分钟计算"""
+        # 统计中文字符数
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', content))
+        # 统计英文单词数
+        english_words = len(re.findall(r'[a-zA-Z]+', content))
+        # 中文500字/分、英文250词/分
+        total_minutes = chinese_chars / 500 + english_words / 250
+        
+        if total_minutes < 1:
+            return "不到1分钟"
+        elif total_minutes < 60:
+            return f"约{int(total_minutes)}分钟"
+        else:
+            hours = int(total_minutes // 60)
+            mins = int(total_minutes % 60)
+            return f"约{hours}小时{mins}分钟"
+
+    def _estimate_perplexity_proxy(self, content: str) -> float:
+        """V3新增：困惑度近似评分 — 基于词频分布的Zipf定律偏差计算，模拟困惑度指标"""
+        text = re.sub(r'\s+', '', content)
+        if len(text) < 50:
+            return 0.0
+        
+        # 取双字符为最小单元(模拟中文词汇)
+        bigrams = [text[i:i+2] for i in range(len(text) - 1)]
+        freq = Counter(bigrams)
+        
+        if not freq:
+            return 0.0
+        
+        # Zipf定律检验：排名 * 频率 ≈ 常数
+        sorted_freqs = sorted(freq.values(), reverse=True)
+        total = sum(sorted_freqs)
+        
+        # 计算Zipf偏差：理想情况下 rank*freq 应接近常数
+        zipf_products = [(i + 1) * (f / total) for i, f in enumerate(sorted_freqs[:20])]
+        if len(zipf_products) < 2:
+            return 0.0
+        
+        avg_product = sum(zipf_products) / len(zipf_products)
+        variance = sum((p - avg_product) ** 2 for p in zipf_products) / len(zipf_products)
+        
+        # 偏差越小越符合Zipf定律(自然语言)，偏差大可能是AI生成
+        # 返回 0~1 的归一化分数，>0.5表示可疑
+        score = min(math.sqrt(variance) * 10, 1.0)
+        return round(score, 3)
+
+    # ========== V4 新增分析维度 ==========
+
+    def _analyze_emotional_polarity(self, content: str) -> QualityScore:
+        """V4新增：情感极性分布分析 — 检测正/中/负情感的分布是否自然
+        
+        AI文本的情感往往过于单一（纯正面或纯中性），真人写作的情感更丰富多变。
+        """
+        score = 100.0
+        details = {}
+        suggestions = []
+        
+        # 正面情感词
+        positive_words = [
+            '优秀', '出色', '卓越', '精彩', '突破', '成功', '领先', '创新',
+            '高效', '便捷', '优质', '杰出', '惊人', '可喜', '振奋', '喜人',
+            '蓬勃', '强劲', '显著', '巨大', '重大', '深远', '积极', '良好',
+        ]
+        # 负面情感词
+        negative_words = [
+            '失败', '困难', '问题', '危机', '风险', '挑战', '隐患', '不足',
+            '缺陷', '遗憾', '担忧', '质疑', '争议', '困境', '压力', '矛盾',
+            '滞后', '下滑', '恶化', '严峻', '低迷', '萎缩', '糟糕', '混乱',
+        ]
+        # 中性/客观词
+        neutral_words = [
+            '表示', '认为', '指出', '分析', '显示', '报告', '数据', '研究',
+            '调查', '统计', '观察', '记录', '描述', '评估', '比较', '趋势',
+        ]
+        
+        pos_count = sum(1 for w in positive_words if w in content)
+        neg_count = sum(1 for w in negative_words if w in content)
+        neu_count = sum(1 for w in neutral_words if w in content)
+        total = pos_count + neg_count + neu_count
+        
+        if total > 0:
+            pos_ratio = pos_count / total
+            neg_ratio = neg_count / total
+            neu_ratio = neu_count / total
+            
+            details["positive_ratio"] = round(pos_ratio, 2)
+            details["negative_ratio"] = round(neg_ratio, 2)
+            details["neutral_ratio"] = round(neu_ratio, 2)
+            details["total_emotion_words"] = total
+            
+            # 理想分布：不应过度偏向任何一极
+            # 纯正面(>0.7)扣分 — 典型AI拍马屁倾向
+            if pos_ratio > 0.7:
+                score -= 20
+                suggestions.append("正面情感词过多(>70%)，AI倾向明显，建议增加客观分析或适度的质疑")
+            # 纯负面(>0.7)也扣分
+            elif neg_ratio > 0.7:
+                score -= 15
+                suggestions.append("负面情感词过多，建议平衡观点，增加建设性内容")
+            # 无负面词(0%) — AI很少使用负面词
+            elif neg_count == 0 and total > 5:
+                score -= 10
+                suggestions.append("缺少任何批判性或负面视角，真实文章通常会有正反两面分析")
+            # 三极均衡(各占20-50%) — 最佳
+            elif 0.2 <= pos_ratio <= 0.5 and neg_ratio >= 0.1:
+                score += 5
+        else:
+            details["total_emotion_words"] = 0
+            score -= 5
+            suggestions.append("未检测到明显的情感词汇，内容可能过于干巴")
+        
+        score = max(0, min(100, score))
+        return QualityScore(
+            metric=QualityMetric.COHERENCE,  # 复用枚举
+            score=score,
+            details=details,
+            suggestions=suggestions
+        )
+
+    def _analyze_hook_and_cta(self, content: str) -> QualityScore:
+        """V4新增：开头Hook + 结尾CTA(行动号召) 评分
+        
+        好文章开头要有"钩子"吸引读者继续阅读，结尾要有行动号召或引发思考。
+        """
+        score = 100.0
+        details = {}
+        suggestions = []
+        
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#')]
+        if len(paragraphs) < 2:
+            return QualityScore(metric=QualityMetric.COHERENCE, score=60.0, details={"error": "段落过少"}, suggestions=[])
+        
+        first_para = paragraphs[0]
+        last_para = paragraphs[-1]
+        
+        # ===== 开头 Hook 评分 =====
+        hook_score = 0
+        
+        # 数据开头（用数字震撼读者）
+        if re.search(r'^\d+|[\d]+[%％亿万]', first_para[:50]):
+            hook_score += 30
+            details["hook_type_data"] = True
+        
+        # 疑问开头（激发好奇心）
+        if '？' in first_para[:80] or '?' in first_para[:80]:
+            hook_score += 30
+            details["hook_type_question"] = True
+        
+        # 场景/故事开头（代入感）
+        story_signals = ['那天', '去年', '曾经', '有一次', '记得', '当时', '彼时']
+        if any(s in first_para[:60] for s in story_signals):
+            hook_score += 25
+            details["hook_type_story"] = True
+        
+        # 争议/颠覆开头
+        controversy_signals = ['很多人以为', '你可能不知道', '颠覆', '震惊', '没想到', '万万没想到']
+        if any(s in first_para[:80] for s in controversy_signals):
+            hook_score += 25
+            details["hook_type_controversy"] = True
+        
+        # 如果没有任何Hook类型
+        if hook_score == 0:
+            score -= 15
+            suggestions.append("开头缺少吸引力，建议使用数据、疑问、故事或争议性开头")
+        
+        hook_score = min(hook_score, 40)  # 封顶加40
+        details["hook_score"] = hook_score
+        
+        # ===== 结尾 CTA 评分 =====
+        cta_score = 0
+        
+        # 行动号召
+        cta_signals = ['不妨试试', '赶紧', '值得一试', '推荐', '建议大家', '你怎么看', '欢迎留言', '转发', '收藏']
+        if any(s in last_para for s in cta_signals):
+            cta_score += 25
+            details["cta_type_action"] = True
+        
+        # 引发思考
+        think_signals = ['值得深思', '引人深思', '我们该如何', '未来将会', '这意味着', '或许', '也许正是']
+        if any(s in last_para for s in think_signals):
+            cta_score += 25
+            details["cta_type_thinking"] = True
+        
+        # 总结升华
+        summary_signals = ['归根结底', '说到底', '总而言之', '一句话', '最重要的是']
+        if any(s in last_para for s in summary_signals):
+            cta_score += 15
+            details["cta_type_summary"] = True
+        
+        if cta_score == 0:
+            score -= 10
+            suggestions.append("结尾缺少行动号召或思考引导，建议增加互动性")
+        
+        cta_score = min(cta_score, 35)
+        details["cta_score"] = cta_score
+        
+        score = max(0, min(100, 50 + hook_score + cta_score))  # 基础50分 + hook + cta
+        
+        return QualityScore(
+            metric=QualityMetric.COHERENCE,
+            score=score,
+            details=details,
+            suggestions=suggestions
+        )
+
+    def _analyze_topic_transition(self, content: str) -> QualityScore:
+        """V4新增：主题过渡平滑度评分 — 检测相邻段落间的主题是否平滑衔接
+        
+        通过计算相邻段落的关键词重叠度来判断过渡是否自然。
+        过渡太生硬(重叠<10%)或太重复(重叠>60%)都会扣分。
+        """
+        score = 100.0
+        details = {}
+        suggestions = []
+        
+        paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#') and len(p.strip()) > 20]
+        
+        if len(paragraphs) < 3:
+            return QualityScore(metric=QualityMetric.COHERENCE, score=70.0, details={"error": "段落数不足"}, suggestions=[])
+        
+        # 提取每段的关键词集合（去掉停用词）
+        stop_words = set('的了是在有和与等也都不人这那些被把将从到对于就而且')
+        
+        def extract_keywords(text):
+            """提取中文关键词（字符bi-gram作为简易分词）"""
+            chars = re.findall(r'[\u4e00-\u9fff]', text)
+            words = set()
+            for i in range(len(chars) - 1):
+                bigram = chars[i] + chars[i+1]
+                if not any(c in stop_words for c in bigram):
+                    words.add(bigram)
+            return words
+        
+        overlaps = []
+        for i in range(len(paragraphs) - 1):
+            kw1 = extract_keywords(paragraphs[i])
+            kw2 = extract_keywords(paragraphs[i + 1])
+            
+            if kw1 and kw2:
+                overlap = len(kw1 & kw2) / min(len(kw1), len(kw2))
+                overlaps.append(round(overlap, 3))
+        
+        if overlaps:
+            avg_overlap = sum(overlaps) / len(overlaps)
+            min_overlap = min(overlaps)
+            max_overlap = max(overlaps)
+            
+            details["avg_overlap"] = round(avg_overlap, 3)
+            details["min_overlap"] = round(min_overlap, 3)
+            details["max_overlap"] = round(max_overlap, 3)
+            details["transition_count"] = len(overlaps)
+            
+            # 评分逻辑
+            # 平均重叠 < 5% → 段落跳跃太大
+            if avg_overlap < 0.05:
+                score -= 25
+                suggestions.append("段落间主题跳跃过大，建议增加过渡语句")
+            # 平均重叠 5%-15% → 偏低但可接受
+            elif avg_overlap < 0.15:
+                score -= 10
+                suggestions.append("段落衔接稍显生硬，可以考虑在段首增加承上启下的句子")
+            # 平均重叠 > 60% → 段落内容重复
+            elif avg_overlap > 0.6:
+                score -= 20
+                suggestions.append("相邻段落内容高度重复，建议精简或合并")
+            # 存在某个过渡特别差(<3%)
+            if min_overlap < 0.03 and len(overlaps) > 2:
+                score -= 8
+                suggestions.append("存在主题断裂点，某些段落之间几乎没有关联")
+        
+        score = max(0, min(100, score))
+        
+        return QualityScore(
+            metric=QualityMetric.COHERENCE,
+            score=score,
+            details=details,
+            suggestions=suggestions
+        )
     
     def _calculate_overall_score(self, scores: Dict[str, QualityScore]) -> float:
-        """计算综合分数"""
-        # 权重配置
+        """V5: 计算综合分数（提升ai_likelihood权重检测突发性和段首词）"""
         weights = {
-            "originality": 0.20,
-            "readability": 0.15,
-            "coherence": 0.15,
-            "vocabulary": 0.10,
-            "sentence_variety": 0.10,
-            "ai_likelihood": 0.20,  # AI概率越低越好，需要特殊处理
-            "semantic_depth": 0.10,
+            "originality": 0.15,
+            "readability": 0.10,     # V5: 从0.12降至0.10
+            "coherence": 0.12,
+            "vocabulary": 0.08,
+            "sentence_variety": 0.08,
+            "ai_likelihood": 0.20,   # V5: 从0.18提升至0.20
+            "semantic_depth": 0.08,
+            # V4 新增维度
+            "emotional_polarity": 0.06,
+            "hook_cta": 0.07,
+            "topic_transition": 0.06,
         }
         
         total_score = 0.0
@@ -651,7 +1011,6 @@ class ContentQualityEngine:
             if metric in scores:
                 metric_score = scores[metric].score
                 if metric == "ai_likelihood":
-                    # AI概率越低越好，所以反转分数
                     metric_score = 100 - metric_score
                 total_score += metric_score * weight
         

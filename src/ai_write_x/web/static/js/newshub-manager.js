@@ -73,21 +73,19 @@ class NewsHubManager {
         }
 
         // 模态框关闭按钮
-        const closeBtn = document.getElementById('nh-sources-close');
-        const saveBtn = document.getElementById('nh-sources-save');
         const modal = document.getElementById('nh-sources-modal');
 
-        const closeModal = () => {
+        this.closeModal = () => {
             if (modal) modal.style.display = 'none';
         };
 
-        if (closeBtn) closeBtn.addEventListener('click', closeModal);
-        if (saveBtn) saveBtn.addEventListener('click', closeModal);
+        const closeBtn = document.getElementById('nh-sources-close');
+        if (closeBtn) closeBtn.addEventListener('click', this.closeModal);
 
         // 点击外部关闭模态框
         window.addEventListener('click', (e) => {
             if (e.target === modal) {
-                closeModal();
+                this.closeModal();
             }
         });
     }
@@ -398,38 +396,67 @@ class NewsHubManager {
             return;
         }
 
-        let html = '';
+        let html = `
+            <div class="nh-source-add-form" style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+                <h4 style="margin-bottom: 10px; font-size: 14px; color: var(--text-primary);">添加自定义 RSS 源</h4>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="nh-new-source-name" placeholder="源名称" style="flex: 1; min-width: 120px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);">
+                    <input type="text" id="nh-new-source-url" placeholder="RSS URL" style="flex: 2; min-width: 180px; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);">
+                    <select id="nh-new-source-category" style="padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);">
+                        <option value="tech">科技</option>
+                        <option value="finance">财经</option>
+                        <option value="social">综合</option>
+                        <option value="ai">人工智能</option>
+                    </select>
+                    <button class="toolbar-btn primary" onclick="window.newshubManager.addCustomSource()" style="padding: 6px 12px;">添加</button>
+                </div>
+            </div>
+            <div class="sources-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+        `;
+
         this.sources.forEach(source => {
             const isEnabled = source.enabled;
             const statusClass = isEnabled ? 'running' : 'stopped';
             const statusText = isEnabled ? '已启用' : '已禁用';
+            const isCustom = source.id.startsWith('custom_');
 
             html += `
-                <div class="mcp-card" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color);">
+                <div class="mcp-card" style="padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-color); position: relative;">
                     <div class="mcp-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <h3 class="mcp-name" style="margin: 0; font-size: 14px;">${source.name}</h3>
-                        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
-                            <input type="checkbox" data-source-id="${source.id}" ${isEnabled ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
-                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px;"></span>
-                        </label>
+                        <h3 class="mcp-name" style="margin: 0; font-size: 14px; color: var(--text-primary);">${source.name}</h3>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${isCustom ? `
+                                <button onclick="window.newshubManager.deleteSource('${source.id}')" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px;" title="删除">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                            ` : ''}
+                            <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 18px;">
+                                <input type="checkbox" data-source-id="${source.id}" ${isEnabled ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
                     </div>
-                    <p class="mcp-description" style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-secondary);">${source.description || '无描述'}</p>
-                    <div class="mcp-status ${statusClass}" style="font-size: 12px;">
+                    <p class="mcp-description" style="margin: 0 0 8px 0; font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${source.url}">${source.url || '系统默认源'}</p>
+                    <div class="mcp-status ${statusClass}" style="font-size: 11px;">
                         <span class="status-indicator"></span> ${statusText}
+                        <span style="margin-left: 8px; opacity: 0.7;">${source.category}</span>
                     </div>
                 </div>
             `;
         });
 
-        // 注入小段专属开关 CSS
+        html += '</div>';
+
+        // 注入小段专属开关 CSS (保持原样)
         if (!document.getElementById('nh-switch-css')) {
             const style = document.createElement('style');
             style.id = 'nh-switch-css';
             style.innerHTML = `
                 .switch input:checked + .slider { background-color: var(--primary-color, #2196F3); }
                 .switch input:focus + .slider { box-shadow: 0 0 1px var(--primary-color, #2196F3); }
-                .switch input:checked + .slider:before { transform: translateX(14px); }
-                .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+                .switch input:checked + .slider:before { transform: translateX(16px); }
+                .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+                .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
             `;
             document.head.appendChild(style);
         }
@@ -441,7 +468,8 @@ class NewsHubManager {
             checkbox.addEventListener('change', async (e) => {
                 const sourceId = e.target.getAttribute('data-source-id');
                 const isEnabled = e.target.checked;
-                const statusDiv = e.target.closest('.mcp-card').querySelector('.mcp-status');
+                const card = e.target.closest('.mcp-card');
+                const statusDiv = card.querySelector('.mcp-status');
 
                 try {
                     const action = isEnabled ? 'enable' : 'disable';
@@ -455,7 +483,8 @@ class NewsHubManager {
 
                         // 更新UI
                         statusDiv.className = `mcp-status ${isEnabled ? 'running' : 'stopped'}`;
-                        statusDiv.innerHTML = `<span class="status-indicator"></span> ${isEnabled ? '已启用' : '已禁用'}`;
+                        const statusIndicator = statusDiv.querySelector('.status-indicator').outerHTML;
+                        statusDiv.innerHTML = `${statusIndicator} ${isEnabled ? '已启用' : '已禁用'} <span style="margin-left: 8px; opacity: 0.7;">${src.category}</span>`;
 
                         // 重新计算统计信息
                         const enabledCount = this.sources.filter(s => s.enabled).length;
@@ -464,12 +493,10 @@ class NewsHubManager {
                             total_sources: this.sources.length
                         });
 
-                        // 如果有通知接口，提示成功
-                        if (window.app && window.app.showNotification) {
-                            window.app.showNotification(`${isEnabled ? '启用' : '禁用'}数据源 ${source.name} 成功`, 'success');
+                        if (window.app?.showNotification) {
+                            window.app.showNotification(`${isEnabled ? '启用' : '禁用'}成功`, 'success');
                         }
                     } else {
-                        // 恢复状态
                         e.target.checked = !isEnabled;
                     }
                 } catch (error) {
@@ -478,6 +505,58 @@ class NewsHubManager {
                 }
             });
         });
+    }
+
+    async addCustomSource() {
+        const nameInput = document.getElementById('nh-new-source-name');
+        const urlInput = document.getElementById('nh-new-source-url');
+        const catSelect = document.getElementById('nh-new-source-category');
+
+        const name = nameInput?.value.trim();
+        const url = urlInput?.value.trim();
+        const category = catSelect?.value;
+
+        if (!name || !url) {
+            window.app?.showNotification('请填写源名称和 URL', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/newshub/sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, url, category, type: 'rss' })
+            });
+
+            if (response.ok) {
+                window.app?.showNotification('数据源添加成功', 'success');
+                await this.loadSources();
+                this.renderSourcesList();
+            } else {
+                const err = await response.json();
+                window.app?.showNotification('添加失败: ' + (err.detail || '未知错误'), 'error');
+            }
+        } catch (error) {
+            window.app?.showNotification('网络错误', 'error');
+        }
+    }
+
+    async deleteSource(sourceId) {
+        if (!confirm('确定要删除这个数据源吗？')) return;
+
+        try {
+            const response = await fetch(`/api/newshub/sources/${sourceId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                window.app?.showNotification('数据源已删除', 'success');
+                await this.loadSources();
+                this.renderSourcesList();
+            }
+        } catch (error) {
+            window.app?.showNotification('删除失败', 'error');
+        }
     }
 
     writeArticle(newsId) {
@@ -489,16 +568,52 @@ class NewsHubManager {
         if (window.app) {
             window.app.switchView('creative-workshop');
 
-            // 填充话题
-            const topicInput = document.getElementById('topic-input');
-            if (topicInput) {
-                topicInput.value = news.title;
-            }
+            // 深度对齐主界面借鉴模式逻辑，增加鲁棒性
+            const performIntegration = () => {
+                // 检查管理器是否就绪
+                if (!window.creativeWorkshopManager || !window.creativeWorkshopManager.initialized) {
+                    // 如果还没初始化完，等一会儿再试
+                    setTimeout(performIntegration, 200);
+                    return;
+                }
 
-            // 显示提示
-            if (window.app.showNotification) {
-                window.app.showNotification('已加载热点话题，可以开始创作了', 'info');
-            }
+                // 填充话题
+                const topicInput = document.getElementById('topic-input');
+                if (topicInput) {
+                    topicInput.value = news.title;
+                    topicInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
+                // 填充参考链接
+                const refUrlsInput = document.getElementById('reference-urls');
+                if (refUrlsInput) {
+                    refUrlsInput.value = news.url || '';
+                    refUrlsInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
+                // 展开借鉴模式面板
+                const refPanel = document.getElementById('reference-mode-panel');
+                const refBtn = document.getElementById('reference-mode-btn');
+                if (refPanel && refPanel.classList.contains('collapsed')) {
+                    if (refBtn) refBtn.click(); // 通过模拟点击触发展开逻辑，确保内部状态同步
+                }
+
+                // 显示提示
+                if (window.app.showNotification) {
+                    window.app.showNotification('已自动启用借鉴模式，正在准备生成热点文章...', 'info');
+                }
+
+                // 自动点击开始生成按钮（等待面板展开动画）
+                setTimeout(() => {
+                    const generateBtn = document.getElementById('generate-btn');
+                    if (generateBtn && !window.creativeWorkshopManager.isGenerating) {
+                        generateBtn.click();
+                    }
+                }, 800);
+            };
+
+            // 稍微延迟一下确保视图切换逻辑完成
+            setTimeout(performIntegration, 300);
         }
     }
 

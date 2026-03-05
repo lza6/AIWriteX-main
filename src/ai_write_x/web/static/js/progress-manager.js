@@ -12,6 +12,7 @@ class BottomProgressManager {
         };
 
         this.currentStage = null;
+        this.currentProgress = 0;
         this.isRunning = false;
 
         // DOM elements
@@ -46,11 +47,49 @@ class BottomProgressManager {
 
     async updateProgress(stage, progress) {
         if (!this.stages[stage]) return;
+        if (typeof progress === 'number' && !isNaN(progress)) {
+            this.currentProgress = progress;
+        }
         if (stage !== this.currentStage) {
             this.markStageDone(this.currentStage);
             this.currentStage = stage;
             this.activateStage(stage);
         }
+    }
+
+    complete() {
+        this.currentProgress = 100;
+        this.currentStage = 'done';
+        this.activateStage('done');
+        // 标记所有非 done 阶段为完成
+        this.nodes.forEach((node, i) => {
+            if (node.getAttribute('data-stage') !== 'done') {
+                node.classList.remove('active');
+                node.classList.add('done');
+            } else {
+                node.classList.add('done');
+                node.classList.remove('active');
+            }
+        });
+        this.lines.forEach(l => {
+            l.classList.remove('active');
+            l.classList.add('done');
+        });
+    }
+
+    stop() {
+        this.isRunning = false;
+    }
+
+    showError(errorMsg) {
+        this.isRunning = false;
+        // 将当前激活的节点标记为错误状态
+        this.nodes.forEach(node => {
+            if (node.classList.contains('active')) {
+                node.classList.remove('active');
+                node.classList.add('error');
+            }
+        });
     }
 
     activateStage(stageId) {
@@ -115,6 +154,7 @@ class BottomProgressManager {
     reset() {
         this.isRunning = false;
         this.currentStage = null;
+        this.currentProgress = 0;
         if (this.progressEl) {
             setTimeout(() => {
                 this.progressEl.classList.add('hidden');

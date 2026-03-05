@@ -29,13 +29,23 @@
         </div>
         <div class="ip-display-wrapper">
             <code id="server-outbound-ip">正在获取...</code>
-            <button type="button" class="btn-copy-ip" id="copy-server-ip" title="点击复制IP">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                复制
-            </button>
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <button type="button" class="btn-copy-ip btn-refresh-ip" id="refresh-server-ip" title="刷新出口IP">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                    </svg>
+                    刷新
+                </button>
+                <button type="button" class="btn-copy-ip" id="copy-server-ip" title="点击复制IP">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    复制
+                </button>
+            </div>
         </div>
     </div>
 

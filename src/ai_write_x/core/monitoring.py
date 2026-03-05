@@ -123,3 +123,57 @@ class WorkflowMonitor:
 
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+
+    def get_dashboard_data(self) -> Dict[str, Any]:
+        """V3: 仪表板数据汇总 — 总生成次数、成功率、平均耗时、24h趋势"""
+        with self._lock:
+            # 基础汇总
+            total_count = sum(m.count for m in self.metrics.values())
+            total_success = sum(m.count * m.success_rate for m in self.metrics.values())
+            overall_success_rate = (total_success / total_count * 100) if total_count > 0 else 0
+            avg_duration = (
+                sum(m.total_duration for m in self.metrics.values()) / total_count
+                if total_count > 0 else 0
+            )
+
+            # 最近24小时趋势
+            now = datetime.now()
+            recent_24h = [
+                log for log in self.logs
+                if (now - log.timestamp).total_seconds() < 86400
+            ]
+
+            hourly_trend = {}
+            for log_entry in recent_24h:
+                hour_key = log_entry.timestamp.strftime("%H:00")
+                if hour_key not in hourly_trend:
+                    hourly_trend[hour_key] = {"total": 0, "success": 0}
+                hourly_trend[hour_key]["total"] += 1
+                if log_entry.success:
+                    hourly_trend[hour_key]["success"] += 1
+
+            # V5: Token用量 — 修复原 get_llm_client 函数不存在的Bug，改为LLMClient单例
+            token_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            try:
+                from src.ai_write_x.core.llm_client import LLMClient
+                token_usage = LLMClient().get_token_usage()
+            except Exception:
+                pass  # LLMClient未初始化时静默降级
+
+            return {
+                "total_generations": total_count,
+                "success_rate": round(overall_success_rate, 1),
+                "avg_duration_seconds": round(avg_duration, 2),
+                "recent_24h_count": len(recent_24h),
+                "hourly_trend": hourly_trend,
+                "token_usage": token_usage,
+                "workflows": {
+                    name: {
+                        "count": m.count,
+                        "success_rate": round(m.success_rate * 100, 1),
+                        "avg_duration": round(m.avg_duration, 2),
+                        "last_execution": m.last_execution.isoformat() if m.last_execution else None
+                    }
+                    for name, m in self.metrics.items()
+                }
+            }

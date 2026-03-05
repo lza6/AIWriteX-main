@@ -459,6 +459,30 @@ class AIWriteXConfigManager {
             });
         }
 
+        // 绑定刷新服务器IP按钮
+        const refreshIPBtn = document.getElementById('refresh-server-ip');
+        if (refreshIPBtn) {
+            refreshIPBtn.addEventListener('click', async () => {
+                const ipDisplay = document.getElementById('server-outbound-ip');
+                if (ipDisplay) {
+                    ipDisplay.textContent = '正在刷新...';
+                    ipDisplay.style.color = '';
+                }
+                refreshIPBtn.disabled = true;
+                const refreshSvg = refreshIPBtn.querySelector('svg');
+                if (refreshSvg) {
+                    refreshSvg.style.animation = 'spin 1s linear infinite';
+                }
+
+                await this.loadServerIP();
+
+                refreshIPBtn.disabled = false;
+                if (refreshSvg) {
+                    refreshSvg.style.animation = '';
+                }
+            });
+        }
+
         // ========== 微信公众号输入框事件绑定 ==========  
         // 注意:由于凭证是动态生成的,需要使用事件委托  
 
@@ -1312,7 +1336,7 @@ class AIWriteXConfigManager {
         this.loadServerIP();
     }
 
-    // 异步加载服务器出口IP (新增)
+    // 异步加载服务器出口IP (v2: 显示来源+缓存状态)
     async loadServerIP() {
         const ipDisplay = document.getElementById('server-outbound-ip');
         if (!ipDisplay) return;
@@ -1323,13 +1347,17 @@ class AIWriteXConfigManager {
 
             if (result.status === 'success' && result.ip) {
                 ipDisplay.textContent = result.ip;
+                ipDisplay.style.color = '#22c55e'; // v2: 成功时绿色
+                ipDisplay.title = `来源: ${result.source || '未知'}${result.cached ? ' (缓存)' : ' (实时)'}`;
             } else {
                 ipDisplay.textContent = '获取失败';
                 ipDisplay.style.color = '#ef4444';
+                ipDisplay.title = result.message || '无法获取IP';
             }
         } catch (error) {
             ipDisplay.textContent = '网络错误';
             ipDisplay.style.color = '#ef4444';
+            ipDisplay.title = error.message;
         }
     }
 
@@ -1869,6 +1897,15 @@ class AIWriteXConfigManager {
                     `;
                 }
             } else {
+                // v2: 微信检测到的真实IP，在抛异常前先更新IP显示
+                if (result.details && result.details.server_ip) {
+                    const ipDisplay = document.getElementById('server-outbound-ip');
+                    if (ipDisplay) {
+                        ipDisplay.textContent = result.details.server_ip;
+                        ipDisplay.style.color = '#f59e0b'; // 橙色标识微信检测的IP
+                        ipDisplay.title = '来源: 微信API检测 (真实IP)';
+                    }
+                }
                 throw new Error(result.message);
             }
 
