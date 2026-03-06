@@ -666,6 +666,8 @@ class AdaptiveTemplateEngine:
         self.analyzer = ContentAnalyzer()
         self.builder = ModularTemplateBuilder()
         self.llm_service = LLMService()
+        from src.ai_write_x.config.config import Config
+        self.config = Config.get_instance()
 
     def _clean_llm_response(self, text: str) -> str:
         """清洗 LLM 响应，去除 Markdown 代码块包裹和多余的反引号"""
@@ -682,30 +684,36 @@ class AdaptiveTemplateEngine:
         """代理调用 Builder 的行内样式处理"""
         return self.builder._format_inline_styles(content)
 
-    async def _apply_semantic_refinement(self, content: str, design_tokens: Dict):
-        """Stage 2: 语义元素 Agent - 支持流式输出 Thought 和最终结果"""
+    async def _apply_semantic_refinement(self, content: str, design_tokens: Dict, title: str = "", topic: str = "", history: List[Dict] = None):
+        """Stage 2: 语义元素 Agent - 支持对话历史与流式输出"""
         try:
-            prompt = f"""
-你是一位资深新媒体排版专家。请分析以下内容，识别出 1-2 个真正关键的“灵魂锚点”。
-【指令】：
-1. 仅在最重要的短语前添加图标，包裹在 <span style="margin-right:4px;">图标</span> 中。
-2. 严禁重构、虚构或过度修饰。仅在原文本基础上注入 1-2 个图标。
-3. 保持原有的 HTML 结构。
-4. 如果内容已足够好，不要添加任何图标。
-5. **禁令**：严禁输出类似“(保持原样输出)”、“(内容不变)”等任何形式的元说明、括号注释或英文提示。
-6. **语言**：所有 Thought 和输出内容必须使用 **中文**。
-
+            if history is None:
+                history = []
+            
+            # 构建本轮请求
+            user_prompt = f"""
+正在为文章《{title}》(主题: {topic}) 的其中一个段落进行排版增强。
 【内容】：
 {content[:2000]}
 
-在你输出最终 HTML 之前，请先输出一行 `Thought: [你的分析简述]`。
+【指令】：
+1. 仅在最重要的短语前添加图标，包裹在 <span style="margin-right:4px;">图标</span> 中。
+2. 严禁重构、虚构或过度修饰。仅在原文本基础上注入 1-2 个图标。
+3. **最高优先级红线**：绝对不能删减原文的任何字数和句子！输出必须包含完整内容。
+4. 在输出 HTML 前，先输出一行 `Thought: [你的分析简述]`。
 """
+            # 准备待发送的消息列表（不污染外部传入的 history）
+            messages = history + [{"role": "user", "content": user_prompt}]
+            
             full_response = ""
             html_started = False
             
-            async for chunk in self.llm_service.astream(
-                prompt=prompt,
-                model="deepseek-v3",
+            model = self.config.get_llm_model("refiner_model", "deepseek-v3")
+            
+            # 使用 LLMService 的 client 直接进行流式对话以支持消息列表
+            async for chunk in self.llm_service.client.stream_chat_async(
+                messages=messages,
+                model=model,
                 temperature=0.2
             ):
                 full_response += chunk
@@ -726,33 +734,48 @@ class AdaptiveTemplateEngine:
             
             # 清洗结果
             final_html = self._clean_llm_response(final_html)
-            yield {"type": "result", "content": final_html if final_html else content}
+            
+            # 将本轮交互存入历史
+            history.append({"role": "user", "content": f"请增强排版以下段落：\n{content[:200]}"})
+            history.append({"role": "assistant", "content": full_response})
+            
+            # 防御机制: 若丢失大量文本，或者输出了无关的AI自白，则直接返回原文
+            if len(final_html) < len(content) * 0.7 or "我是一个AI" in final_html or "AI助手" in final_html:
+                yield {"type": "result", "content": content}
+            else:
+                yield {"type": "result", "content": final_html if final_html else content}
             
         except Exception as e:
             log.print_log(f"语义细化流式解析失败: {e}", "warning")
             yield {"type": "result", "content": content}
 
-    async def _apply_professional_annotation(self, content: str, design_tokens: Dict):
-        """Stage 3: 专业标注 Agent - 支持流式 Thought"""
+    async def _apply_professional_annotation(self, content: str, design_tokens: Dict, title: str = "", topic: str = "", history: List[Dict] = None):
+        """Stage 3: 专业标注 Agent - 支持对话历史与流式 Thought"""
         try:
+            if history is None:
+                history = []
+                
             primary = design_tokens.get("primary", "#4F46E5")
             accent = design_tokens.get("accent", "#8B5CF6")
             
-            prompt = f"""
-你是一位资深美编。请找出 1 处真正值得划重点的“黄金句子”，用 <span class="pro-highlight">句子内容</span> 包裹。
+            user_prompt = f"""
+正在审核文章《{title}》(主题: {topic}) 的段落。
+找出 1 处真正值得划重点的“黄金句子”，用 <span class="pro-highlight">句子内容</span> 包裹。
 【准则】：
 - 仅标注真正深刻的句子。严禁改变原内容。
-- **禁令**：严禁在输出结果中包含类如“(保持原样)”、“(No changes)”等元说明或任何非内容的括号提示。
-- **语言**：所有 Thought 和输出内容必须使用 **中文**。
+- **最高优先级红线**：绝对不能删减原文的任何字数和句子！输出必须包含完整内容。
 - 在输出 HTML 前，先输出一行 `Thought: [为什么选择这一句]`。
-
 【内容】：
 {content[:2000]}
 """
+            messages = history + [{"role": "user", "content": user_prompt}]
+            
             full_response = ""
-            async for chunk in self.llm_service.astream(
-                prompt=prompt,
-                model="deepseek-v3",
+            model = self.config.get_llm_model("refiner_model", "deepseek-v3")
+            
+            async for chunk in self.llm_service.client.stream_chat_async(
+                messages=messages,
+                model=model,
                 temperature=0.2
             ):
                 full_response += chunk
@@ -768,7 +791,16 @@ class AdaptiveTemplateEngine:
             # 清洗结果
             refined = self._clean_llm_response(refined)
             refined = refined.replace('class="pro-highlight"', f'style="background: {accent}11; color: {primary}; padding: 2px 4px; border-radius: 4px; font-weight: 600;"')
-            yield {"type": "result", "content": refined if refined else content}
+            
+            # 将交互存入历史
+            history.append({"role": "user", "content": f"请标注以下段落的金句：\n{content[:200]}"})
+            history.append({"role": "assistant", "content": full_response})
+            
+            # 防御机制: 若丢失大量文本，或者输出了无关的AI自白，则直接返回原文
+            if len(refined) < len(content) * 0.7 or "我是一个AI" in refined or "AI助手" in refined:
+                yield {"type": "result", "content": content}
+            else:
+                yield {"type": "result", "content": refined if refined else content}
             
         except Exception as e:
             log.print_log(f"专业标注流式解析失败: {e}", "warning")
@@ -931,13 +963,20 @@ class AdaptiveTemplateEngine:
         total_blocks = len([b for _, b in components if b.type == 'paragraph' and len(b.content) > 50])
         processed_blocks = 0
         
+        # 初始化本轮排版 Agent 的会话历史
+        from datetime import datetime
+        current_time_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+        session_history = [
+            {"role": "system", "content": f"你是一位新媒体排版专家。当前系统时间是：{current_time_str}。请确保生成的排版元素（如时间贴纸、热点标签）与此时间逻辑对齐。请确保样式的一致性，避免重复使用相同的图标。保持专业、干练。"}
+        ]
+        
         for c_type, block in components:
             if block.type == 'paragraph' and len(block.content) > 50:
                 processed_blocks += 1
-                msg = f"🧬 正在流式解析第 {processed_blocks}/{total_blocks} 段语义..."
+                msg = f"🧬 正在流式解析第 {processed_blocks}/{total_blocks} 段语义 (Session Linked)..."
                 yield {"type": "log", "message": msg}
                 log.print_log(msg, "info") # 同时输出到 CMD 日志
-                async for event in self._apply_semantic_refinement(block.content, design_tokens):
+                async for event in self._apply_semantic_refinement(block.content, design_tokens, title=title, topic=topic, history=session_history):
                     if event["type"] == "thought":
                         yield event
                     elif event["type"] == "result":
@@ -946,11 +985,12 @@ class AdaptiveTemplateEngine:
                         current_html = self.builder.build_template(title, components)
                         yield {"type": "chunk", "content": current_html, "stage": 2, "is_fragment": True}
                 
-            # 无需再 append 到 refined_components，直接全量操作 components
-            pass
+                # 为防止历史记录过长导致上下文截断，仅保留最近 10 次交互
+                if len(session_history) > 20: 
+                    session_history = [session_history[0]] + session_history[-10:]
         
         # --- Stage 3: 标注 Agent (Real AI) ---
-        yield {"type": "log", "message": "🔍 Agent Stage 3: 正在通过深度学习识别文章“金句”，应用专业化视觉标注..."}
+        yield {"type": "log", "message": "🔍 Agent Stage 3: 正在通过深度学习识别文章“金句”，应用专业化视觉标注 (Session Linked)..."}
         self.builder.stage = 3
         total_anno_blocks = len([b for _, b in components if b.type == 'paragraph' and len(b.content) > 100])
         processed_anno_blocks = 0
@@ -958,10 +998,10 @@ class AdaptiveTemplateEngine:
         for c_type, block in components:
             if block.type == 'paragraph' and len(block.content) > 100:
                 processed_anno_blocks += 1
-                msg = f"🖋️ 正在标注第 {processed_anno_blocks}/{total_anno_blocks} 段黄金金句..."
+                msg = f"🖋️ 正在标注第 {processed_anno_blocks}/{total_anno_blocks} 段黄金金句 (Session Linked)..."
                 yield {"type": "log", "message": msg}
                 log.print_log(msg, "info")
-                async for event in self._apply_professional_annotation(block.content, design_tokens):
+                async for event in self._apply_professional_annotation(block.content, design_tokens, title=title, topic=topic, history=session_history):
                     if event["type"] == "thought":
                         yield event
                     elif event["type"] == "result":
@@ -969,6 +1009,10 @@ class AdaptiveTemplateEngine:
                         # 实时投递全量标注后的结果
                         current_html = self.builder.build_template(title, components)
                         yield {"type": "chunk", "content": current_html, "stage": 3, "is_fragment": True}
+                
+                # 同样限制标注阶段的历史长度
+                if len(session_history) > 30:
+                    session_history = [session_history[0]] + session_history[-15:]
         
         # --- Stage 4: 图像 Agent ---
         yield {"type": "log", "message": "🛡️ Agent Stage 4: 正在核查图像资产完整性，优化视觉缺位..."}

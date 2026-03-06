@@ -52,10 +52,10 @@ class VisualAssetsManager:
 
         # 艺术化动态策略：从“机械字数配给”转向“叙事呼吸感分析”
         content_len = len(markdown_text)
-        # 根据字数动态约束图片数量区间
-        safe_min = max(2, content_len // 800)
-        safe_max = max(3, content_len // 400)
-        if safe_max > 12: safe_max = 12 # 硬上限，防止过度生成
+        # 根据字数动态约束图片数量区间（放宽限制，增加插图数量）
+        safe_min = max(3, content_len // 600)
+        safe_max = max(5, content_len // 300)
+        if safe_max > 15: safe_max = 15 # 硬上限，防止过度生成
         
         system_prompt = f'''你是一位具有顶级审美和叙事节奏感的视觉总监。
 你的任务是深度分析文章的“叙事张力(Tension)”与“信息密度(Density)”，自主决定配图位置。
@@ -65,6 +65,13 @@ class VisualAssetsManager:
 1. **信息波峰点**：当连续出现长段落、复杂数据或高强度逻辑时，必须插入图片。
 2. **叙事转折点**：重大情节转折、观点切换时，插入图片标志新篇章的开始。
 3. **情感爆发点**：极具感染力的描写或金句出现时，用强视觉冲击力的图片锚定情感。
+
+## 视觉风格增强 (V7.0 Elite)
+你必须根据文章基调，在英文提示词中加入以下专业术语（如果合适）：
+- **渲染器**: Unreal Engine 5, Octane Render, Redshift, Ray Tracing.
+- **光影**: Volumetric lighting, global illumination, rim lighting, soft box lighting.
+- **细节**: 8k resolution, highly detailed, masterpieces, sharp focus, hyper-realistic.
+- **NF4/Flux 优化**: 使用自然语言描述的同时，加入特定的艺术风格标签。
 
 ## 约束准则
 - **数量限制**：根据本文内容量，正文插图数量必须在 **{safe_min} 到 {safe_max} 张之间**，绝不可过多（导致排版杂乱）或过少。
@@ -399,6 +406,12 @@ class VisualAssetsManager:
                         import random
                         if "35" in workflow_data and "inputs" in workflow_data["35"]:
                             workflow_data["35"]["inputs"]["seed"] = random.randint(1000000000, 99999999999999)
+                        
+                        # V7.0 特有：NF4 优化 - 如果检测到是 NF4 工作流，注入质量增强词
+                        if "z_image_turbo_nvfp4" in str(workflow_data):
+                            if "34" in workflow_data and "inputs" in workflow_data["34"]:
+                                prompt = f"{prompt}, high quality, high resolution, masterpiece, detailed, cinematic lighting"
+                                workflow_data["34"]["inputs"]["text"] = prompt
 
                     # 3. 先建立 WebSocket 连接，再提交任务（确保不丢消息）
                     img_filename = None

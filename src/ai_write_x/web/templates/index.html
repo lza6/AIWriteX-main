@@ -39,6 +39,7 @@
     <link rel="stylesheet" href="/static/css/views/config-manager.css?v=20260304a">
     <link rel="stylesheet" href="/static/css/views/mcp-manager.css?v=20260304a">
     <link rel="stylesheet" href="/static/css/views/newshub.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/views/dashboard.css?v=20260304a">
 </head>
 
 <body class="window-mode-standard" data-window-mode="standard">
@@ -55,6 +56,7 @@
             <div class="app-main">
                 <main class="content-area">
                     <!-- 组件化的视图 -->
+                    {% include 'components/views/dashboard.html' %}
                     {% include 'components/views/creative-workshop.html' %}
                     {% include 'components/views/article-manager.html' %}
                     {% include 'components/views/template-manager.html' %}
@@ -427,6 +429,8 @@
     </div>
 
     <!-- 脚本加载 -->
+    <script src="https://fastly.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://fastly.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
     <script src="/static/lib/grapesjs/grapes.min.js"></script>
     <script src="/static/lib/grapesjs/plugins/grapesjs-preset-webpage.min.js"></script>
     <script src="/static/js/image-designer.js?v=20260301c"></script>
@@ -450,6 +454,7 @@
     <script src="/static/js/content-editor.js?v=20260301c"></script>
     <script src="/static/js/config-manager.js?v=20260301c"></script>
     <script src="/static/js/quality-manager.js?v=20260301c"></script>
+    <script src="/static/js/dashboard-manager.js?v=20260305b"></script>
     <script src="/static/js/theme-manager.js?v=20260301c"></script>
     <script src="/static/js/scheduler-manager.js?v=20260305a"></script>
     <script src="/static/js/window-modes.js?v=20260301c"></script>

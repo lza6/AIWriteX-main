@@ -130,12 +130,12 @@ class SchedulerService:
                             retry_count += 1
                         
                         if not current_topic:
-                            current_topic = f"深度解析：{platforms[i % len(platforms)]}最新动态"
+                            current_topic = f"深度解析：{platforms[i % len(platforms)]}最新科技与社会动态"
                             
-                        log.print_log(f"🔥 [Scheduler] 话题为空，自动拾取不重复热点: {current_topic}", "info")
+                        log.print_log(f"🔥 [Scheduler] 空话题填充: 自动拾取或生成热点: {current_topic}", "info")
                     except Exception as e:
-                        current_topic = "最新热点科技深度解析"
-                        log.print_log(f"⚠️ [Scheduler] 自动拾取话题失败: {e}，将使用备用话题", "warning")
+                        current_topic = f"深入探讨：热点解析系列 {i+1}"
+                        log.print_log(f"⚠️ [Scheduler] 自动拾取话题失败: {e}，将使用备用安全话题", "warning")
                 else:
                     if i == 0:
                         current_topic = original_topic
@@ -157,7 +157,13 @@ class SchedulerService:
                 deduplicator.add_topic(current_topic)
 
                 log.print_log(f"🚀 [Scheduler] 正在执行任务: {current_topic} ({i+1}/{count})", "info")
-                results = workflow.execute(current_topic, **kwargs)
+                
+                # V13.0 Fix: 防止 "multiple values for keyword argument 'topic'" 异常
+                # 确保 kwargs 不含有 'topic'，因为它是作为位置参数传递的
+                if "topic" in kwargs:
+                    kwargs.pop("topic")
+                
+                results = workflow.execute(topic=current_topic, **kwargs)
                 
                 if results.get("success"):
                     success_count += 1

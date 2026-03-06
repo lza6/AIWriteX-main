@@ -228,6 +228,8 @@ class Config:
             },
             "use_template": True,
             "use_dynamic_template": True,  # 使用AI动态生成模板
+            "designer_model": "deepseek-v3",  # 模板设计模型
+            "refiner_model": "deepseek-v3",   # 语义精修模型
             "template_category": "",
             "template": "",
             "use_compress": True,
@@ -1529,6 +1531,55 @@ class Config:
             if not self.config:
                 raise ValueError("配置未加载")
             return self.config["wechat"]["credentials"]
+
+    def get_llm_model(self, config_key: str = "model", default: str = "deepseek-v3") -> str:
+        """
+        获取LLM模型名称，带智能回退：
+        1. 优先使用当前提供商配置中指定的角色索引 (如 designer_model_index)
+        2. 如果角色未设置或索引为 -1，则回退到主模型 (model_index)
+        3. 如果模型不在可用列表中，进行模糊匹配或使用第一个可用模型
+        """
+        with self._lock:
+            api_config = self.config.get("api", {})
+            api_type = api_config.get("api_type", "OpenRouter")
+            provider_config = api_config.get(api_type, {})
+            allowed_models = provider_config.get("model", [])
+
+            # 1. 确定索引键映射
+            index_key = f"{config_key}_index" if config_key != "model" else "model_index"
+            model_index = provider_config.get(index_key, -1)
+
+            # 如果是主模型请求，且没有 index，默认为 0
+            if config_key == "model" and model_index == -1:
+                model_index = provider_config.get("model_index", 0)
+
+            # 2. 解析目标模型名称
+            target_model = None
+            if 0 <= model_index < len(allowed_models):
+                target_model = allowed_models[model_index]
+
+            # 3. 角色模型回退逻辑：如果未设置或无效，回退到主模型
+            if not target_model and config_key != "model":
+                return self.get_llm_model("model", default)
+
+            # 4. 兜底解析（从根配置获取，兼容旧版本或硬编码）
+            if not target_model:
+                target_model = api_config.get(config_key, default)
+
+            # 5. 列表校验与模糊匹配逻辑
+            if not allowed_models:
+                return target_model
+            
+            if target_model in allowed_models:
+                return target_model
+                
+            # 模糊匹配
+            for m in allowed_models:
+                if target_model.lower() in m.lower():
+                    return m
+                    
+            # 最终保底：使用当前提供商的第一个模型
+            return allowed_models[0] if allowed_models else target_model
 
     @property
     def api_type(self):

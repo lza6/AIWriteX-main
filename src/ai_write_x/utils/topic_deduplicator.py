@@ -7,7 +7,10 @@ import json
 from datetime import datetime
 from src.ai_write_x.utils.path_manager import PathManager
 from src.ai_write_x.utils import log
-from src.ai_write_x.database import db_manager, Topic
+from src.ai_write_x.database import Topic
+from src.ai_write_x.database.db_manager import DBManager
+
+db_manager = DBManager()
 
 class TopicDeduplicator:
     def __init__(self, dedup_days: int = 3):

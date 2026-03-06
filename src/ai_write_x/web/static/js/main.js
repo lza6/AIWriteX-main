@@ -105,6 +105,12 @@ class AIWriteXApp {
             resizeTimer = setTimeout(() => {
                 // 窗口缩放时强制触发一次当前视图的显示逻辑，确保布局正确
                 this.showView(this.currentView);
+
+                // V7: 缩放仪表盘图表
+                if (window.dashboardManager && typeof window.dashboardManager.resize === 'function') {
+                    window.dashboardManager.resize();
+                }
+
                 console.log('Layout refreshed on resize');
             }, 250);
         });
@@ -255,6 +261,11 @@ class AIWriteXApp {
             case 'scheduler':
                 if (window.schedulerManager && typeof window.schedulerManager.init === 'function') {
                     window.schedulerManager.init();
+                }
+                break;
+            case 'dashboard':
+                if (window.dashboardManager && typeof window.dashboardManager.init === 'function') {
+                    window.dashboardManager.init();
                 }
                 break;
         }

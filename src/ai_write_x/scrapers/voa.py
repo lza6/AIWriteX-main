@@ -30,6 +30,9 @@ class VOAChinese(BaseSpider):
             url = "https://www.voachinese.com/rss/all.xml"
             
             content_bytes = await self.request_bytes(url=url)
+            if not content_bytes:
+                return await self.get_news_list_fallback()
+
             parser = etree.XMLParser(recover=True, no_network=True)
             content_xml = etree.fromstring(content_bytes, parser=parser)
             
@@ -54,7 +57,10 @@ class VOAChinese(BaseSpider):
             return await self.get_news_list_fallback()
             
         except Exception as e:
-            logger.error(f"获取美国之音新闻列表失败: {e}")
+            if "Document is empty" in str(e):
+                logger.warning(f"美国之音 RSS 主源无法直接访问 (可能受限)，正在尝试备份源...")
+            else:
+                logger.error(f"获取美国之音新闻列表失败: {e}")
             return await self.get_news_list_fallback()
 
     async def get_news_list_fallback(self) -> List[Dict]:

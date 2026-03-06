@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "org_4449",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_8445",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_551",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    }
+  ],
+  "edges": [],
+  "stats": {
+    "total_entities": 3,
+    "total_relations": 0,
+    "entity_types": {
+      "org": 1,
+      "tech": 1,
+      "concept": 1
+    }
+  }
+}

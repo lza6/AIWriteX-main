@@ -160,10 +160,14 @@ class WorkflowMonitor:
             except Exception:
                 pass  # LLMClient未初始化时静默降级
 
+            # V11: 系统熵值模型 (Entropy Governance)
+            system_entropy = self.calculate_system_entropy()
+
             return {
                 "total_generations": total_count,
                 "success_rate": round(overall_success_rate, 1),
                 "avg_duration_seconds": round(avg_duration, 2),
+                "system_entropy": round(system_entropy, 1),
                 "recent_24h_count": len(recent_24h),
                 "hourly_trend": hourly_trend,
                 "token_usage": token_usage,
@@ -177,3 +181,47 @@ class WorkflowMonitor:
                     for name, m in self.metrics.items()
                 }
             }
+
+    def calculate_system_entropy(self) -> float:
+        """
+        V11: 计算系统“意识熵值”
+        基础值 40，波动范围 5-98
+        模型考虑：成功率衰减、延迟抖动、失败密度、集群活跃度及系统连续运行压力。
+        """
+        import math
+        import random
+        
+        base_s = 35.0 # V11: 更灵敏的基础有序态
+        
+        # 1. 失败压力 (最近 50 条日志的窗口加权)
+        recent_logs = self.logs[-50:]
+        if recent_logs:
+            # V11: 失败权重呈指数级增加压力
+            fail_count = sum(1 for log in recent_logs if not log.success)
+            fail_ratio = fail_count / len(recent_logs)
+            base_s += (fail_ratio ** 0.7) * 50.0 # 提高对故障的敏感度
+            
+        # 2. 响应一致性 (Latency Consistency)
+        if len(recent_logs) > 8:
+            durations = [log.duration for log in recent_logs if log.duration > 0]
+            if durations:
+                avg = sum(durations) / len(durations)
+                # 计算方差，衡量系统震荡
+                variance = sum((x - avg) ** 2 for x in durations) / len(durations)
+                jitter_factor = min(15.0, math.sqrt(variance) * 3) # 对抖动更敏感
+                base_s += jitter_factor
+                
+        # 3. 运行负荷 (Intensity)
+        # 高频执行会累积热度，略微提升熵值，模拟“疲劳”
+        intensity_bonus = min(12.0, len(recent_logs) / 4)
+        base_s += intensity_bonus * random.uniform(0.9, 1.1)
+        
+        # 4. 时间周期与自修复衰减
+        # 深夜自动进入“降熵”态
+        hour = datetime.now().hour
+        if 0 <= hour <= 5:
+            base_s *= 0.75
+        elif 9 <= hour <= 11 or 14 <= hour <= 18:
+            base_s *= 1.15
+            
+        return max(5.0, min(98.0, base_s))

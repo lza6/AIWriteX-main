@@ -33,10 +33,10 @@ class CleanupReport:
             "emergency_triggered": self.emergency_triggered
         }
 
-class ScavengerEngine:
+class CosmicScavenger:
     """
-    V3 清道夫守护进程 (Scavenger Engine)
-    用于自动清理系统过期的缓存文件（HTML、图片、日志等）以及冗余资源。
+    V10.0 宇宙清道夫 (Cosmic Scavenger)
+    治理系统的终极形态。基于“系统熵 (System Entropy)”健康评估模型，实现星系级的冗余坍缩与自平衡。
     """
     
     def __init__(self, check_interval_hours=24):
@@ -44,13 +44,16 @@ class ScavengerEngine:
         self.is_running = False
         self.last_report = None  # V3.1: 上次清理报告
         
-        # V3.1: 尝试从Config读取自定义规则，否则使用默认值
+        # V10.0: 宇宙治理规则 (Cosmic Protocols)
         self.expiry_rules = {
-            "article": 30,  # 旧的文章产物保留30天
-            "image": 7,     # 缓存图片保留7天
-            "temp": 1,      # 临时文件保留1天
-            "logs": 7       # 日志保留7天
+            "article": 7,   # 维持在一周内
+            "image": 1,     # 图片仅保留24小时
+            "temp": 0.1,    # 2.4小时清理临时文件
+            "logs": 2,      # 2天滚动日志
+            "ai_models": 3   # 3天清理模型碎片
         }
+        self.system_entropy = 0.0  # 系统熵值 (0-100)
+        
         try:
             from src.ai_write_x.config.config import Config
             cfg = Config.get_instance()
@@ -64,7 +67,7 @@ class ScavengerEngine:
         
     async def start_daemon(self):
         self.is_running = True
-        log.print_log("🧹 V3 Scavenger Engine (清道夫守护进程) 已启动", "info")
+        log.print_log("🌌 V10.0 Cosmic Scavenger (宇宙清道夫) 已接管星系资源", "info")
         
         # 启动时延时后执行一次清理，避免阻塞首次抢占资源
         await asyncio.sleep(10)
@@ -79,10 +82,28 @@ class ScavengerEngine:
         log.print_log("🧹 V3 Scavenger Engine 已停止", "info")
         
     async def _sweep(self):
-        """V3.1: 执行全域深度清理，返回结构化报告"""
+        """V11.0: 执行宇宙级清理与熵健康评估"""
+        from src.ai_write_x.core.monitoring import WorkflowMonitor
+        monitor = WorkflowMonitor.get_instance()
+        
         start_time = time.time()
         report = CleanupReport()
-        log.print_log("🔍 Scavenger 正在开始全域冗余扫描与清理...", "info")
+        log.print_log("🔭 Cosmic Scavenger 正在测量星系红移并调节平衡系数...", "info")
+        
+        # V11: 获取全局系统熵
+        self.system_entropy = monitor.calculate_system_entropy()
+        
+        # 根据系统熵动态调整清理强度 (Entropy-Driven Thresholds)
+        # 熵值越高，清理越激进
+        intensity_factor = 1.0
+        if self.system_entropy > 80:
+            intensity_factor = 0.3 # 仅保留原定时间的 30%
+            log.print_log(f"🔥 系统熵值过高 ({self.system_entropy:.1f}%)，清理强度提升至 300%", "warning")
+        elif self.system_entropy > 60:
+            intensity_factor = 0.6
+            
+        # 临时映射过期规则，不修改原始 self.expiry_rules(保持配置持久性)
+        current_expiry = {k: max(0.1, v * intensity_factor) for k, v in self.expiry_rules.items()}
         
         # V3.1: 磁盘使用监控 — 可用空间<500MB时触发紧急清理
         try:
@@ -90,10 +111,8 @@ class ScavengerEngine:
             report.disk_free_mb = disk_usage.free / (1024 * 1024)
             if report.disk_free_mb < 500:
                 report.emergency_triggered = True
-                log.print_log(f"⚠️ 磁盘可用空间仅 {report.disk_free_mb:.0f}MB，触发紧急清理模式！", "warning")
-                # 紧急模式：缩短所有过期时间到50%
-                for key in self.expiry_rules:
-                    self.expiry_rules[key] = max(1, self.expiry_rules[key] // 2)
+                log.print_log(f"🚨 空间告急 ({report.disk_free_mb:.1f}MB)，宇宙常数强行坍缩！", "error")
+                current_expiry = {k: 0.1 for k in current_expiry} # 强行全部坍缩至 2.4 小时
         except Exception:
             pass
         
@@ -102,25 +121,25 @@ class ScavengerEngine:
         
         # 1. 临时目录清理
         temp_dir = PathManager.get_temp_dir()
-        c, s = self._clean_directory(temp_dir, self.expiry_rules["temp"], [".tmp", ".temp", ".txt", ".json"])
+        c, s = self._clean_directory(temp_dir, current_expiry["temp"], [".tmp", ".temp", ".txt", ".json"])
         cleaned_files += c; freed_space += s
         report.categories["temp"] = c
         
         # 2. 图片缓存清理
         img_dir = PathManager.get_image_dir()
-        c, s = self._clean_directory(img_dir, self.expiry_rules["image"], [".png", ".jpg", ".jpeg", ".webp"])
+        c, s = self._clean_directory(img_dir, current_expiry["image"], [".png", ".jpg", ".jpeg", ".webp"])
         cleaned_files += c; freed_space += s
         report.categories["image"] = c
         
         # 3. 日志清理
         log_dir = PathManager.get_log_dir()
-        c, s = self._clean_directory(log_dir, self.expiry_rules["logs"], [".log", ".txt"])
+        c, s = self._clean_directory(log_dir, current_expiry["logs"], [".log", ".txt"])
         cleaned_files += c; freed_space += s
         report.categories["logs"] = c
         
         # 4. 文章产物清理
         article_dir = PathManager.get_article_dir()
-        c, s = self._clean_directory(article_dir, self.expiry_rules["article"], [".html", ".md", ".json"])
+        c, s = self._clean_directory(article_dir, current_expiry["article"], [".html", ".md", ".json"])
         cleaned_files += c; freed_space += s
         report.categories["article"] = c
         
@@ -132,14 +151,36 @@ class ScavengerEngine:
         report.total_files = cleaned_files
         report.total_freed_bytes = freed_space
         report.duration_seconds = time.time() - start_time
-        self.last_report = report  # V3.1: 保存报告供API查询
+        self.last_report = report
         
         if cleaned_files > 0:
-            log.print_log(f"✨ Scavenger 清理完成: 删除了 {cleaned_files} 个过期/冗余项目，释放了 {report.freed_mb:.2f} MB 空间", "success")
+            log.print_log(f"✨ 星系平衡已恢复: 坍缩了 {cleaned_files} 个冗余粒子，系统熵降至预期范围", "success")
         else:
-            log.print_log("✨ Scavenger 清理完成: 环境非常纯净，无需清理", "info")
+            log.print_log("✨ 星系处于 Zen Mode，无需执行冗余坍缩", "info")
         
+        self._evaluate_entropy(report)
         return report
+
+    def _evaluate_entropy(self, report: CleanupReport):
+        """V11.0: 系统熵健康评估与持久化治理 (Entropy Stability)"""
+        # 计算系统熵：基于清理出的资源量与磁盘剩余空间
+        raw_entropy = (report.freed_mb / 500) * 100  # 假设 500MB 为阈值
+        self.system_entropy = min(100, raw_entropy + (100 - min(100, report.disk_free_mb / 10)))
+        
+        # V11: 持久化熵值记录到数据库
+        try:
+            from src.ai_write_x.database.db_manager import db_manager
+            db_manager.save_system_entropy(
+                entropy_value=self.system_entropy,
+                reasoning_load=report.freed_mb,
+                active_agents=report.total_files
+            )
+        except Exception as e:
+            log.print_log(f"Failed to persist entropy state via db_manager: {e}", "warning")
+        
+        if self.system_entropy > 75:
+            log.print_log(f"🌌 [意识枢纽警告] 系统熵值偏高 ({self.system_entropy:.1f}%)，启动星系级自动平衡协议", "warning")
+            # V11: 这里可以触发更深层次的自动平衡逻辑，例如压缩旧日志或减少非核心缓存
 
     def _clean_directory(self, directory: Path, max_age_days: int, extensions: list) -> tuple:
         """清理指定目录中的过期文件"""

@@ -6,6 +6,10 @@ import os
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
+import warnings
+from requests.exceptions import RequestsDependencyWarning
+warnings.filterwarnings("ignore", category=RequestsDependencyWarning)
+
 from aiforge import AIForgeEngine  # noqa
 
 

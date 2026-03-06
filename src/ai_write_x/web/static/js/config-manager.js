@@ -1332,8 +1332,8 @@ class AIWriteXConfigManager {
             container.appendChild(card);
         });
 
-        // 异步加载服务器IP (新增)
-        this.loadServerIP();
+        // V13.0 Optimization: 延迟加载服务器 IP，不阻塞首屏渲染
+        setTimeout(() => this.loadServerIP(), 1500);
     }
 
     // 异步加载服务器出口IP (v2: 显示来源+缓存状态)
@@ -2233,10 +2233,56 @@ class AIWriteXConfigManager {
 
         row3.appendChild(fallbackModelSelectGroup);
 
+        // 行4: 模板设计模型 和 语义精修模型 (V11.2 新增)
+        const row4 = document.createElement('div');
+        row4.className = 'form-row';
+
+        // 左侧: 模板设计模型
+        const designerModelSelectGroup = document.createElement('div');
+        designerModelSelectGroup.className = 'form-group form-group-half';
+
+        const designerModelSelectLabel = document.createElement('label');
+        designerModelSelectLabel.textContent = '模板设计模型';
+        designerModelSelectLabel.title = '专门用于生成视觉模板和设计方案的模型';
+
+        const designerIndex = providerData.designer_model_index ?? -1;
+        const designerModelSelect = this.createEditableSelect(
+            providerKey,
+            '模板设计模型',
+            providerData.model || [],
+            designerIndex
+        );
+
+        designerModelSelectGroup.appendChild(designerModelSelectLabel);
+        designerModelSelectGroup.appendChild(designerModelSelect);
+
+        // 右侧: 语义精修模型
+        const refinerModelSelectGroup = document.createElement('div');
+        refinerModelSelectGroup.className = 'form-group form-group-half';
+
+        const refinerModelSelectLabel = document.createElement('label');
+        refinerModelSelectLabel.textContent = '语义精修模型';
+        refinerModelSelectLabel.title = '用于对生成的内容进行深度加工、润色和纠错的模型';
+
+        const refinerIndex = providerData.refiner_model_index ?? -1;
+        const refinerModelSelect = this.createEditableSelect(
+            providerKey,
+            '语义精修模型',
+            providerData.model || [],
+            refinerIndex
+        );
+
+        refinerModelSelectGroup.appendChild(refinerModelSelectLabel);
+        refinerModelSelectGroup.appendChild(refinerModelSelect);
+
+        row4.appendChild(designerModelSelectGroup);
+        row4.appendChild(refinerModelSelectGroup);
+
         // 组装表单  
         form.appendChild(row1);
         form.appendChild(row2);
         form.appendChild(row3);
+        form.appendChild(row4);
 
         // 组装卡片  
         card.appendChild(header);
@@ -2257,7 +2303,8 @@ class AIWriteXConfigManager {
         display.className = 'select-display';
         // 如果选中的是空字符串或索引超出有效范围,显示"-- 点击添加 --"  
         const selectedItem = validItems[selectedIndex];
-        display.textContent = selectedItem || (type === '备用模型' ? '-- 不使用 --' : '-- 点击添加 --');
+        const isOrchestrationModel = type === '备用模型' || type === '模板设计模型' || type === '语义精修模型';
+        display.textContent = selectedItem || (isOrchestrationModel ? '-- 默认为主模型 --' : '-- 点击添加 --');
 
         // 下拉选项容器  
         const dropdown = document.createElement('div');
@@ -2270,17 +2317,23 @@ class AIWriteXConfigManager {
 
             const addOption = document.createElement('div');
             addOption.className = 'select-option select-option-add';
-            if (type === '备用模型') {
-                addOption.textContent = '-- 不使用 --';
+            if (type === '备用模型' || type === '模板设计模型' || type === '语义精修模型') {
+                addOption.textContent = '-- 默认为主模型 --';
                 addOption.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    display.textContent = '-- 不使用 --';
+                    display.textContent = '-- 默认为主模型 --';
                     dropdown.style.display = 'none';
+
+                    let fieldName = '';
+                    if (type === '模板设计模型') fieldName = 'designer_model_index';
+                    else if (type === '语义精修模型') fieldName = 'refiner_model_index';
+                    else fieldName = 'fallback_model_index';
+
                     await this.updateConfig({
                         api: {
                             [providerKey]: {
                                 ...this.config.api[providerKey],
-                                fallback_model_index: -1
+                                [fieldName]: -1
                             }
                         }
                     });
@@ -2311,6 +2364,8 @@ class AIWriteXConfigManager {
                     if (type === 'API KEY') fieldName = 'key_index';
                     else if (type === '视觉模型') fieldName = 'vision_model_index';
                     else if (type === '备用模型') fieldName = 'fallback_model_index';
+                    else if (type === '模板设计模型') fieldName = 'designer_model_index';
+                    else if (type === '语义精修模型') fieldName = 'refiner_model_index';
                     else fieldName = 'model_index';
 
                     await this.updateConfig({

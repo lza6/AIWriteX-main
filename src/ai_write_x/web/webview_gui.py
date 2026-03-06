@@ -125,7 +125,7 @@ class WebViewGUI:
                     return True
             except Exception:
                 pass
-            time.sleep(0.5)
+            time.sleep(0.1)
         return False
 
     def show_window(self):

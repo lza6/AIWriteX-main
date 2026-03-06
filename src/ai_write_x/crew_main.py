@@ -39,6 +39,7 @@ def run_crew_in_process(inputs, log_queue, base_config, aiforge_config, config_d
         signal.signal(signal.SIGINT, signal_handler)
 
         # 设置进程专用日志系统
+        log.init_ui_mode() 
         log.setup_process_logging(log_queue)
         # 设置进程间日志队列
         log.set_process_queue(log_queue)

@@ -145,3 +145,15 @@ class PathManager:
         template_files = glob.glob(os.path.join(category_path, "*.html"))
         template_names = [os.path.splitext(os.path.basename(f))[0] for f in template_files]
         return sorted(template_names)
+    @staticmethod
+    def get_base_dir():
+        """获取项目根目录"""
+        if not utils.get_is_release_ver():
+            # 开发模式：使用项目根目录
+            return Path(__file__).parent.parent.parent.parent
+        else:
+            # 发布模式：使用可执行文件所在目录或用户数据目录
+            import sys
+            if getattr(sys, 'frozen', False):
+                return Path(sys.executable).parent
+            return PathManager.get_app_data_dir()

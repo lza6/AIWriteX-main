@@ -56,6 +56,67 @@ class WeixinPublisher:
         self.img_api_model = config.img_api_model
         # 获取ComfyUI配置
         self.comfyui_config = config.config.get("img_api", {}).get("comfyui", {})
+        
+        # V13.0: 稳定性增强配置
+        self.max_retries = 3
+        self.backoff_factor = 2 # 指数退避倍数
+        self.adaptive_pause = 0 # 自适应休眠时长
+
+    def _request_with_retry(self, method: str, url: str, **kwargs):
+        """V13.0: 自适应 API 请求引擎 - 支持自动重试、指数退避、限频处理"""
+        import time
+        last_exception = None
+        
+        for i in range(self.max_retries + 1):
+            if self.adaptive_pause > 0:
+                time.sleep(self.adaptive_pause)
+                self.adaptive_pause = max(0, self.adaptive_pause - 1) # 逐渐衰减
+                
+            try:
+                if method.upper() == "GET":
+                    response = requests.get(url, **kwargs)
+                else:
+                    response = requests.post(url, **kwargs)
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                errcode = data.get("errcode", 0)
+                
+                if errcode == 0:
+                    return data
+                
+                # 处理限频 (45009: reach limit)
+                if errcode == 45009:
+                    log.print_log(f"微信API触发限频(45009)，正在执行自适应休眠...", "warning")
+                    self.adaptive_pause = 5 * (i + 1)
+                    continue
+                    
+                # 处理Token失效 (40001/42001)
+                if errcode in [40001, 42001]:
+                    log.print_log("微信Access Token失效，正在静默刷新...", "info")
+                    self.access_token_data = None
+                    # 更新 kwargs 中的 token
+                    if "params" in kwargs and "access_token" in kwargs["params"]:
+                        kwargs["params"]["access_token"] = self._ensure_access_token()
+                    elif "access_token=" in url:
+                        url = re.sub(r'access_token=[^&]+', f'access_token={self._ensure_access_token()}', url)
+                    continue
+                
+                # 其他错误不重试
+                if i == self.max_retries:
+                    return data
+                    
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                wait_time = self.backoff_factor ** i
+                log.print_log(f"网络请求异常: {e}, {wait_time}s 后重试 ({i+1}/{self.max_retries})", "warning")
+                time.sleep(wait_time)
+        
+        # 最终失败返回伪造响应或抛出
+        if last_exception:
+            return {"errcode": -1, "errmsg": str(last_exception)}
+        return {"errcode": -1, "errmsg": "Unknown error during retry"}
 
     @property
     def is_verified(self):
@@ -113,7 +174,7 @@ class WeixinPublisher:
 
         articles = [
             {
-                "title": title[:64],  # 标题长度不能超过64
+                "title": title[:64],
                 "author": self.author,
                 "digest": digest[:120],
                 "content": article,
@@ -122,26 +183,19 @@ class WeixinPublisher:
                 "only_fans_can_comment": 0,
             },
         ]
-        ret = None, None
+        
         try:
             data = {"articles": articles}
-
             headers = {"Content-Type": "application/json"}
             json_data = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            response = requests.post(url, data=json_data, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-
-            if "errcode" in data and data.get("errcode") != 0:
-                ret = None, f"上传草稿失败: {data.get('errmsg')}"
-            elif "media_id" not in data:
-                ret = None, "上传草稿失败: 响应中缺少 media_id"
-            else:
-                ret = {"media_id": data.get("media_id")}, None
-        except requests.exceptions.RequestException as e:
-            ret = None, f"上传微信草稿失败: {e}"
-
-        return ret
+            
+            result = self._request_with_retry("POST", url, data=json_data, headers=headers)
+            
+            if result.get("errcode", 0) != 0:
+                return None, f"上传草稿失败: {result.get('errmsg')}"
+            return {"media_id": result.get("media_id")}, None
+        except Exception as e:
+            return None, f"上传微信草稿失败: {e}"
 
     def _generate_img_by_ali(self, prompt, size="1024*1024"):
         image_dir = PathManager.get_image_dir()
@@ -449,18 +503,16 @@ class WeixinPublisher:
                 url = f"{self.BASE_URL}/material/add_material?access_token={token}&type=image"
 
             files = {"media": (file_name, image_buffer, mime_type)}
-            response = requests.post(url, files=files)
-            response.raise_for_status()
-            data = response.json()
+            result = self._request_with_retry("POST", url, files=files)
 
-            if "errcode" in data and data.get("errcode") != 0:
-                ret = None, None, f"图片上传失败: {data.get('errmsg')}"
-            elif "media_id" not in data:
+            if result.get("errcode", 0) != 0:
+                ret = None, None, f"图片上传失败: {result.get('errmsg')}"
+            elif "media_id" not in result:
                 ret = None, None, "图片上传失败: 响应中缺少 media_id"
             else:
-                ret = data.get("media_id"), data.get("url"), None
+                ret = result.get("media_id"), result.get("url"), None
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             ret = None, None, f"图片上传失败: {e}"
 
         return ret
@@ -489,60 +541,50 @@ class WeixinPublisher:
         return ret
 
     def publish(self, media_id: str):
-        """
-        发布草稿箱中的图文素材
-
-        :param media_id: 要发布的草稿的media_id
-        :return: 包含发布任务ID的字典
-        """
-        ret = None, None
         url = f"{self.BASE_URL}/freepublish/submit"
         params = {"access_token": self._ensure_access_token()}
         data = {"media_id": media_id}
 
         try:
-            response = requests.post(url, params=params, json=data)
-            response.raise_for_status()
-            result = response.json()
+            result = self._request_with_retry("POST", url, params=params, json=data)
 
-            if "errcode" in result and result.get("errcode") != 0:
-                ret = None, f"草稿发布失败: {result.get('errmsg')}"
-            elif "publish_id" not in result:
-                ret = None, "草稿发布失败: 响应中缺少 publish_id"
-            else:
-                ret = (
-                    PublishResult(
-                        publishId=result.get("publish_id"),
-                        status=PublishStatus.PUBLISHED,
-                        publishedAt=datetime.now(),
-                        platform="wechat",
-                        url="",  # 需要通过轮询获取
-                    ),
-                    None,
-                )
+            if result.get("errcode", 0) != 0:
+                return None, f"草稿发布失败: {result.get('errmsg')}"
+            return (
+                PublishResult(
+                    publishId=result.get("publish_id") or result.get("media_id"),
+                    status=PublishStatus.PUBLISHED,
+                    publishedAt=datetime.now(),
+                    platform="wechat",
+                    url="",  # 需要通过轮询获取
+                ),
+                None,
+            )
         except Exception as e:
-            ret = None, f"发布草稿文章失败：{e}"
-
-        return ret
+            return None, f"发布草稿文章失败：{e}"
 
     # 轮询获取文章链接
     def poll_article_url(self, publish_id, max_retries=10, interval=2):
         url = f"{self.BASE_URL}/freepublish/get?access_token={self._ensure_access_token()}"
         params = {"publish_id": publish_id}
 
-        for _ in range(max_retries):
-            response = requests.post(url, json=params).json()
+        for i in range(max_retries):
+            # 轮询不使用 _request_with_retry 的内部重试，因为外部已经有循环
+            response = requests.post(url, json=params).json() 
             if response.get("article_id"):
                 return response.get("article_detail")["item"][0]["article_url"]
-
-            time.sleep(interval)
+            
+            # 如果触发限频，等待长一点
+            if response.get("errcode") == 45009:
+                time.sleep(interval * 2)
+            else:
+                time.sleep(interval)
 
         return None
 
     # ---------------------以下接口需要微信认证[个人用户不可用]-------------------------
     # 单独发布只能通过绑定到菜单的形式访问到，无法显示到公众号文章列表
     def create_menu(self, article_url):
-        ret = ""
         menu_data = {
             "button": [
                 {
@@ -554,13 +596,12 @@ class WeixinPublisher:
         }
         menu_url = f"{self.BASE_URL}/menu/create?access_token={self._ensure_access_token()}"
         try:
-            result = requests.post(menu_url, json=menu_data).json()
-            if "errcode" in result and result.get("errcode") != 0:
-                ret = f"创建菜单失败: {result.get('errmsg')}"
+            result = self._request_with_retry("POST", menu_url, json=menu_data)
+            if result.get("errcode", 0) != 0:
+                return f"创建菜单失败: {result.get('errmsg')}"
+            return ""
         except Exception as e:
-            ret = f"创建菜单失败:{e}"
-
-        return ret
+            return f"创建菜单失败:{e}"
 
     # 上传图文消息素材【订阅号与服务号认证后均可用】
     def media_uploadnews(self, article, title, digest, media_id):
@@ -580,42 +621,28 @@ class WeixinPublisher:
             }
         ]
 
-        ret = None, None
         try:
             data = {"articles": articles}
             headers = {"Content-Type": "application/json"}
             json_data = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            response = requests.post(url, data=json_data, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-
-            if "errcode" in result and result.get("errcode") != 0:
-                ret = None, f"上传图文素材失败: {result.get('errmsg')}"
-            elif "media_id" not in result:
-                ret = None, "上传图文素材失败: 响应中缺少 media_id"
-            else:
-                ret = result.get("media_id"), None
-        except requests.exceptions.RequestException as e:
-            ret = None, f"上传微信图文素材失败: {e}"
-
-        return ret
+            
+            result = self._request_with_retry("POST", url, data=json_data, headers=headers)
+            
+            if result.get("errcode", 0) != 0:
+                return None, f"上传图文素材失败: {result.get('errmsg')}"
+            return result.get("media_id"), None
+        except Exception as e:
+            return None, f"上传微信图文素材失败: {e}"
 
     # 根据标签进行群发【订阅号与服务号认证后均可用】
     def message_mass_sendall(self, media_id, is_to_all=True, tag_id=0):
-        ret = None
-
         if is_to_all:
-            data_filter = {
-                "is_to_all": is_to_all,
-            }
+            data_filter = {"is_to_all": is_to_all}
         else:
             if tag_id == 0:
                 return "根据标签进行群发失败：未勾选群发，且tag_id=0无效"
-
-            data_filter = {
-                "is_to_all": is_to_all,
-                "tag_id": tag_id,
-            }
+            data_filter = {"is_to_all": is_to_all, "tag_id": tag_id}
+            
         data = {
             "filter": data_filter,
             "mpnews": {"media_id": media_id},
@@ -625,13 +652,12 @@ class WeixinPublisher:
         url = f"{self.BASE_URL}/message/mass/sendall?access_token={self._ensure_access_token()}"
 
         try:
-            result = requests.post(url, json=data).json()
-            if "errcode" in result and result.get("errcode") != 0:
-                ret = f"根据标签进行群发失败: {result.get('errmsg')}"
+            result = self._request_with_retry("POST", url, json=data)
+            if result.get("errcode", 0) != 0:
+                return f"根据标签进行群发失败: {result.get('errmsg')}"
+            return None
         except Exception as e:
-            ret = f"群发消息失败：{e}"
-
-        return ret
+            return f"群发消息失败：{e}"
 
     def _replace_div_with_section(self, content):
         """

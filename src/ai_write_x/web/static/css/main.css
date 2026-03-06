@@ -81,7 +81,10 @@ body {
     flex-shrink: 0;
     overflow-y: auto;
     z-index: 100;
-    /* 确保在主内容之上但低于 Overlay */
+    background: var(--surface-sidebar);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Main content */
@@ -193,9 +196,12 @@ body {
 
 /* 双栏对比模态框专用样式 */
 .comparison-modal-content {
-    background: var(--bg-primary);
+    background: rgba(var(--bg-primary-rgb), 0.8) !important;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .comparison-pane {
@@ -385,4 +391,30 @@ body {
     background-color: var(--primary-color) !important;
     color: white !important;
     border-color: var(--primary-color) !important;
+}
+
+/* ===== V11: Universal Nexus UI 扩展 ===== */
+.v11-glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+}
+
+@keyframes v11-nexus-expand {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(150);
+        opacity: 0;
+    }
+}
+
+.v11-nexus-pulse {
+    pointer-events: none;
+    mix-blend-mode: screen;
 }

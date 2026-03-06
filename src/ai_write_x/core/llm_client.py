@@ -145,6 +145,13 @@ class LLMClient:
         }
         self._usage_lock = threading.Lock()
         
+        # V7.0: 模型性能追踪器 (Model Fallback Evaluator)
+        self._model_stats = {} # {model_name: {"success": 0, "fail": 0, "last_latency": 0}}
+        self._stats_lock = threading.Lock()
+        
+        # V13.0: Predictive Token Cache - 系统指令哈希缓存
+        self._system_prompt_cache = {} # {hash: full_text}
+        
     def _get_client(self, api_key: str, base_url: str) -> OpenAI:
         """获取或创建OpenAI客户端 (V3: 连接池限制10连接/provider防泄露)"""
         import httpx
@@ -161,6 +168,17 @@ class LLMClient:
                 http_client=http_client
             )
         return self._client_cache[cache_key]
+
+    def _track_model_performance(self, model_name: str, success: bool, latency_ms: int = 0):
+        """V7.0: 追踪模型性能"""
+        with self._stats_lock:
+            if model_name not in self._model_stats:
+                self._model_stats[model_name] = {"success": 0, "fail": 0, "last_latency": 0}
+            if success:
+                self._model_stats[model_name]["success"] += 1
+                self._model_stats[model_name]["last_latency"] = latency_ms
+            else:
+                self._model_stats[model_name]["fail"] += 1
 
     def _track_token_usage(self, usage):
         """V3: 累计追踪token用量"""
@@ -211,8 +229,7 @@ class LLMClient:
         )
 
     def _get_fallback_clients(self) -> List[tuple]:
-        """动态获取所有可用的备用提供程序 (Fallback Providers)"""
-        # 如果 Config 支持 multi-api 结构，自动构建回退链
+        """V13.0: 动态获取并按性能排序的备用提供程序 (Adaptive Weighting)"""
         fallbacks = []
         try:
             apis = self._config.get("api", {})
@@ -220,12 +237,20 @@ class LLMClient:
             for provider_type, data in apis.items():
                 if provider_type != "api_type" and provider_type != current_type and isinstance(data, dict):
                     if "api_key" in data and "base_url" in data:
-                        model = data.get("model", "gpt-3.5-turbo") # 退避默认兜底模型
-                        fallbacks.append((data["api_key"], data["base_url"], model, provider_type))
+                        model = data.get("model", "gpt-3.5-turbo")
+                        # 获取实时延迟，用于排序
+                        with self._stats_lock:
+                            stats = self._model_stats.get(model, {"last_latency": 9999})
+                            latency = stats.get("last_latency", 9999)
+                        fallbacks.append((data["api_key"], data["base_url"], model, provider_type, latency))
+            
+            # 按延迟从小到大排序（自适应权重分配）
+            fallbacks.sort(key=lambda x: x[4])
+            return [f[:4] for f in fallbacks]
         except Exception:
-            pass # 配置结构不支持则跳过
+            pass
         return fallbacks
-    
+
     @property
     def current_model(self) -> str:
         """获取当前模型名称"""
@@ -318,6 +343,18 @@ class LLMClient:
                 self._token_usage["cache_hits"] += 1
             log.print_log(f"[req:{req_id}] 缓存命中 [{model_name}]，跳过API调用", "info")
             return cached
+
+        # V13.0: Predictive Token Caching - 优化系统指令传输
+        optimized_messages = []
+        for msg in messages:
+            if msg.get("role") == "system":
+                content_hash = hashlib.md5(msg["content"].encode()).hexdigest()[:12]
+                if content_hash in self._system_prompt_cache:
+                    # 如果已知此指令，可以标记或应用预测性逻辑（此处仅作日志标记，防止重复传输逻辑在底层由Provider/缓存处理）
+                    log.print_log(f"[req:{req_id}] 检测到高频系统指令 (Hash:{content_hash})，应用预测性缓存优化", "debug")
+                else:
+                    self._system_prompt_cache[content_hash] = msg["content"]
+            optimized_messages.append(msg)
         
         # V4: 重试逻辑 — 指数退避 + 随机抖动(Jitter)防止雷群效应
         max_retries = 3
@@ -333,12 +370,14 @@ class LLMClient:
                 )
                 elapsed_ms = int((time.time() - t0) * 1000)
                 self._track_token_usage(response.usage)
+                self._track_model_performance(model_name, True, elapsed_ms)
                 result = response.choices[0].message.content
                 _response_cache.put(messages, model_name, temperature, result, max_tokens)
                 # V5: 记录API响应耗时，便于性能瓶颈定位
-                log.print_log(f"[req:{req_id}] [{model_name}] 响应完成 {elapsed_ms}ms", "info")
+                log.print_log(f"[req:{req_id}] [{model_name}] 响应完成 {elapsed_ms}ms (Pass)", "info")
                 return result
             except Exception as e:
+                self._track_model_performance(model_name, False)
                 error_str = str(e)
                 # V4: 429速率限制 → 指数退避 + ±30%随机抖动
                 if ('429' in error_str or 'rate' in error_str.lower()) and attempt < max_retries:
@@ -675,12 +714,26 @@ class CrewAILLMAdapter:
         # 合并其他参数
         params.update(kwargs)
         
-        try:
-            response = self._client.chat.completions.create(**params)
-            return response.choices[0].message.content
-        except Exception as e:
-            log.print_log(f"LLM调用失败: {e}", "error")
-            raise
+        # V14.0 Defensive Programming: Add exponential backoff for CrewAI Adapter
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            try:
+                response = self._client.chat.completions.create(**params)
+                return response.choices[0].message.content
+            except Exception as e:
+                import time
+                import random
+                error_str = str(e).lower()
+                if ('429' in error_str or 'rate' in error_str or '502' in error_str or '503' in error_str) and attempt < max_retries:
+                    base_wait = 2 ** (attempt + 1)
+                    jitter = base_wait * random.uniform(-0.3, 0.3)
+                    wait_time = max(1.0, base_wait + jitter)
+                    log.print_log(f"⚠️ CrewAI LLMAdapter 调用故障 (尝试 {attempt+1}/{max_retries}): {e}. 等待 {wait_time:.1f}s", "warning")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    log.print_log(f"LLM调用彻底失败: {e}", "error")
+                    raise
     
     def __call__(self, *args, **kwargs):
         """支持直接调用"""

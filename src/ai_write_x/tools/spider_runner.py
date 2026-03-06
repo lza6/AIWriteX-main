@@ -69,10 +69,12 @@ class SpiderRunner:
     def __init__(self):
         self.spiders: Dict = {}
         self.running = False
-        self._load_spiders()
+        # V13.0 Optimization: 将爬虫模块加载移至后台线程，防止阻塞 Web 服务器启动
+        threading.Thread(target=self._load_spiders, daemon=True).start()
 
-    def _load_spiders(self):
+    def _load_spiders(self, silent=True):
         """加载爬虫模块"""
+        # V13.0 Optimization: 默认静默加载，减少启动阶段的日志压力
         spider_files = [
             # 新闻爬虫
             ("pengpai", "PengPai", "综合", "澎湃新闻"),
@@ -125,9 +127,11 @@ class SpiderRunner:
                     "source": source,
                     "enabled": True
                 }
-                log.print_log(f"加载爬虫: {filename}", "info")
+                if not silent:
+                    log.print_log(f"加载爬虫: {filename}", "info")
             except Exception as e:
-                log.print_log(f"加载爬虫失败 {filename}: {e}", "error")
+                if not silent:
+                    log.print_log(f"加载爬虫失败 {filename}: {e}", "error")
 
     async def run_spider(self, spider_name: str, limit: int = 10) -> Dict:
         """运行单个爬虫"""

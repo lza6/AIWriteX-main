@@ -12,7 +12,7 @@ from src.ai_write_x.core.knowledge_graph import (
 )
 from src.ai_write_x.utils import log
 
-router = APIRouter(prefix="/knowledge", tags=["knowledge"])
+router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
 
 class AnalyzeRequest(BaseModel):

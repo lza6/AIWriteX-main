@@ -117,6 +117,11 @@ def set_process_queue(queue):
     _log_manager.set_process_log_queue(queue)
 
 
+def get_process_queue():
+    """获取当前进程绑定的日志队列"""
+    return _log_manager.get_process_log_queue()
+
+
 def strip_ansi_codes(text):
     """去除 ANSI 颜色代码"""
     ansi_pattern = r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"

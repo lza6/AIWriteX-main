@@ -8,8 +8,11 @@ from typing import Optional
 import asyncio
 import time
 import queue
+import os
+from datetime import datetime
 
 from ..state import get_app_state
+from src.ai_write_x.core.task_manager import task_manager, TaskStatus
 
 from src.ai_write_x.config.config import Config
 from src.ai_write_x.crew_main import ai_write_x_main
@@ -19,12 +22,8 @@ from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
 
 router = APIRouter(prefix="/api", tags=["generate"])
 
-# 全局任务管理
-_current_process = None
-_current_log_queue = None
-_current_worker_thread = None  # 外层批量生成线程
 # V5: 增加时间戳供前端展示生成耗时
-_task_status = {"status": "idle", "error": None, "started_at": None, "finished_at": None}
+# V7: 状态管理由 BackgroundTaskManager 托管
 
 
 class ReferenceConfig(BaseModel):
@@ -84,11 +83,9 @@ async def validate_config():
 
 @router.post("/generate")
 async def generate_content(request: GenerateRequest):
-    global _current_process, _current_log_queue, _task_status, _current_worker_thread
-
-    # 防重入：同时检查子进程和外层worker线程
-    if (_current_process and _current_process.is_alive()) or \
-       (_current_worker_thread and _current_worker_thread.is_alive()):
+    # V7: 使用 TaskManager 检查状态
+    status = task_manager.get_task_status("main_generate")
+    if status["status"] == TaskStatus.RUNNING:
         raise HTTPException(status_code=409, detail="任务正在运行中,请先停止当前任务")
 
     try:
@@ -118,10 +115,9 @@ async def generate_content(request: GenerateRequest):
             if not topic and request.reference.reference_urls:
                 log.print_log("将根据参考链接生成内容", "info")
         # 如果最终还是没话题，报错（在热搜模式下，可能前面尚未获取）
-        if not topic and not request.reference:
-            # 在这里，如果前端点了获取热搜但没传过来，说明有问题
-            raise HTTPException(status_code=400, detail="请输入话题或选择参考文章")
-
+        # V14.4: 当未填话题时，允许热点为空，后端会自动全网盲搜（单篇/批量均适用）
+        # if not topic and not request.reference:
+        #    raise HTTPException(status_code=400, detail="请输入话题或选择参考文章")
         # 将 post_action 保存到 Config 以便后续执行发布
         config.post_action = request.post_action or "none"
         config.article_count = request.article_count or 1
@@ -132,8 +128,12 @@ async def generate_content(request: GenerateRequest):
         import threading
         import queue
         
-        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, log_q, ai_beautify):
-            global _task_status
+        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, ai_beautify):
+            # V11 Hotfix: 通过 log.get_process_queue() 动态获取当前线程绑定的日志队列
+            # 兼容 task_manager.py 的 _worker_wrapper 注入逻辑
+            import src.ai_write_x.utils.log as lg
+            log_q = lg.get_process_queue()
+            # global _task_status # Removed
             from src.ai_write_x.config.config import Config as ProcessConfig
             import traceback
             import time
@@ -149,120 +149,138 @@ async def generate_content(request: GenerateRequest):
             article_count = getattr(cfg, "article_count", 1)
             success_count = 0
             
-            # 设置当前线程(主进程的一个线程)的日志队列，这样 batch_thread_worker 里的 print_log 也能被前端 WebSocket 捕获
-            lg.set_process_queue(log_q)
+            # 设置当前线程(主进程的一个线程)的日志队列已由 task_manager 处理，无需重复调用
+            # lg.set_process_queue(log_q)
             
             try:
-                candidate_topics = []
+                from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+                deduplicator = TopicDeduplicator(dedup_days=3)
+                used_session_topics = []
                 
-                # 如果前台指定了 topic 且数量为 1，直接使用，不进行发散/批量逻辑
-                if req_topic and article_count == 1:
-                    candidate_topics = [{"title": req_topic, "platform": req_platform, "date_str": "近期"}]
-                    lg.print_log(f"单篇文章生成模式启动，话题: {req_topic}")
-                
-                # 如果开启了自动搜刮热点且需要多篇，或者没给明确话题，我们需要动态寻找多个热点
-                if not candidate_topics and article_count > 1 and not is_reference and not req_topic:
-                    lg.print_log(f"批量生成模式开启，目标数量: {article_count} 篇", "info")
-                    from src.ai_write_x.core.llm_client import LLMClient
-                    from src.ai_write_x.tools.spider_runner import SpiderRunner
-                    from src.ai_write_x.tools.spider_manager import spider_data_manager
-                    from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
-                    import random
-                    import asyncio
-                    
-                    # 提前初始化 deduplicator，确保后续代码可用
-                    deduplicator = TopicDeduplicator(dedup_days=3)
-                    
-                    try:
-                        runner = SpiderRunner()
-                        enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
-                        
-                        if enabled_spiders:
-                            # 选择几个爬虫跑一波
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            
-                            tasks = []
-                            for spider_name in random.sample(enabled_spiders, min(3, len(enabled_spiders))):
-                                tasks.append(asyncio.wait_for(runner.run_spider(spider_name, limit=15), timeout=20.0))
-                                
-                            if tasks:
-                                results = loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-                            loop.close()
-                                
-                            articles = spider_data_manager.get_articles(limit=100)
-                            for a in articles:
-                                t = a.get("title", "")
-                                if t and not deduplicator.is_duplicate(t) and t not in [c['title'] for c in candidate_topics]:
-                                    _platform = runner.spiders.get(a.get("spider"), {}).get("source", a.get("spider"))
-                                    candidate_topics.append({"title": t, "platform": _platform, "date_str": a.get("date_str", "")})
-                                    # 立即标记为已用
-                                    deduplicator.add_topic(t)
-                                    if len(candidate_topics) >= article_count * 2:
-                                        break
-                                        
-                        # 如果没有抓取到足够的，或者需要从权威源补充
-                        if len(candidate_topics) < article_count:
-                            # 优先从权威源加持
-                            candidate = hotnews.select_platform_topic(_platform, cnt=200, exclude_topics=[c['title'] for c in candidate_topics], authority_priority=True)
-                            if candidate and not deduplicator.is_duplicate(candidate) and candidate not in [c['title'] for c in candidate_topics]:
-                                candidate_topics.append({"title": candidate, "platform": "权威源", "date_str": "最新"})
-                                deduplicator.add_topic(candidate)
-                                        
-                        if len(candidate_topics) < article_count:
-                            lg.print_log("抓取的热点数量不足以支撑批量生成，将交由 LLM 发散补足...", "info")
-                            llm = LLMClient()
-                            prompt = f"请提供 {article_count - len(candidate_topics)} 个当下的热门互联网资讯或科技社会热点话题，确保每个话题都独特且具有国际新闻价值（类似BBC/华尔街日报风格）。只需输出标题列表，每行一个。不要包含这些已存在的话题: {', '.join([c['title'] for c in candidate_topics])}"
-                            fallback_text = llm.chat([{"role": "user", "content": prompt}])
-                            for line in fallback_text.split('\n'):
-                                line = line.strip().strip('-*0123456789. ')
-                                if line and len(line) > 5 and not deduplicator.is_duplicate(line):
-                                    candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
-                                    deduplicator.add_topic(line)
-                                    if len(candidate_topics) >= article_count:
-                                        break
-                                        
-                        random.shuffle(candidate_topics)
-                        candidate_topics = candidate_topics[:article_count]
-                    except Exception as e:
-                        print(f"Exception preparing topics: {e}")
-                        lg.print_log(f"批量话题准备异常: {e}", "error")
-                
-                print("Checking candidate_topics after spider step")
-                # 如果前台指定了 topic 或者候选不够，用前台的或者AI发散的填充
-                if not candidate_topics:
-                    print("Candidate topic was empty, filling with LLM")
-                    # 此代码块独立，需要自己初始化 deduplicator
-                    from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
-                    deduplicator = TopicDeduplicator(dedup_days=3)
-                    candidate_topics = []
-                    if req_topic:
-                        candidate_topics.append({"title": req_topic, "platform": req_platform, "date_str": "近期"})
-                    
-                    # 补齐
-                    if len(candidate_topics) < article_count:
-                        # 对于剩余的部分如果还需要，可以生成相似的或者AI发散的话题
-                        lg.print_log("使用 LLM 为固定话题发散更多相关话题...", "info")
-                        from src.ai_write_x.core.llm_client import LLMClient
-                        llm = LLMClient()
-                        prompt = f"以“{req_topic or '最新热点'}”为核心，请提供 {article_count - len(candidate_topics)} 个互不相同、切入点独特的延伸或相关新闻话题。只需输出标题列表，每行一个。避开以下已选标题: {', '.join([c['title'] for c in candidate_topics])}"
-                        fallback_text = llm.chat([{"role": "user", "content": prompt}])
-                        for line in fallback_text.split('\n'):
-                            line = line.strip().strip('-*0123456789. ')
-                            if line and len(line) > 5 and not deduplicator.is_duplicate(line):
-                                candidate_topics.append({"title": line, "platform": "AI发散", "date_str": "近期"})
-                                deduplicator.add_topic(line)
-                                if len(candidate_topics) >= article_count:
-                                    break
-                
-                for i, c_topic in enumerate(candidate_topics):
-                    t = c_topic.get("title", "")
-                    p = c_topic.get("platform", "")
-                    d_str = c_topic.get("date_str", "")
-                    
+                for i in range(article_count):
                     lg.print_log(f"=====================================", "internal")
                     lg.print_log(f"🔜 [批量进度] 正在生成第 {i+1}/{article_count} 篇文章", "success")
-                    lg.print_log(f"📌 平台: {p} | 话题: {t}", "info")
+                    
+                    t = ""
+                    p = req_platform or "全网发现"
+                    d_str = "最新"
+                    
+                    # 1. 前台指定了明确的话题
+                    if req_topic:
+                        if i == 0:
+                            t = req_topic
+                        else:
+                            lg.print_log("🧠 正在让 AI 基于原话题发散全新视角...", "info")
+                            from src.ai_write_x.core.llm_client import LLMClient
+                            try:
+                                llm = LLMClient()
+                                prompt = f"以“{req_topic}”为核心，请发散提供一个互不相同、切入点独特的相关新闻话题。只需输出一句话标题。必须避开以下这几个相似标题: {', '.join(used_session_topics)}"
+                                t = llm.chat([{"role": "user", "content": prompt}]).strip().strip('-*0123456789. \n')
+                            except Exception:
+                                t = f"{req_topic} 独家深度追踪 {i+1}"
+                    # 2. 空白话题，需要搜刮全网+AI人工严选
+                    elif not is_reference:
+                        lg.print_log("🌍 正在重新抓取全网实时数据，准备搜寻下一个热点...", "info")
+                        from src.ai_write_x.core.llm_client import LLMClient
+                        from src.ai_write_x.tools.spider_runner import SpiderRunner
+                        from src.ai_write_x.tools.spider_manager import spider_data_manager
+                        import asyncio
+                        import random
+                        
+                        try:
+                            runner = SpiderRunner()
+                            enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
+                            
+                            # 定义权威源集合
+                            authority_spiders = {"bbc", "xinhua", "nytimes", "wsj", "zaobao", "voa", "8world", "zhongguoribao"}
+                            
+                            if enabled_spiders:
+                                loop_spider = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop_spider)
+                                tasks = []
+                                
+                                # 将已启用的爬虫分为权威和普通两组
+                                available_authority = [s for s in enabled_spiders if s in authority_spiders]
+                                available_normal = [s for s in enabled_spiders if s not in authority_spiders]
+                                
+                                # 优先选取权威源 (最多2-3个)
+                                selected_spiders = []
+                                if available_authority:
+                                    selected_spiders.extend(random.sample(available_authority, min(2, len(available_authority))))
+                                
+                                # 再补充一些普通源保证多样性 (补齐到3-4个)
+                                remaining_slots = max(1, 4 - len(selected_spiders))
+                                if available_normal:
+                                    selected_spiders.extend(random.sample(available_normal, min(remaining_slots, len(available_normal))))
+                                    
+                                for spider_name in selected_spiders:
+                                    tasks.append(asyncio.wait_for(runner.run_spider(spider_name, limit=15), timeout=20.0))
+                                    
+                                if tasks:
+                                    loop_spider.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+                                loop_spider.close()
+                                
+                            articles = spider_data_manager.get_articles(limit=100)
+                            candidate_titles = []
+                            for a in articles:
+                                a_title = a.get("title", "")
+                                if a_title and not deduplicator.is_duplicate(a_title) and a_title not in used_session_topics:
+                                    candidate_titles.append(f"[{a.get('spider', '资讯')}] {a_title}")
+                            
+                            # 后备手段: 如果不够用，上权威榜单
+                            if len(candidate_titles) < 5:
+                                from src.ai_write_x.tools import hotnews
+                                cand_hot = hotnews.select_platform_topic("全网热点", cnt=100, exclude_topics=used_session_topics, authority_priority=True)
+                                if isinstance(cand_hot, str) and cand_hot:
+                                    candidate_titles.append(f"[全网热搜] {cand_hot}")
+                                elif isinstance(cand_hot, list):
+                                    candidate_titles.extend([f"[全网热搜] {x}" for x in cand_hot if isinstance(x, str)])
+                            
+                            # 过滤掉空的
+                            candidate_titles = [ct for ct in candidate_titles if ct.strip()]
+                            
+                            lg.print_log(f"📡 抓取完成，共获得 {len(candidate_titles)} 个全新独立候选话题（已启用权威源优先机制）", "info")
+                            lg.print_log("🧠 AI总编正在执行严苛审查，挑选本期最具爆炸力与深度的唯一热点...", "info")
+                            
+                            llm = LLMClient()
+                            if candidate_titles:
+                                prompt = f"""以下是从全网各大平台及海外权威媒体（如BBC、纽时、新华社）抓取的最新热点候选列表。
+请作为首席国际新闻主编，从中挑选出【唯一一个】最具有社会价值、爆款潜质、深度讨论空间和国际视野的权威级话题。
+
+要求：
+- 必须优先考虑那些带有国际地缘、重大科技、宏观经济或深远社会影响的硬核新闻（如源自bbc、xinhua、nytimes等标签的内容）。
+- 坚决过滤掉无意义的娱乐剥削或低俗八卦。
+- 绝不要选择纯粹为博眼球但毫无信息量的标题党。
+- 我们的系统已经写过以下话题（必须严格避开）：
+{', '.join(used_session_topics) if used_session_topics else "无"}
+
+候选列表（最多看前50个）：
+{chr(10).join(candidate_titles[:50])}
+
+最终输出要求：
+1. 请直接返回最终选定的一句话标题。
+2. 绝对不要包含任何前缀（如[BBC]）、标签、理由或多余符号。"""
+                                picked_title = llm.chat([{"role": "user", "content": prompt}]).strip().strip('-*0123456789. \n"\'')
+                                import re
+                                picked_title = re.sub(r'^\[.*?\]\s*', '', picked_title)
+                                t = picked_title
+                            else:
+                                prompt_empty = f"请提供一个当下的热门互联网资讯或科技社会热点话题，确保独特且具有国际新闻价值。只需输出标题。避开: {', '.join(used_session_topics)}"
+                                t = llm.chat([{"role": "user", "content": prompt_empty}]).strip().strip('-*0123456789. \n"\'')
+                        except Exception as e:
+                            lg.print_log(f"AI严选及抓取过程出现异常: {e}，将采用备用方案", "warning")
+                            t = f"全球最新前沿资讯与独家深度追踪 {i+1}"
+                    
+                    if not t:
+                        t = "全球热点聚合与最新行业动态追踪"
+
+                    # 记录并标记使用状态
+                    import re
+                    t = re.sub(r'^\[.*?\]\s*', '', t) # Double check strip
+                    used_session_topics.append(t)
+                    deduplicator.add_topic(t)
+                    
+                    lg.print_log(f"🎯 正式确定话题: 【{t}】", "success")
                     lg.print_log(f"=====================================", "internal")
                     
                     config_data = {
@@ -297,12 +315,11 @@ async def generate_content(request: GenerateRequest):
                         # 核心生成节点
                         lg.print_log(f"[{i+1}/{article_count}] 开始执行生成线程...", "info")
                         # 确保主模块状态
-                        global _current_process
-                        
                         process, p_log_queue = ai_write_x_main(config_data)
                         if process and p_log_queue:
                             process.start()
-                            _current_process = process # 记录下来让 /generate/stop 可以停止当前进程
+                            # V7: 注册子进程以便统一管理
+                            task_manager.register_sub_process("main_generate", process)
                             final_result = None
                             
                             # 循环读取日志，同时检测子进程存活状态
@@ -314,7 +331,7 @@ async def generate_content(request: GenerateRequest):
                                         if "result" in msg:
                                             final_result = msg.get("result")
                                             
-                                        if i == len(candidate_topics) - 1:
+                                        if i == article_count - 1:
                                             # 最后一条的话，直接放行，告诉前端真正完成了
                                             log_q.put(msg)
                                         else:
@@ -338,10 +355,11 @@ async def generate_content(request: GenerateRequest):
                             # === [新增] V6: 文章生成后入库及自动补图逻辑 ===
                             if final_result and final_result.get("success"):
                                 try:
-                                    from src.ai_write_x.database import db_manager
                                     db_title = final_result.get("save_result", {}).get("title", t)
                                     db_content = final_result.get("formatted_content", "")
-                                    db_manager.save_article(topic_title=db_title, content=db_content, fmt="HTML")
+                                    # V13.0.4: 使用 DataManager 实例进行保存
+                                    from src.ai_write_x.database.db_manager import db_manager
+                                    db_manager.save_article(topic_title=db_title, content=db_content)
                                     lg.print_log(f"💾 文章已归档到本地知识库引擎", "success")
                                 except Exception as db_e:
                                     lg.print_log(f"数据库保存异常: {db_e}", "warning")
@@ -430,17 +448,17 @@ async def generate_content(request: GenerateRequest):
                         lg.print_log(f"❌ 第 {i+1} 篇文章生成失败: {str(loop_e)}", "error")
                         traceback.print_exc()
                         
-                    if i < len(candidate_topics) - 1:
+                    if i < article_count - 1:
                         lg.print_log("等待 10 秒后开始下一篇文章生成...", "internal")
                         time.sleep(10)
                         
                 if success_count > 0:
                     lg.print_log(f"🎉 批量生成任务全部完成！共成功生成 {success_count}/{article_count} 篇文章。", "success")
-                    # 发送总的完成消息 如果上面没有截断发出去过的话，为了保险再发一次
-                    log_q.put({"type": "internal", "message": "任务执行完成", "timestamp": time.time()})
                 else:
                     lg.print_log("❌ 所有文章生成失败", "error")
-                    log_q.put({"type": "internal", "message": "任务执行失败", "error": "所有文章生成均失败", "timestamp": time.time()})
+                
+                # V7: 任务管理器会自动处理最终状态，但我们仍需通过日志反馈给前端
+                log_q.put({"type": "internal", "message": "任务执行完成", "timestamp": time.time(), "success": success_count > 0})
                     
             except Exception as e:
                 import traceback
@@ -461,12 +479,12 @@ async def generate_content(request: GenerateRequest):
                 lg.set_process_queue(None)
                 
                 # 显式更新全局任务状态，确保前端轮询能检测到任务完成
-                if success_count > 0:
-                    _task_status = {"status": "completed", "error": None, "started_at": _task_status.get("started_at"), "finished_at": time.time()}
-                    print(f"[batch_thread_worker] 任务状态已更新为 completed，成功 {success_count} 篇")
-                else:
-                    _task_status = {"status": "failed", "error": "所有文章生成均失败", "started_at": _task_status.get("started_at"), "finished_at": time.time()}
-                    print(f"[batch_thread_worker] 任务状态已更新为 failed")
+                # if success_count > 0: # Removed
+                #     _task_status = {"status": "completed", "error": None, "started_at": _task_status.get("started_at"), "finished_at": time.time()} # Removed
+                #     print(f"[batch_thread_worker] 任务状态已更新为 completed，成功 {success_count} 篇") # Removed
+                # else: # Removed
+                #     _task_status = {"status": "failed", "error": "所有文章生成均失败", "started_at": _task_status.get("started_at"), "finished_at": time.time()} # Removed
+                #     print(f"[batch_thread_worker] 任务状态已更新为 failed") # Removed
                 
                 # P2: 自动清理临时文件（超过1小时的env_*.json）
                 try:
@@ -484,9 +502,9 @@ async def generate_content(request: GenerateRequest):
                 import gc
                 gc.collect()
 
-        import queue
-        log_queue = queue.Queue()
-        _current_log_queue = log_queue
+        # import queue # Removed, task_manager provides queue
+        # log_queue = queue.Queue() # Removed
+        # _current_log_queue = log_queue # Removed
         
         ref_dict = {
             "is_reference": True if request.reference else False,
@@ -497,27 +515,22 @@ async def generate_content(request: GenerateRequest):
             "reference_ratio": request.reference.reference_ratio if request.reference else 30
         }
         
-        worker = threading.Thread(
-            target=batch_thread_worker,
-            args=(
+        # V7: 使用 TaskManager 启动任务
+        success, res = task_manager.start_task(
+            "main_generate", 
+            batch_thread_worker, 
+            (
                 config.__dict__,
                 topic,
                 request.platform,
                 ref_dict["is_reference"],
                 ref_dict,
-                log_queue,
                 request.ai_beautify,
-            ),
-            daemon=True,
+            )
         )
         
-        _task_status = {"status": "running", "error": None, "started_at": time.time(), "finished_at": None}
-        log.print_log(f"生成线程启动中，话题: {topic}", "info")
-        worker.start()
-        
-        # 保存外层worker线程引用，供状态轮询检测
-        _current_worker_thread = worker
-
+        if not success:
+            raise HTTPException(status_code=500, detail=f"任务启动失败: {res}")
 
         msg = "正在批量生成内容，请耐心等待..." if request.article_count > 1 else "正在生成内容，请耐心等待..."
         log.print_log("生成请求已接受，正在后台处理...", "info")
@@ -542,105 +555,16 @@ async def generate_content(request: GenerateRequest):
 
 @router.post("/generate/stop")
 async def stop_generation():
-    """
-    停止当前生成任务
-
-    """
-    global _current_process, _current_log_queue, _task_status, _current_worker_thread
-
-    if not _current_process or not _current_process.is_alive():
-        return {"status": "info", "message": "没有正在运行的任务"}
-
-    try:
-        log.print_log("正在停止任务...", "info")
-
-        # 首先尝试优雅终止
-        _current_process.terminate()
-        _current_process.join(timeout=2.0)
-
-        # 检查是否真正终止
-        if _current_process.is_alive():
-            log.print_log("执行未响应,强制终止", "warning")
-            _current_process.kill()
-            _current_process.join(timeout=1.0)
-
-            if _current_process.is_alive():
-                log.print_log("警告:执行可能未完全终止", "warning")
-            else:
-                log.print_log("任务执行已强制终止", "info")
-        else:
-            log.print_log("任务执行已停止", "info")
-
-        # 清理队列中的剩余消息
-        if _current_log_queue:
-            try:
-                while True:
-                    _current_log_queue.get_nowait()
-            except queue.Empty:
-                pass
-
-        # 重置状态
-        _current_process = None
-        _current_log_queue = None
-        _current_worker_thread = None
-        _task_status = {"status": "stopped", "error": None}
-
+    """停止当前生成任务"""
+    success, msg = task_manager.stop_task("main_generate")
+    if success:
         return {"status": "success", "message": "任务已停止"}
-
-    except Exception as e:
-        log.print_log(f"终止执行时出错: {str(e)}", "error")
-
-        # 即使出错也要重置状态
-        _current_process = None
-        _current_log_queue = None
-        _current_worker_thread = None
-        _task_status = {"status": "error", "error": str(e)}
-
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "info", "message": msg}
 
 
 @router.get("/generate/status")
 async def get_generation_status():
-    global _current_process, _task_status, _current_log_queue, _current_worker_thread
-
-    # 检查外层worker线程状态（批量生成线程）
-    if _current_worker_thread and _current_worker_thread.is_alive():
-        return {"status": "running", "error": None}
-    
-    # 如果外层线程已结束，检查其设置的状态
-    if _current_worker_thread and not _current_worker_thread.is_alive():
-        # 线程已结束，返回其设置的最终状态
-        status = _task_status.copy()
-        if status.get("status") in ("completed", "failed"):
-            print(f"[generate/status] 外层线程已结束，返回状态: {status['status']}")
-            # 清理资源
-            _current_worker_thread = None
-            _current_process = None
-            _current_log_queue = None
-            _task_status = {"status": "idle", "error": None}
-            return status
-
-    # 检查子进程状态（向后兼容）
-    if _current_process:
-        if _current_process.is_alive():
-            return {"status": "running", "error": None}
-        else:
-            # 进程已结束,检查退出码
-            exit_code = _current_process.exitcode
-            if exit_code == 0:
-                status = {"status": "completed", "error": None}
-            else:
-                status = {"status": "failed", "error": f"退出码: {exit_code}"}
-
-            # 清理资源
-            _current_process = None
-            _current_log_queue = None
-            _current_worker_thread = None
-            _task_status = {"status": "idle", "error": None}
-
-            return status
-
-    return _task_status
+    return task_manager.get_task_status("main_generate")
 
 
 @router.websocket("/ws/generate/logs")
@@ -660,17 +584,12 @@ async def websocket_logs(websocket: WebSocket):
     file_handler = log.LogManager.get_instance().get_file_handler()
 
     try:
+        log_queue = task_manager.get_log_queue("main_generate")
         while True:
-            # 1. 检查子进程状态
-            # 在批量模式下，_current_process 可能在单篇完成后暂时结束，但外层 Thread 还在继续
-            if _current_process and not _current_process.is_alive():
-                # 我们不再这里直接 break，让 '任务执行完成' 标记来控制退出
-                pass
-
-            # 2. 检查子进程日志队列
-            if _current_log_queue:
+            # 检查子进程日志队列
+            if log_queue:
                 try:
-                    msg = _current_log_queue.get_nowait()
+                    msg = log_queue.get_nowait()
 
                     # 发送到前端
                     await websocket.send_json(
@@ -691,7 +610,7 @@ async def websocket_logs(websocket: WebSocket):
                             # 先清空队列中剩余的消息
                             while True:
                                 try:
-                                    remaining_msg = _current_log_queue.get_nowait()
+                                    remaining_msg = log_queue.get_nowait()
                                     await websocket.send_json(
                                         {
                                             "type": remaining_msg.get("type", "info"),
@@ -754,13 +673,11 @@ async def websocket_logs(websocket: WebSocket):
 
     except WebSocketDisconnect:
         log.print_log("WebSocket 连接断开", "info")
-    except Exception as e:
-        log.print_log(f"WebSocket 错误: {str(e)}", "error")
     finally:
         if websocket.client_state.name != "DISCONNECTED":
             try:
                 await websocket.close()
-            except RuntimeError:
+            except:
                 pass
 
 
@@ -923,11 +840,11 @@ async def get_hot_topics():
         
         choice_idx = 0
         try:
-            import asyncio
-            loop = asyncio.get_running_loop()
             import re
             
             # 使用 run_in_executor 避免同步的 LLM 调用阻塞 FastAPI 的事件循环
+            import asyncio
+            loop = asyncio.get_running_loop()
             choice_str = await loop.run_in_executor(
                 None, 
                 lambda: llm.chat([{"role": "user", "content": prompt}], temperature=0.3)

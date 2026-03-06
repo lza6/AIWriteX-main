@@ -1,33 +1,557 @@
-<header class="app-header">        
-    <div class="app-title-link">      
-        <div class="app-title">    
-            <div class="header-logo-container">      
-                <svg class="logo-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">    
-                    <defs>    
-                        <linearGradient id="grad-core-header" x1="0%" y1="0%" x2="100%" y2="100%">    
-                            <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:1" />    
-                            <stop offset="100%" style="stop-color:#bd00ff;stop-opacity:1" />    
-                        </linearGradient>    
-                    </defs>    
-                    <circle class="orbit-path orbit-1" cx="32" cy="32" r="28" />    
-                    <circle class="orbit-path orbit-2" cx="32" cy="32" r="20" />    
-                    <path class="core-x" d="M24 24 L40 40 M40 24 L24 40" stroke="url(#grad-core-header)" stroke-width="6" stroke-linecap="round" />    
-                    <circle cx="32" cy="32" r="4" fill="white">    
-                        <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite"/>    
-                    </circle>     
-                </svg>     
-            </div>  
-            <div class="title-text-wrapper">  
-                <span class="title-main">AIWriteX</span>        
-                <span class="app-subtitle">智能内容创作平台</span>  
-            </div>  
-        </div>      
-    </div>      
-    <div class="app-status">  
-        <!-- 状态指示器 -->  
-        <div class="status-indicator" id="status-indicator">          
-            <span class="status-dot"></span>          
-            <span class="status-text">就绪</span>          
-        </div>  
-    </div>         
+<header class="app-header">
+    <div class="app-title-link">
+        <div class="app-title">
+            <div class="header-logo-container">
+                <svg class="logo-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad-core-header" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#00e5ff;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#bd00ff;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="orbit-path orbit-1" cx="32" cy="32" r="28" />
+                    <circle class="orbit-path orbit-2" cx="32" cy="32" r="20" />
+                    <path class="core-x" d="M24 24 L40 40 M40 24 L24 40" stroke="url(#grad-core-header)"
+                        stroke-width="6" stroke-linecap="round" />
+                    <circle cx="32" cy="32" r="4" fill="white">
+                        <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite" />
+                    </circle>
+                </svg>
+            </div>
+            <div class="title-text-wrapper" style="display: flex; flex-direction: column; justify-content: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="title-main" style="line-height: 1;">AIWriteX</span>
+                    <span class="version-badge" title="当前使用的版本"
+                        style="font-size: 12px; background: rgba(0, 229, 255, 0.15); color: #00e5ff; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(0, 229, 255, 0.4); font-weight: 600;">{{
+                        version }}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+                    <span class="app-subtitle" style="line-height: 1;">智能内容创作平台</span>
+                    <a href="javascript:void(0)" onclick="checkForUpdates()" id="update-btn" title="点击检测并在线更新"
+                        style="font-size: 12px; color: var(--primary-color, #00e5ff); cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 4px; border-bottom: 1px dashed rgba(0, 229, 255, 0.5); padding-bottom: 1px; transition: all 0.3s; line-height: 1;">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22">
+                            </path>
+                        </svg><span id="update-btn-text">一键检测更新</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="app-status">
+        <!-- 状态指示器 -->
+        <div class="status-indicator" id="status-indicator">
+            <span class="status-dot"></span>
+            <span class="status-text">就绪</span>
+        </div>
+    </div>
 </header>
+
+<!-- 智能更新模态框 -->
+<div id="update-modal-overlay" class="modal-overlay" style="display: none;">
+    <div class="modal-container glass-effect">
+        <div class="modal-header">
+            <div class="modal-title-area">
+                <span class="pulse-dot"></span>
+                <h3>星际系统更新日志</h3>
+            </div>
+            <button class="close-btn" onclick="closeUpdateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="update-log-terminal" class="log-terminal">
+                <div class="log-line text-dim">等待系统初始化指令...</div>
+            </div>
+            <div class="progress-section">
+                <div class="progress-info">
+                    <span class="progress-label">部署进度</span>
+                    <span id="update-progress-percent" class="progress-value">0%</span>
+                </div>
+                <div class="update-progress-bar">
+                    <div id="update-progress-inner" class="update-progress-inner"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn secondary-btn" onclick="copyUpdateLogs()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 4h2a2 0 0 1 2 2v14a2 0 0 1-2 2H6a2 0 0 1-2-2V6a2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+                复制日志
+            </button>
+            <div class="footer-right">
+                <button id="cancel-update-btn" class="modal-btn secondary-btn" onclick="closeUpdateModal()">取消</button>
+                <button id="restart-btn" class="modal-btn primary-btn" style="display: none;"
+                    onclick="executeRestart()">
+                    🚀 重启系统以应用
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-container {
+        width: 90%;
+        max-width: 700px;
+        background: rgba(15, 15, 25, 0.9);
+        border: 1px solid rgba(0, 229, 255, 0.2);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 0 40px rgba(0, 229, 255, 0.15);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .glass-effect {
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .modal-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-title-area {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: #00e5ff;
+        border-radius: 50%;
+        box-shadow: 0 0 10px #00e5ff;
+        animation: pulse 2s infinite;
+    }
+
+    .modal-title-area h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 500;
+        color: #fff;
+        letter-spacing: 1px;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 24px;
+        cursor: pointer;
+        transition: color 0.3s;
+    }
+
+    .close-btn:hover {
+        color: #fff;
+    }
+
+    .modal-body {
+        padding: 24px;
+        flex: 1;
+    }
+
+    .log-terminal {
+        height: 320px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+        padding: 16px;
+        overflow-y: auto;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #00ffa2;
+        margin-bottom: 24px;
+        border: 1px solid rgba(0, 255, 162, 0.1);
+        scroll-behavior: smooth;
+    }
+
+    .log-line {
+        margin-bottom: 6px;
+    }
+
+    .progress-section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .progress-label {
+        color: #888;
+        font-size: 14px;
+    }
+
+    .progress-value {
+        color: #00e5ff;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .update-progress-bar {
+        height: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .update-progress-inner {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #00e5ff, #bd00ff);
+        box-shadow: 0 0 15px rgba(189, 0, 255, 0.5);
+        transition: width 0.4s ease;
+    }
+
+    .modal-footer {
+        padding: 18px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .footer-right {
+        display: flex;
+        gap: 12px;
+    }
+
+    .modal-btn {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+    }
+
+    .primary-btn {
+        background: linear-gradient(135deg, #00e5ff, #bd00ff);
+        color: #fff;
+        border: none;
+        box-shadow: 0 4px 15px rgba(189, 0, 255, 0.3);
+    }
+
+    .primary-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(189, 0, 255, 0.4);
+    }
+
+    .secondary-btn {
+        background: rgba(255, 255, 255, 0.05);
+        color: #ccc;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .secondary-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 0.6;
+            box-shadow: 0 0 5px #00e5ff;
+        }
+
+        50% {
+            opacity: 1;
+            box-shadow: 0 0 15px #00e5ff;
+        }
+
+        100% {
+            opacity: 0.6;
+            box-shadow: 0 0 5px #00e5ff;
+        }
+    }
+
+    .text-dim {
+        color: #666;
+    }
+</style>
+
+<script>
+    // 辅助函数：从 Cookie 中获取客户端 Token
+    function getAppToken() {
+        if (window.APP_CLIENT_TOKEN) return window.APP_CLIENT_TOKEN;
+        const name = 'app_client_token=';
+        const decodedCookie = decodeURIComponent(document.cookie);
+        const ca = decodedCookie.split(';');
+        for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) == ' ') {
+                c = c.substring(1);
+            }
+            if (c.indexOf(name) == 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return '';
+    }
+
+    async function checkForUpdates() {
+        console.log("Checking for updates...");
+
+        // 1. 立即显示模态框并初始化日志终端
+        const modal = document.getElementById('update-modal-overlay');
+        const logTerminal = document.getElementById('update-log-terminal');
+        const progressBarInner = document.getElementById('update-progress-inner');
+        const progressPercent = document.getElementById('update-progress-percent');
+        const footerRight = document.querySelector('.footer-right');
+        const btnText = document.getElementById('update-btn-text');
+        const originalText = btnText.innerText;
+
+        modal.style.display = 'flex';
+        logTerminal.innerHTML = `
+            <div class="log-line" style="color: #00e5ff;">📡 正在启动系统深度巡检程序...</div>
+            <div class="log-line">正在调取星系链路，验证版本哈希...</div>
+        `;
+        progressBarInner.style.width = '0%';
+        progressPercent.innerText = '0%';
+
+        // 重置按钮状态
+        footerRight.innerHTML = '<button class="modal-btn secondary-btn" disabled>正在检索...</button>';
+        btnText.innerText = '正在调取星系链路...';
+
+        try {
+            // 模拟一些延迟感，增强系统感
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const token = getAppToken();
+            const response = await fetch('/api/system/check-update', {
+                headers: { 'X-App-Client-Token': token }
+            });
+            const data = await response.json();
+
+            if (response.ok && data.has_update) {
+                console.log("Update found:", data.latest_version);
+
+                const updateLine = document.createElement('div');
+                updateLine.className = 'log-line';
+                updateLine.style.color = '#00e5ff';
+                updateLine.style.fontWeight = 'bold';
+                updateLine.style.fontSize = '15px';
+                updateLine.style.marginTop = '10px';
+                updateLine.innerHTML = `🚀 发现新版本信号: [v${data.latest_version}]`;
+                logTerminal.appendChild(updateLine);
+
+                logTerminal.innerHTML += `
+                    <div class="log-line">当前版本: <span style="color: #666;">${data.current_version}</span></div>
+                    <div class="log-line">最新版本: <span style="color: #00e5ff; font-weight: bold;">v${data.latest_version}</span></div>
+                    <div class="log-line" style="margin-top: 12px; color: #888; border-top: 1px dashed #333; padding-top: 8px;">更新详情:</div>
+                    <div class="log-line" style="background: rgba(189,0,255,0.05); padding: 12px; border-radius: 6px; color: #ddd; border: 1px solid rgba(189,0,255,0.1); white-space: pre-wrap;">${data.release_notes || '优化了核心引擎稳定性。'}</div>
+                    <div class="log-line" style="margin-top: 15px; color: #ffca28;">是否立即开启相位迁移？</div>
+                `;
+
+                footerRight.innerHTML = `
+                    <button class="modal-btn secondary-btn" onclick="closeUpdateModal()">暂不同步</button>
+                    <button class="modal-btn primary-btn" onclick="applyUpdate('${data.download_url}')">立即开始迁移</button>
+                `;
+                btnText.innerText = '发现新版本!';
+                logTerminal.scrollTop = logTerminal.scrollHeight;
+            } else if (response.ok && !data.has_update) {
+                const successLine = document.createElement('div');
+                successLine.className = 'log-line';
+                successLine.style.color = '#00ffa2';
+                successLine.innerHTML = `✅ 版本校验完成: 当前系统 (${data.current_version}) 已处于最佳运行状态。`;
+                logTerminal.appendChild(successLine);
+
+                footerRight.innerHTML = '<button class="modal-btn secondary-btn" onclick="closeUpdateModal()">关闭</button>';
+                btnText.innerText = originalText;
+                logTerminal.scrollTop = logTerminal.scrollHeight;
+            } else {
+                const failLine = document.createElement('div');
+                failLine.className = 'log-line';
+                failLine.style.color = '#ff4d4d';
+                failLine.innerHTML = `❌ 链路通信异常: ${data.detail || '未知的网络错误'}`;
+                logTerminal.appendChild(failLine);
+
+                footerRight.innerHTML = '<button class="modal-btn secondary-btn" onclick="closeUpdateModal()">关闭</button>';
+                btnText.innerText = originalText;
+                logTerminal.scrollTop = logTerminal.scrollHeight;
+            }
+        } catch (error) {
+            console.error("Check update error:", error);
+            const errLine = document.createElement('div');
+            errLine.className = 'log-line';
+            errLine.style.color = '#ff4d4d';
+            errLine.innerHTML = `❌ 系统核心报错: ${error.message}`;
+            logTerminal.appendChild(errLine);
+
+            footerRight.innerHTML = '<button class="modal-btn secondary-btn" onclick="closeUpdateModal()">关闭</button>';
+            btnText.innerText = originalText;
+            logTerminal.scrollTop = logTerminal.scrollHeight;
+        }
+    }
+
+    function showUpdateConfirmModal(data) {
+        // 此函数不再作为主入口，checkForUpdates 已内置逻辑
+        console.warn("Deprecated: Use checkForUpdates directly.");
+    }
+
+    async function applyUpdate(downloadUrl) {
+        console.log("Applying update from:", downloadUrl);
+        const logTerminal = document.getElementById('update-log-terminal');
+        const progressBarInner = document.getElementById('update-progress-inner');
+        const progressPercent = document.getElementById('update-progress-percent');
+        const footerRight = document.querySelector('.footer-right');
+        const btnText = document.getElementById('update-btn-text');
+
+        const token = getAppToken();
+
+        // 记录现有日志
+        const currentLogs = logTerminal.innerHTML;
+        logTerminal.innerHTML = currentLogs + '<div class="log-line" style="color: #bd00ff; margin-top: 10px;">🚀 正在初始化量子链路...</div>';
+        footerRight.innerHTML = '<button class="modal-btn secondary-btn" disabled>同步中...</button>';
+        btnText.innerText = '正在部署更新...';
+
+        let lastLogCount = 0;
+        let pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/system/update-progress', {
+                    headers: { 'X-App-Client-Token': token }
+                });
+                const progressData = await res.json();
+                console.log("Update progress:", progressData);
+
+                if (progressData.status !== 'idle') {
+                    if (progressData.logs && progressData.logs.length > lastLogCount) {
+                        for (let i = lastLogCount; i < progressData.logs.length; i++) {
+                            const line = document.createElement('div');
+                            line.className = 'log-line';
+                            line.innerHTML = `<span style="color: #555;">[${new Date().toLocaleTimeString()}]</span> ${progressData.logs[i]}`;
+                            logTerminal.appendChild(line);
+                        }
+                        lastLogCount = progressData.logs.length;
+                        logTerminal.scrollTop = logTerminal.scrollHeight;
+                    }
+
+                    progressBarInner.style.width = progressData.progress + '%';
+                    progressPercent.innerText = progressData.progress + '%';
+
+                    if (progressData.status === 'ready_to_restart') {
+                        clearInterval(pollInterval);
+                        console.log("Update ready to restart.");
+                        footerRight.innerHTML = `
+                            <button class="modal-btn secondary-btn" onclick="closeUpdateModal()">后台同步</button>
+                            <button id="restart-btn" class="modal-btn primary-btn" onclick="executeRestart()">🚀 重启应用同步</button>
+                        `;
+                    } else if (progressData.status === 'error') {
+                        clearInterval(pollInterval);
+                        console.error("Update error:", progressData.error);
+                        const errLine = document.createElement('div');
+                        errLine.className = 'log-line';
+                        errLine.style.color = '#ff4d4d';
+                        errLine.textContent = `❌ 故障: ${progressData.error}`;
+                        logTerminal.appendChild(errLine);
+                        footerRight.innerHTML = '<button class="modal-btn secondary-btn" onclick="closeUpdateModal()">关闭</button>';
+                    }
+                }
+            } catch (e) {
+                console.error("Poll progress error:", e);
+            }
+        }, 800);
+
+        try {
+            await fetch('/api/system/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-App-Client-Token': token
+                },
+                body: JSON.stringify({ download_url: downloadUrl })
+            });
+        } catch (error) {
+            clearInterval(pollInterval);
+            console.error("Apply update request failed:", error);
+        }
+    }
+
+    function closeUpdateModal() {
+        const modal = document.getElementById('update-modal-overlay');
+        if (modal) {
+            modal.style.display = 'none';
+            console.log("Update modal closed.");
+        }
+    }
+
+    function showUpdateLogModal() {
+        const modal = document.getElementById('update-modal-overlay');
+        if (modal) {
+            modal.style.display = 'flex';
+            console.log("Update log modal shown.");
+        } else {
+            console.error("Update modal overlay not found.");
+        }
+    }
+
+    function copyUpdateLogs() {
+        const logs = document.getElementById('update-log-terminal').innerText;
+        navigator.clipboard.writeText(logs).then(() => {
+            const btn = event.currentTarget;
+            const originText = btn.innerHTML;
+            btn.innerHTML = '<span>✅ 已复制</span>';
+            setTimeout(() => btn.innerHTML = originText, 2000);
+            console.log("Update logs copied to clipboard.");
+        });
+    }
+
+    async function executeRestart() {
+        console.log("Executing restart...");
+        const restartBtn = document.getElementById('restart-btn');
+        restartBtn.disabled = true;
+        restartBtn.innerText = '正在调起 一键更新.bat...';
+        const token = getAppToken();
+        try {
+            await fetch('/api/system/restart-and-update', {
+                method: 'POST',
+                headers: { 'X-App-Client-Token': token }
+            });
+            console.log("Restart command sent.");
+        } catch (e) {
+            console.error("Restart command failed:", e);
+            alert('重启指令发送失败，请手动在根目录运行 一键更新.bat');
+            restartBtn.disabled = false;
+        }
+    }
+</script>

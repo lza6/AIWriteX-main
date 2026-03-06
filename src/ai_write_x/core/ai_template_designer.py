@@ -11,7 +11,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from src.ai_write_x.utils import log
-from src.ai_write_x.utils.llm_service import LLMService
+from src.ai_write_x.utils.llm_service import LLMService, get_llm_service
+from src.ai_write_x.config.config import Config
 
 
 class AITemplateDesigner:
@@ -95,7 +96,12 @@ class AITemplateDesigner:
     }
 
     def __init__(self):
-        self.llm_service = LLMService()
+        self.llm_service = get_llm_service()
+        self.config = Config.get_instance()
+        
+    def _get_designer_llm_model(self) -> str:
+        """从配置获取设计专用模型，带回退逻辑"""
+        return self.config.get_llm_model("designer_model", "deepseek-v3")
 
     async def generate_unique_template(self, title: str, content: str, 
                                       topic: str = "", keywords: List[str] = None) -> str:
@@ -118,7 +124,7 @@ class AITemplateDesigner:
             # 4. 调用LLM生成模板
             response = await self.llm_service.acomplete(
                 prompt=prompt,
-                model="deepseek-v3",
+                model=self._get_designer_llm_model(),
                 max_tokens=4000,
                 temperature=0.7
             )
@@ -156,7 +162,7 @@ class AITemplateDesigner:
             # 使用异步 acomplete 方法
             response = await self.llm_service.acomplete(
                 prompt=recommend_prompt,
-                model="deepseek-v3",
+                model=self._get_designer_llm_model(),
                 max_tokens=50,
                 temperature=0.3
             )
@@ -190,9 +196,9 @@ class AITemplateDesigner:
 """
             response = await self.llm_service.acomplete(
                 prompt=color_prompt,
-                model="deepseek-v3",
-                max_tokens=20,
-                temperature=0.2
+                model=self._get_designer_llm_model(),
+                max_tokens=2000,
+                temperature=0.3
             )
             theme = response.get("content", "").lower().strip()
             

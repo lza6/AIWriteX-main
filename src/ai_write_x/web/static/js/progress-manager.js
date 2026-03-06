@@ -14,6 +14,7 @@ class BottomProgressManager {
         this.currentStage = null;
         this.currentProgress = 0;
         this.isRunning = false;
+        this.pulseInjected = false;
 
         // DOM elements
         this.progressEl = document.getElementById('workflow-nodes');
@@ -43,6 +44,30 @@ class BottomProgressManager {
         });
 
         this.activateStage(stage);
+        this.injectPulseStyles();
+    }
+
+    injectPulseStyles() {
+        if (this.pulseInjected) return;
+
+        const styleId = 'v13-pulse-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                @keyframes v13-pulse {
+                    0% { transform: scale(1); filter: brightness(1); }
+                    50% { transform: scale(1.05); filter: brightness(1.2); drop-shadow(0 0 8px rgba(74, 222, 128, 0.5)); }
+                    100% { transform: scale(1); filter: brightness(1); }
+                }
+                .wf-node.active .node-icon {
+                    animation: v13-pulse var(--pulse-duration, 2s) infinite ease-in-out;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        this.pulseInjected = true;
     }
 
     async updateProgress(stage, progress) {
@@ -109,6 +134,10 @@ class BottomProgressManager {
                     this.lines[i - 1].classList.add('active');
                 }
                 foundNode = true;
+
+                // V13.0: 注入量子脉冲频率
+                const pulseRates = { 'writing': '1.5s', 'reflexion': '0.8s', 'review': '2s', 'visual': '3s' };
+                node.style.setProperty('--pulse-duration', pulseRates[stageId] || '2s');
             } else {
                 node.classList.add('done');
                 node.classList.remove('active');

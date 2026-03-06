@@ -142,6 +142,44 @@ class DimensionalCreativeEngine:
         
         # 返回得分最高的类型，默认lifestyle
         return max(scores, key=scores.get) if max(scores.values()) > 0 else 'lifestyle'
+
+    def _get_visual_style_for_content_type(self, content_type: str) -> Dict[str, str]:
+        """
+        获取内容类型对应的视觉调性建议
+        """
+        styles = {
+            'politics': {
+                'style': "Cinematic documentary, muted tones, historical weight, deep shadows, large-scale composition",
+                'lighting': "Chiaroscuro, dramatic side lighting",
+                'camera': "Wide angle, low angle"
+            },
+            'news': {
+                'style': "Photojournalism, realistic textures, high grain, natural lighting, candid moment",
+                'lighting': "Natural daylight, harsh sunlight",
+                'camera': "Handheld, eye level"
+            },
+            'technical': {
+                'style': "Minimalist tech, blueprint aesthetic, glowing data streams, Unreal Engine 5 render, clean lines",
+                'lighting': "Cyan and magenta neon accents, volumetric lighting",
+                'camera': "Macro shots, isometric view"
+            },
+            'academic': {
+                'style': "Structured diagrammatic, high-end editorial illustration, grayscale with accent color, paper texture",
+                'lighting': "Soft studio lighting",
+                'camera': "Top-down, flat lay"
+            },
+            'business': {
+                'style': "Modern corporate, shallow depth of field, Octane Render, professional atmosphere, sleek glass surfaces",
+                'lighting': "Softbox lighting, high key",
+                'camera': "Bokehed backgrounds, clean framing"
+            },
+            'lifestyle': {
+                'style': "Film photography, Kodak Portra 400 aesthetic, warm sunshine, soft focus, high aesthetic value",
+                'lighting': "Golden hour, lens flare",
+                'camera': "Portrait, soft bokeh"
+            }
+        }
+        return styles.get(content_type, styles['lifestyle'])
     
     def _get_dimensions_for_content_type(self, content_type: str) -> Tuple[List[str], int, float]:
         """
@@ -557,32 +595,13 @@ class DimensionalCreativeEngine:
 {intensity_constraint}
 
 你需要将这些维度的特点融合到内容中，创造出独特而富有创意的作品。
-保持内容的核心信息不变，但要在表达方式、风格、视角等方面体现出这些维度的特色。""",
+保持内容的核心信息不变，但要在表达方式、风格、视角等方面体现出这些维度的特色。
+
+【极度重要的字数限制】：变换后的内容**绝对不能比原文字数短**！你必须通过你丰富的创意和详尽的补充细节，使变换后的文章变得比原来还要长，并且充斥着深度分析，严禁对其进行任何形式的粗糙总结、遗漏核心段落或内容压缩。""",
                 tools=[],
             )
         ]
-
-        # 创建任务配置
-
-        task_description = f"""对以下内容进行维度化创意变换：
-
-原始内容：
-{{content}}
-
-创意要求：
-{{creative_prompt}}
-
-创意强度：{intensity_desc} ({creative_intensity})
-
-请根据指定的创意维度对内容进行变换，确保：
-1. 保持原内容的核心信息和主要观点。
-2. 融入各个维度的特色和风格，创造出独特而富有创意的表达方式。
-3. **视觉占位符强制要求**：如果在文中植入配图，必须并统一使用格式：`[[V-SCENE: <提示词> | <比例>]]`。
-4. **内容限制**：输出结果**绝对不要**包含一级标题（以 # 开头的行），直接从正文或二级标题开始。
-5. 保持内容的逻辑性和可读性。
-
-输出格式：直接输出变换后的内容，不要包含任何解释或说明。"""
-
+        task_description = "根据指定的创意维度、内容类型约束和创意强度，对基础内容进行多维度的创意改写与重构。"
         tasks = [
             TaskConfig(
                 name="dimensional_creative_transformation",

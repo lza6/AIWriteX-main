@@ -27,6 +27,10 @@ class QualityMetric(Enum):
     SENTENCE_VARIETY = "sentence_variety" # 句式多样性
     AI_LIKELIHOOD = "ai_likelihood"       # AI生成概率
     SEMANTIC_DEPTH = "semantic_depth"     # 语义深度
+    EMOTIONAL_POLARITY = "emotional_polarity" # V4: 情感极性
+    HOOK_CTA = "hook_cta"                 # V4: Hook/CTA
+    TOPIC_TRANSITION = "topic_transition" # V4: 主题过渡
+    DECEPTIVE_FEATURES = "deceptive_features" # V7.0: 迷惑性特征（拟人度）
 
 
 @dataclass
@@ -49,6 +53,7 @@ class ContentAnalysisResult:
     improvement_percentage: float = 0.0
     ai_detection_score: float = 0.0  # AI检测概率 (越低越好)
     originality_score: float = 0.0   # 原创性分数 (越高越好)
+    deceptive_score: float = 0.0     # V7.0: 迷惑性分数 (越高越能迷惑检测器)
 
 
 class ContentQualityEngine:
@@ -128,11 +133,13 @@ class ContentQualityEngine:
         result.quality_scores["emotional_polarity"] = self._analyze_emotional_polarity(content)
         result.quality_scores["hook_cta"] = self._analyze_hook_and_cta(content)
         result.quality_scores["topic_transition"] = self._analyze_topic_transition(content)
+        result.quality_scores["deceptive_features"] = self._analyze_deceptive_features(content) # V7.0
         
         # 计算综合分数
         result.overall_score = self._calculate_overall_score(result.quality_scores)
         result.ai_detection_score = result.quality_scores["ai_likelihood"].score
         result.originality_score = result.quality_scores["originality"].score
+        result.deceptive_score = result.quality_scores["deceptive_features"].score # V7.0
         
         # V3: 新增统计学指标（作为额外补充信息，不影响主评分）
         v3_entropy = self._calculate_entropy(content)
@@ -234,16 +241,16 @@ class ContentQualityEngine:
             avg_sentence_length = sum(len(s) for s in sentences) / len(sentences)
             details["avg_sentence_length"] = round(avg_sentence_length, 1)
             
-            # 最佳句子长度: 15-40字
-            if avg_sentence_length > 60:
+            # 最佳句子长度调整: 适应长文和深度分析
+            if avg_sentence_length > 100:
                 score -= 15
-                suggestions.append("句子过长，建议拆分为更短的句子")
+                suggestions.append("句子平均长度过长，建议拆分为更短的句子增加呼吸感")
             elif avg_sentence_length < 10:
                 score -= 10
                 suggestions.append("句子过短，可以适当丰富内容")
             
-            # 检查超长句子
-            long_sentences = [s for s in sentences if len(s) > 80]
+            # 检查超长句子 (放宽到 150 适应 Markdown 加粗及长链接)
+            long_sentences = [s for s in sentences if len(s) > 150]
             if long_sentences:
                 details["long_sentences_count"] = len(long_sentences)
                 score -= len(long_sentences) * 3
@@ -256,7 +263,7 @@ class ContentQualityEngine:
             details["avg_paragraph_length"] = round(avg_para_length, 1)
             details["paragraph_count"] = len(paragraphs)
             
-            if avg_para_length > 300:
+            if avg_para_length > 500:
                 score -= 10
                 suggestions.append("段落过长，建议分段以提高可读性")
         
@@ -802,29 +809,65 @@ class ContentQualityEngine:
             details["total_emotion_words"] = total
             
             # 理想分布：不应过度偏向任何一极
-            # 纯正面(>0.7)扣分 — 典型AI拍马屁倾向
             if pos_ratio > 0.7:
                 score -= 20
-                suggestions.append("正面情感词过多(>70%)，AI倾向明显，建议增加客观分析或适度的质疑")
-            # 纯负面(>0.7)也扣分
+                suggestions.append("正面情感词过多(>70%)，AI倾向明显")
             elif neg_ratio > 0.7:
                 score -= 15
-                suggestions.append("负面情感词过多，建议平衡观点，增加建设性内容")
-            # 无负面词(0%) — AI很少使用负面词
+                suggestions.append("负面情感词过多")
             elif neg_count == 0 and total > 5:
                 score -= 10
-                suggestions.append("缺少任何批判性或负面视角，真实文章通常会有正反两面分析")
-            # 三极均衡(各占20-50%) — 最佳
+                suggestions.append("缺少批判性视角")
             elif 0.2 <= pos_ratio <= 0.5 and neg_ratio >= 0.1:
                 score += 5
         else:
             details["total_emotion_words"] = 0
             score -= 5
-            suggestions.append("未检测到明显的情感词汇，内容可能过于干巴")
         
         score = max(0, min(100, score))
         return QualityScore(
-            metric=QualityMetric.COHERENCE,  # 复用枚举
+            metric=QualityMetric.EMOTIONAL_POLARITY,
+            score=score,
+            details=details,
+            suggestions=suggestions
+        )
+
+    def _analyze_deceptive_features(self, content: str) -> QualityScore:
+        """V7.0: 迷惑性特征评分 - 检测文章中对抗AI检测的拟人特征"""
+        score = 0.0
+        details = {}
+        suggestions = []
+
+        # 1. 语气词与呼吸感连接词 (Anti-AI V7 新增)
+        breathing_patterns = [
+            "其实，", "说到底，", "换句话说，", "不过话说回来，",
+            "其实吧，", "倒是可以这么看，", "仔细一想，", "说句掏心窝子的话"
+        ]
+        found_breathing = [p for p in breathing_patterns if p in content]
+        score += min(len(found_breathing) * 15, 45)
+        details["breathing_features"] = found_breathing
+
+        # 2. 句式长度的“爆发力” (长短句极端差异)
+        sentences = re.split(r'[。！？]', content)
+        lengths = [len(s.strip()) for s in sentences if s.strip()]
+        if lengths:
+            max_len = max(lengths)
+            min_len = min(lengths)
+            if max_len > 80 and min_len < 10:
+                score += 25
+                details["length_burst"] = True
+            else:
+                suggestions.append("建议增加长短句的极端对比")
+
+        # 3. 语义微调标记 (或者说, 其实本质上)
+        micro_patterns = ["或者说", "准确地说", "换个说法", "老实说"]
+        found_micro = [p for p in micro_patterns if p in content]
+        score += min(len(found_micro) * 10, 30)
+        details["micro_adjustments"] = found_micro
+
+        score = max(0, min(100, score))
+        return QualityScore(
+            metric=QualityMetric.DECEPTIVE_FEATURES,
             score=score,
             details=details,
             suggestions=suggestions
@@ -841,7 +884,7 @@ class ContentQualityEngine:
         
         paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#')]
         if len(paragraphs) < 2:
-            return QualityScore(metric=QualityMetric.COHERENCE, score=60.0, details={"error": "段落过少"}, suggestions=[])
+            return QualityScore(metric=QualityMetric.HOOK_CTA, score=60.0, details={"error": "段落过少"}, suggestions=[])
         
         first_para = paragraphs[0]
         last_para = paragraphs[-1]
@@ -910,7 +953,7 @@ class ContentQualityEngine:
         score = max(0, min(100, 50 + hook_score + cta_score))  # 基础50分 + hook + cta
         
         return QualityScore(
-            metric=QualityMetric.COHERENCE,
+            metric=QualityMetric.HOOK_CTA,
             score=score,
             details=details,
             suggestions=suggestions
@@ -929,7 +972,7 @@ class ContentQualityEngine:
         paragraphs = [p.strip() for p in content.split('\n\n') if p.strip() and not p.strip().startswith('#') and len(p.strip()) > 20]
         
         if len(paragraphs) < 3:
-            return QualityScore(metric=QualityMetric.COHERENCE, score=70.0, details={"error": "段落数不足"}, suggestions=[])
+            return QualityScore(metric=QualityMetric.TOPIC_TRANSITION, score=70.0, details={"error": "段落数不足"}, suggestions=[])
         
         # 提取每段的关键词集合（去掉停用词）
         stop_words = set('的了是在有和与等也都不人这那些被把将从到对于就而且')
@@ -984,7 +1027,7 @@ class ContentQualityEngine:
         score = max(0, min(100, score))
         
         return QualityScore(
-            metric=QualityMetric.COHERENCE,
+            metric=QualityMetric.TOPIC_TRANSITION,
             score=score,
             details=details,
             suggestions=suggestions
@@ -1004,6 +1047,7 @@ class ContentQualityEngine:
             "emotional_polarity": 0.06,
             "hook_cta": 0.07,
             "topic_transition": 0.06,
+            "deceptive_features": 0.06, # V7.0
         }
         
         total_score = 0.0

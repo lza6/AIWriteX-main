@@ -557,107 +557,67 @@ class CreativeWorkshopManager {
         }
 
         // ========== 阶段 4: 所有校验通过,启动生成 ==========  
+        try {
+            // 提前设置生成状态, 让UI立即响应
+            this.isGenerating = true;
+            this.updateGenerationUI(true);
+            this._startGenerationTimer(); // V5 启动计时器
 
-        // 提前设置生成状态, 让UI立即响应
-        this.isGenerating = true;
-        this.updateGenerationUI(true);
-        this._startGenerationTimer(); // V5 启动计时器
-
-        // 启动进度条  
-        if (this.bottomProgress) {
-            this.bottomProgress.start('init');
-            const progressEl = document.getElementById('bottom-progress');
-            if (progressEl) {
-                progressEl.classList.remove('hidden');
+            // 启动进度条  
+            if (this.bottomProgress) {
+                this.bottomProgress.start('init');
+                const progressEl = document.getElementById('bottom-progress');
+                if (progressEl) {
+                    progressEl.classList.remove('hidden');
+                }
             }
-        }
 
-        // 初始化日志按钮显示  
-        this.updateLogButtonProgress('init', 0);
+            // 初始化日志按钮显示  
+            this.updateLogButtonProgress('init', 0);
 
-        // 清空消息队列,准备新任务  
-        this.clearMessageQueue();
+            // 清空消息队列,准备新任务  
+            this.clearMessageQueue();
 
-        // 记录日志 - 根据模式显示不同信息
-        let taskMode = referenceConfig ? '借鉴模式' : '热搜模式';
-        let logMessage = `🚀 开始生成任务`;
+            // 记录日志 - 根据模式显示不同信息
+            let taskMode = referenceConfig ? '借鉴模式' : '热搜模式';
+            let logMessage = `🚀 开始生成任务`;
 
-        if (referenceConfig) {
-            if (referenceConfig.reference_article_id && this._selectedArticle) {
-                const articleTitle = this._selectedArticle.title || '未知文章';
-                const articleSource = this._selectedArticle.source || '热点';
-                logMessage = `🚀 开始生成任务 (借鉴模式)`;
-                this.appendLog(logMessage, 'status', false, Date.now() / 1000);
-                this.appendLog(`📰 参考文章: [${articleSource}] ${articleTitle}`, 'info', false, Date.now() / 1000);
-            } else if (referenceConfig.reference_urls) {
-                logMessage = `🚀 开始生成任务 (借鉴模式 - 参考链接)`;
-                this.appendLog(logMessage, 'status', false, Date.now() / 1000);
+            if (referenceConfig) {
+                if (referenceConfig.reference_article_id && this._selectedArticle) {
+                    const articleTitle = this._selectedArticle.title || '未知文章';
+                    const articleSource = this._selectedArticle.source || '热点';
+                    logMessage = `🚀 开始生成任务 (借鉴模式)`;
+                    this.appendLog(logMessage, 'status', false, Date.now() / 1000);
+                    this.appendLog(`📰 参考文章: [${articleSource}] ${articleTitle}`, 'info', false, Date.now() / 1000);
+                } else if (referenceConfig.reference_urls) {
+                    logMessage = `🚀 开始生成任务 (借鉴模式 - 参考链接)`;
+                    this.appendLog(logMessage, 'status', false, Date.now() / 1000);
+                } else {
+                    this.appendLog(`🚀 开始生成任务 (${taskMode})`, 'status', false, Date.now() / 1000);
+                }
             } else {
                 this.appendLog(`🚀 开始生成任务 (${taskMode})`, 'status', false, Date.now() / 1000);
             }
-        } else {
-            this.appendLog(`🚀 开始生成任务 (${taskMode})`, 'status', false, Date.now() / 1000);
-        }
 
-        // 自动获取热搜  
-        if (!topic && !referenceConfig) {
-            window.app?.showNotification('正在自动获取热搜...', 'info');
-            this.appendLog('🌍 正在自动跨平台抓取、获取热点信息...', 'info', false, Date.now() / 1000);
+            // 自动获取热搜交由后端处理
+            if (!topic && !referenceConfig) {
+                // 获取批量生成配置
+                const currentArticleCount = parseInt(document.getElementById('article-count')?.value || '1', 10);
 
-            try {
-                const response = await fetch('/api/hot-topics');
-                if (response.ok) {
-                    const data = await response.json();
-                    topic = data.topic || '';
-                    this._hotSearchPlatform = data.platform || '';
-
-                    if (!topic) {
-                        window.app?.showNotification('获取热搜失败,请手动输入话题', 'warning');
-                        this.cleanupProgress();
-                        this.resetLogButton();
-                        this.isGenerating = false;
-                        this.updateGenerationUI(false);
-                        return;
-                    }
-
-                    const topicInput = document.getElementById('topic-input');
-                    if (topicInput) {
-                        topicInput.value = topic;
-                        this.currentTopic = topic;
-                    }
-
-                    // NEW: 如果获取到了 article_id，直接无缝切换到借鉴模式
-                    // 避免后端再次使用 web_search_tool，强制保留已抓取的全量上下文和视觉解析标签
-                    if (data.article_id) {
-                        referenceConfig = {
-                            reference_article_id: data.article_id,
-                            reference_ratio: 100, // 高度参考
-                            reference_urls: ''
-                        };
-                        this._selectedArticle = { id: data.article_id, title: topic, source: data.platform };
-                    }
-                    this.appendLog(`✨ AI主编甄选话题: [${data.platform || '未知平台'}] ${topic}`, 'success', false, Date.now() / 1000);
-
+                if (currentArticleCount === 1) {
+                    window.app?.showNotification('正在开启全网搜索与AI权威审稿...', 'info');
+                    this.appendLog('🌍 话题为空，已开启【权威优先聚合搜索】模式生成单篇深度爆款...', 'info', false, Date.now() / 1000);
                 } else {
-                    throw new Error('获取热搜失败');
+                    this.appendLog(`🔍 话题为空，已开启【权威优先聚合搜索】模式生成 ${currentArticleCount} 篇独立的新闻/热点...`, 'info', false, Date.now() / 1000);
                 }
-            } catch (error) {
-                console.error('获取热搜失败:', error);
-                window.app?.showNotification('获取热搜失败,请手动输入话题', 'error');
-                this.appendLog(`❌ 获取热点信息失败: ${error.message}`, 'error', false, Date.now() / 1000);
-                this.cleanupProgress();
-                this.resetLogButton();
-                this.isGenerating = false;
-                this.updateGenerationUI(false);
-                return;
             }
-        }
 
-        // 添加到历史记录  
-        this.addToHistory(topic);
+            // 添加到历史记录  
+            if (topic) {
+                this.addToHistory(topic);
+            }
 
-        // ========== 阶段 5: 发起生成请求 ==========  
-        try {
+            // ========== 阶段 5: 发起生成请求 ==========  
             // 获取批量生成配置
             const articleCount = parseInt(document.getElementById('article-count')?.value || '1', 10);
             const postAction = document.getElementById('post-action')?.value || 'none';
@@ -716,18 +676,19 @@ class CreativeWorkshopManager {
             // 连接 WebSocket 接收实时日志  
             this.connectLogWebSocket();
 
-            // 开始轮询任务状态  
+            // 此处开始等待完成
             this.startStatusPolling();
 
         } catch (error) {
-            console.error('生成失败:', error);
+            console.error('流程启动或生成过程中失败:', error);
 
             // 异常:清理进度条和队列  
             this.cleanupProgress();
             this.resetLogButton();  // 重置日志按钮  
             this.clearMessageQueue();
 
-            window.app?.showNotification('生成失败: ' + error.message, 'error');
+            window.app?.showNotification('生成失败: ' + (error.message || '未知异常情况'), 'error');
+            this.appendLog(`❌ 生成失败: ${error.message || '未知异常情况'}`, 'error', false, Date.now() / 1000);
             this.isGenerating = false;
             this.updateGenerationUI(false);
         }
@@ -1682,14 +1643,23 @@ class CreativeWorkshopManager {
         const saved = localStorage.getItem('generation_history');
         if (saved) {
             try {
-                this.generationHistory = JSON.parse(saved);
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    this.generationHistory = parsed;
+                } else {
+                    this.generationHistory = [];
+                }
             } catch (e) {
                 console.error('加载历史记录失败:', e);
+                this.generationHistory = [];
             }
         }
     }
 
     addToHistory(topic) {
+        if (!Array.isArray(this.generationHistory)) {
+            this.generationHistory = [];
+        }
         const entry = {
             topic: topic,
             timestamp: new Date().toISOString()

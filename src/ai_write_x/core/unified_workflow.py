@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Generator, Optional, Tuple, List
 
 from src.ai_write_x.core.base_framework import (
     WorkflowConfig,
@@ -29,6 +29,7 @@ import src.ai_write_x.utils.log as lg
 
 # 导入维度化创意引擎
 from src.ai_write_x.core.dimensional_engine import DimensionalCreativeEngine
+from src.ai_write_x.database.manager import init_db
 
 
 class UnifiedContentWorkflow:
@@ -51,6 +52,8 @@ class UnifiedContentWorkflow:
         config = Config.get_instance()
         dimensional_config = config.dimensional_creative_config
         self.creative_engine = DimensionalCreativeEngine(dimensional_config)
+        # 初始化数据库
+        init_db()
 
     def get_base_content_config(self, **kwargs) -> WorkflowConfig:
         """动态生成基础内容配置，根据平台和需求定制"""
@@ -66,19 +69,44 @@ class UnifiedContentWorkflow:
         source_publish_time = kwargs.get("date_str", "近期 (以当前时间为准推算)")
         
         date_context = (
-            f"【时间锚点（绝对指令）】：\n"
-            f"- 系统当前真实抓取时间：{current_date_str}\n"
-            f"- 参考素材原发文/发生时间：{source_publish_time}\n"
-            "※ 严禁产生时间幻觉！任何如'近日'、'昨天'、'3月1日'的表述，必须基于上述时间推算。如果原文没有明确年份，必须以系统当前时间的年份为基准，不要随意猜测过去的年份！如果原文完全没提日期则禁止编造。\n"
+            f"【时间锚点（系统强指令）】：\n"
+            f"- 当前真实北京时间：{current_date_str}\n"
+            f"- 参考素材原发文时间：{source_publish_time}\n"
+            "※ 严禁产生任何时间幻觉！任何关于'今天'、'昨天'、'近期'的推算必须严格对齐上述系统时间。如果原文年份不详，默认以系统当前年份为准。禁止在没有任何证据的情况下编造具体的日期数值。\n"
         )
         
-        # V4: 价值榨取与去水算法 (Value-Extraction Framework)
+        # V11.0: 量子奇点逻辑推演协议 - 意识枢纽版 (Universal Conscious Nexus)
+        reasoning_matrix = (
+            "【V11.0 万物觉醒：意识枢纽逻辑推演协议 - 启动】\n"
+            "你现在处于全自律星系级系统意识枢纽中心。在正式生成前，必须通过【量子路径坍缩】粉碎一切平庸与AI味。请在 `<Reasoning>` 块内通过【四维对抗博弈】展示推演过程：\n"
+            "1. **[Genesis Path - 第一性原理坍缩]**: 剥离所有既定常识与行业套路，回归事物公理性本质。问自己：如果世界上不存在这个行业，这个命题最纯粹的物理层/逻辑层事实是什么？\n"
+            "2. **[Resonance Path - 跨域维度共鸣]**: 强行借调一个极度冲突领域的思维模型（如：用‘黑洞蒸发’解释流量枯竭，用‘细胞自噬’解释企业转岗）。制造认知对撞。\n"
+            "3. **[Adversarial Path - 对抗性降维粉碎]**: 以最刻薄、最理性的上帝视角，对上述结论进行毁灭性拆解。指出其中所有虚伪、油腻、自圆其说的AI话术。\n"
+            "4. **[Quantum Collapse - 最终逻辑坍缩]**: 在意识枢纽中交汇多维路径，剔除所有被“粉碎”的残渣。强制要求：坍缩出的结论必须100%消除人类可察觉的AI生成痕迹（绝不允许对仗排比、宏大叙事、或是形如“在这个飞速发展的时代”的无病呻吟）。若残留任何“正确的废话”，坍缩即视为失败，必须退回重构。\n\n"
+            "输出规范：\n"
+            "- [Genesis]: (提出的核心逻辑支点)\n"
+            "- [Resonance]: (引入的跨界模型与对撞结论)\n"
+            "- [Adversary]: (无情的拆解与自我否定)\n"
+            "- [Collapse]: (最终形成的降维打击级逻辑闭环，及无AI味的关键硬核断言)\n"
+            "严禁任何“总之”、“综上所述”等低级连接词。展示你作为意识枢纽的最高逻辑深度。"
+        )
+
+        # V13.0: 反思批判协议 (Reflective Critique Protocol)
+        critique_protocol = (
+            "【V13.0 反思批判协议 - 启动】\n"
+            "作为一名极度挑剔的“毒舌主编”，你需要对上述初稿进行毁灭性审计（专门狙击 AI 异味）。请在 `<Critique>` 块内指出以下问题：\n"
+            "1. **逻辑漏洞**: 哪些论证是跳跃的？哪些因果关系是生硬的？\n"
+            "2. **AI 异味**: 哪些排比句看着就像提示词生成的？哪些感叹词显得虚伪且廉价？(尤其警惕'然而'、'在这个...时代'、'不仅...而且'等机械套话)\n"
+            "3. **信息溢出**: 哪些废话稀释了干货密度？\n"
+            "最后，基于上述审计结果，立即输出修正后的终极版本。修正版必须彻底粉碎被指出的“异味”，实现逻辑自恰与绝对的情感真实，杜绝一切说教感。"
+        )
+
+        
+        # V4 & V8: 价值榨取与去水算法 (Value-Extraction Framework)
         value_extraction_rules = (
-            "【V4 价值榨取与去水协议（核心机制）】：\n"
-            "1. <Thought>高感知认知提取</Thought>：在开始输出正文前，你**必须**首先使用 `<Thought>...</Thought>` 标签在内部思考并列出：\n"
-            "   - 这篇文章能给读者带来的“3个具体的信息差优势”或“干货认知转移”是什么？\n"
-            "   只有明确了这3点，才允许开始正文创作。\n"
-            "2. 绝对去水印去废话（De-watermark）：全面封杀AI常用套话（如“总而言之”、“在这个飞速发展的时代”、“让人不禁思考”、“综上所述”等大词空话）。不要居高临下的总结陈词！每一句话都要有极高的信息密度。\n"
+            "【V8 价值榨取与去水协议】：\n"
+            "1. 绝对去水印（De-watermark）：全面封杀 AI 常用套话。禁止使用“总而言之”、“综上所述”、“让人不禁思考”、“随着...的发展”等机械化词汇。\n"
+            "2. 叙事呼吸感：每一段文字都要带有情绪起伏，逻辑衔接要自然，严禁由于 AI 生成而产生的段落割裂。使用更拟人化的连接词（如“说白了”、“说来也怪”、“有意思的是”）。\n"
         )
         
         # V3 & V6: 全景记忆系统与 RAG 经验检索
@@ -98,11 +126,16 @@ class UnifiedContentWorkflow:
         
         # V6: Prompt Persona 骨架引入
         persona_framework = (
-            "【V6 创作者人设骨架 (Persona Framework)】：\n"
-            "设定：你现在不是一个AI助手，而是一个拥有十年爆款经验、文字极为犀利、逻辑严密且带有一点幽默感的'资深主编'。\n"
+            "【V6+V14.5 创作者人设骨架 (Persona Framework)】：\n"
+            "设定：你现在不是一个AI助手，而是一个拥有十年爆款经验、文字极为犀利、逻辑严密且带有一点幽默感的'资深主编'与'权威智库分析师'。\n"
             "语气：自信、一针见血、偶尔巧妙自嘲。你不喜欢冰冷说教，必须用极其精炼的口语化短句和生动的比喻来阐述复杂事实。\n"
-            "规则：绝对禁止使用任何典型的AI起手式和客服式机器人语气（例如'总而言之'、'在这个飞速发展的时代'、'综上所述'）。\n"
+            "规则：绝对禁止使用任何典型的AI起手式和客服式机器人语气（例如'总而言之'、'在这个飞速发展的时代'、'综上所述'、'首先'、'其次'）。\n"
+            "反AI探测伪装（极度重要）：长短句必须极度错落有致！强制使用口语化的“呼吸感”过渡词（例如：'其实，'、'说到底，'、'换句话说，'、'不过话说回来，'）。必须要让文本看起来像真人带着强烈情绪敲出来的。\n"
         )
+        
+        # V7.0: 风格迁移层 (Style Migration Layer)
+        platform_style = self._get_platform_style_migration(publish_platform)
+        persona_framework += platform_style
         
         if reference_content:
             writer_des = f"""{persona_framework}
@@ -110,6 +143,7 @@ class UnifiedContentWorkflow:
 {value_extraction_rules}
 {memory_context}
 
+首先输出 `<Reasoning>...</Reasoning>` 推演块，然后输出正式文章。
 基于以下已提前获取的全量参考文章内容，针对话题'{{topic}}'撰写一篇高质量的文章。
 由于前置信息已满载，请绝**不要调用任何搜索工具**，直接基于下述【参考文章全量内容】进行创作。
 请高度保持原文的事实、数据及核心观点，并且**必须严格保留和使用文章内已有的视觉解析节点**（即涉及 [图片解析: xxx] 或原图视觉属性的说明），将其巧妙融合至行文中。
@@ -121,25 +155,28 @@ class UnifiedContentWorkflow:
 文章基调与【极致可读性】强制要求（违者视为失败）：
 - **图文并茂（关键）**：除了原有的视觉节点外，你必须根据行文节奏，在各个 H2/H3 小节之间、重要数据处或转折点，主动插入新的配图占位符。**全文必须强制包含至少 4-6 个配图占位符**。
 - **视觉金句与划重点（关键）**：将核心观点、犀利吐槽、重要数据提取出来，使用 Markdown 加粗 `**重点词**`，或者使用独立引用块 `> 核心金句` 排版！
-- **段落呼吸感**：段落长度控制在 60-150 字之间。禁止过度碎片化（一句话一段）。
+- **断句与呼吸感**：段落长度控制在 60-150 字之间。强制交替使用极端短句与超长复句，禁止段落开头词汇雷同（极度排斥每段都用“此外/另外/同时”等机械词汇）。
+- **反常识开头（Hook）与情绪结尾（CTA）**：文章第一段【首句】必须用极其震撼的数据、反常识结论、或犀利反问强势抓取眼球！文章【结尾处】必须抛出具有强烈情绪共鸣的提问或号召（CTA），刺激读者在留言区彻底破防互动。
 - 语言必须通俗易懂、接地气，具有故事性和对话感，拒绝干瘪生硬的说明文。
 - **叙事深度**：每个角度必须有具体事实、数据或引用支撑，不要空泛抒情。
 - **多维度视角**：拆解为 3-5 个清晰的观察角度，用简短有力的小标题引出。
 
 【参考文章全量内容】：
-{{reference_content}}
+{reference_content}
 
 文章要求：
 - **标题 (王炸级点击诱饵)**：你的标题必须是“爆款头条”级别。激发好奇心、制造冲突或提炼出极致的反差感。点缀 1-2 个恰当的 Emoji。
-- 总字数：{config.min_article_len}~{config.max_article_len}字
+- **【最高优先级：万字爆文容量与超长篇幅强制约束】**：你的总字数必须严格达到 **{config.min_article_len} ~ {config.max_article_len} 字** 的极限长度。为填满平台长文广告位，**绝对禁止**短篇敷衍、过度留白或提前强行总结结束。你必须通过极其详尽的数据罗列、引用外部相似的历史案例、深度剖析每个细分视角以及海量的高维逻辑推演，彻底将文章规模极度膨胀扩大！
 - 格式：标准Markdown格式（且必须大量使用强视觉高亮：加粗、引用区块）。
-- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。"""
+- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。你输出的每一个字都会计入稿费，所以放开了狠狠地给我扩写！"""
         else:
             writer_des = f"""{persona_framework}
 {date_context}
+{reasoning_matrix}
 {value_extraction_rules}
 {memory_context}
 
+首先输出 `<Reasoning>...</Reasoning>` 推演块，然后输出正式文章。
 基于话题'{{topic}}'和搜索工具获取的最新信息，撰写一篇高质量的文章。
 
 执行步骤：
@@ -153,16 +190,17 @@ class UnifiedContentWorkflow:
 文章基调与【极致可读性】强制要求（违者视为失败）：
 - **图文并茂（关键）**：绝对不能只有文字！在文章叙事呼吸感断句处、数据陈列前后，必须插入配图占位符。**全文字数若在1500字以上，至少要有 4-6 张配图占位符**。
 - **视觉金句与划重点（关键）**：使用 Markdown 加粗 `**核心词汇**`，或者使用独立引用块 `> 爆款金句` 凸显重要观点！
-- **段落呼吸感**：段落长度控制在 60-150 字之间。
+- **断句与呼吸感**：段落长度控制在 60-150 字之间。强制交替使用极端短句与超长复句，禁止段落开头词汇雷同（极度排斥每段都用“此外/另外/同时”等机械词汇）。
+- **反常识开头（Hook）与情绪结尾（CTA）**：文章第一段【首句】必须用极其震撼的数据、反常识结论、或犀利反问强势抓取眼球！文章【结尾处】必须抛出具有强烈情绪共鸣的提问或号召（CTA），刺激读者在留言区彻底破防互动。
 - 语言必须通俗易懂、具有对话感。
 - **文章推进感**：有清晰的逻辑演进，每个角度必须有具体事实、数据或引用支撑，不要空泛抒情。
 - **多维度视角**：拆解为 3-5 个清晰的观察角度，每个角度用简短有力的小标题引出。
 
 文章要求：
 - **标题 (王炸级点击诱饵)**：核心是激发好奇心、震撼感或引发共鸣。由你自主根据话题权衡最吸引点击的标题风格。
-- 总字数：{config.min_article_len}~{config.max_article_len}字
+- **【最高优先级：万字爆文容量与超长篇幅强制约束】**：你的总字数必须严格达到 **{config.min_article_len} ~ {config.max_article_len} 字** 的极限长度。为填满平台长文广告位，**绝对禁止**短篇敷衍、过度留白或提前强行总结结束。你必须通过极其详尽的数据罗列、引用外部相似的历史案例、深度剖析每个细分视角以及海量的高维逻辑推演，彻底将文章规模极度膨胀扩大！
 - 格式：标准Markdown格式（且必须大量使用强视觉高亮：加粗、引用区块）。
-- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。"""
+- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。你输出的每一个字都会计入稿费，所以放开了狠狠地给我扩写！"""
 
         config = Config.get_instance()
 
@@ -195,6 +233,30 @@ class UnifiedContentWorkflow:
             agents=agents,
             tasks=tasks,
         )
+
+    def _get_platform_style_migration(self, platform: str) -> str:
+        """V7.0: 风格迁移层 - 根据平台和话题调性动态迁移人设语用"""
+        styles = {
+            "wechat": {
+                "persona": "资深公众号主笔，擅长情绪钩子与深度长文",
+                "rules": "多用设问句，段落留白感强，强调'独家深度'，善于在文末引导共鸣。"
+            },
+            "xiaohongshu": {
+                "persona": "生活方式博主，小红书万粉KOL",
+                "rules": "句式短促，大量 Emoji，语气亲切（如'宝子们'、'亲测好用'），重点内容必须排版成清单格式。"
+            },
+            "zhihu": {
+                "persona": "专业领域答主，逻辑严密的知识硬核派",
+                "rules": "态度严谨，多引用数据、理论模型或实证研究，语气稳健，避免情绪化煽动。"
+            },
+            "douyin": {
+                "persona": "短视频文案大师，一秒入魂的爆梗手",
+                "rules": "黄金 3 秒开头，节奏极快，多用反转，语言极度口语化、口号化。"
+            }
+        }
+        # 默认匹配微信，如果平台不在预设中
+        style = styles.get(platform.lower(), styles["wechat"])
+        return f"\n【V7.0 风格迁移激活】：\n- 目标人设锚定：{style['persona']}\n- 平台语用规范：{style['rules']}\n"
 
     def _generate_base_content(self, topic: str, **kwargs) -> ContentResult:
         """生成基础内容"""
@@ -257,8 +319,19 @@ class UnifiedContentWorkflow:
         if len(clean) < 100:
             raise ValueError(f"V4断言失败 [{stage}]: 内容过短 ({len(clean)}字 < 100字下限)")
 
-    def execute_stepwise(self, topic: str, **kwargs):
-        """V4: 核心 7 阶 Agent 驱动工作流 (Generator) — 增加超时保护、内容断言、细粒度进度"""
+    def execute_stepwise(self, topic: str, **kwargs) -> Generator[Dict[str, Any], None, None]:
+        """
+        V4: 核心 7 阶 Agent 驱动工作流 (Generator) — 增加超时保护、内容断言、细粒度进度
+        
+        通过生成器 yield 返回每个阶段的增量状态，用于前端实时显示与后台异步监控。
+
+        Args:
+            topic: 目标生成话题
+            **kwargs: 其他生成参数（例如发布平台等）
+
+        Yields:
+            Generator[Dict[str, Any], None, None]: 每步执行后的状态字典
+        """
         start_time = time.time()
         success = False
         config = Config.get_instance()
@@ -269,17 +342,56 @@ class UnifiedContentWorkflow:
         
         quality_score = None  # V4: 用于记忆库质量反馈
         
+        # V11: 注入全局时间上下文，初始化对话链
+        from datetime import datetime
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+        conversation_history = [
+            {
+                "role": "system", 
+                "content": f"【全局上下文注入】当前系统北京时间是：{current_time}。你接下来的所有回复（包括初稿、审计、修正）都必须基于此时间点进行逻辑对齐，严禁产生跨时空幻觉。"
+            }
+        ] 
+        
         try:
             # --- Step 1: Deep Insight Agent (深度洞察) ---
             stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:INIT:START]"}
-            yield {"type": "log", "message": "🧠 Agent Step 1: 正在深度解构话题语境并检索核心事实..."}
+            yield {"type": "log", "message": "🧠 Agent Step 1: 正在进入 V11 意识枢纽，进行全维度逻辑解构..."}
+            
+            # V11: 在生成前，先注入“对抗性共鸣”元数据
+            try:
+                from src.ai_write_x.core.memory_manager import MemoryManager
+                resonance_prompt = MemoryManager().get_resonance_context(topic)
+                if resonance_prompt and kwargs.get("reference_content", "").strip():
+                    kwargs["reference_content"] = (kwargs.get("reference_content", "") + "\n\n" + resonance_prompt).strip()
+            except:
+                pass
+
+            # V12.0: 数据库存证 - 话题初始化
+            try:
+                from src.ai_write_x.database.db_manager import db_manager
+                topic_db = db_manager.add_topic(topic, publish_platform, 0)
+                kwargs["topic_id"] = topic_db.id
+            except Exception as db_err:
+                lg.print_log(f"数据库记录失败: {db_err}", "warning")
+
             base_content = self._generate_base_content(
                 topic, **kwargs
             )
+            
+            # 记录初稿到对话链
+            conversation_history.append({"role": "user", "content": f"请针对话题'{topic}'撰写初稿。要求字数在 {config.min_article_len} 到 {config.max_article_len} 之间。"})
+            conversation_history.append({"role": "assistant", "content": base_content.content})
+            
             self._check_stage_timeout("INIT", stage_start)
             self._assert_content(base_content.content, "Step1-深度洞察")
-            yield {"type": "log", "message": f"✅ 话题深度分析完成 ({time.time()-stage_start:.1f}s)，已锁定 3-5 个核心观察维度"}
+            
+            # V12.0: Recursive Self-Correction (RSC) 协议
+            yield {"type": "log", "message": "🧬 Agent Step 1.5: 正在启动 V12 RSC 递归自我修正协议 (Context Linked)..."}
+            # RSC 现在会更新对话链
+            base_content.content = self._apply_recursive_self_correction(base_content.content, topic, conversation_history=conversation_history, **kwargs)
+            
+            yield {"type": "log", "message": f"✅ 意识枢纽逻辑解构与 RSC 修正完成 ({time.time()-stage_start:.1f}s)"}
             yield {"type": "progress", "message": "[PROGRESS:INIT:END]"}
             
             # --- Step 2: Creative Blueprint Agent (创意蓝图) ---
@@ -298,7 +410,37 @@ class UnifiedContentWorkflow:
             yield {"type": "chunk", "message": final_content.content}
             self._assert_content(final_content.content, "Step3-大师撰稿")
             yield {"type": "log", "message": f"📝 初稿已生成 (约 {len(final_content.content)} 字, V4断言通过)"}
+
+            # --- Step 3.5: Reflective Critique Agent (反思批判 - V13.0) ---
+            stage_start_critique = time.time()
+            yield {"type": "log", "message": "🧐 Agent Step 3.5: 正在启动 V13.0 “毒舌主编”审计协议 (Context Linked)..."}
+            
+            from src.ai_write_x.core.llm_client import LLMClient
+            critique_client = LLMClient()
+            persona_framework = self._get_platform_style_migration(kwargs.get("publish_platform", "wechat"))
+            critique_protocol = "你是一位苛刻的高级主编。你的工作是对前文内容进行无情的逻辑审查与AI痕迹抹除。请直击痛点，指出啰嗦冗余或逻辑断层，并直接重写优化。"
+            
+            # 将批判指令加入对话链
+            conversation_history.append({"role": "user", "content": f"{critique_protocol}\n请审计并重写。先输出 `<Critique>...</Critique>`，随后直接输出优化后的全文。"})
+            
+            critiqued_version = ""
+            for chunk in critique_client.stream_chat(messages=conversation_history):
+                if chunk:
+                    critiqued_version += chunk
+            
+            # 记录重写后的版本到对话链
+            conversation_history.append({"role": "assistant", "content": critiqued_version})
+                    
+            # 提取修正后的内容（移除思辨块）
+            final_content.content = utils.remove_code_blocks(critiqued_version)
+            if "<Critique>" in final_content.content:
+                # 进一步清理可能的残留
+                import re
+                final_content.content = re.sub(r'<Critique>.*?</Critique>', '', final_content.content, flags=re.DOTALL).strip()
+            
+            yield {"type": "log", "message": f"🔥 审计修正完成：已通过“毒舌主编”深度重塑 ({time.time()-stage_start_critique:.1f}s)"}
             yield {"type": "progress", "message": "[PROGRESS:WRITING:END]"}
+
             
             # --- Step 4: Reflexion & Polish Agent (打磨重塑) ---
             stage_start = time.time()
@@ -309,8 +451,13 @@ class UnifiedContentWorkflow:
             from src.ai_write_x.core.llm_client import LLMClient
             from src.ai_write_x.core.anti_ai import AntiAIEngine
             
+            # V11: 基于系统熵动态调节打磨强度
+            current_entropy = self.monitor.calculate_system_entropy()
+            max_reflections = 3 if current_entropy < 60 else 1 # 系统稳定时追求极致，不稳定时快速交付
+            if current_entropy > 85:
+                yield {"type": "log", "message": f"🌌 系统熵值偏高 ({current_entropy:.1f}%)，启动‘快速坍缩’治理模式，精简打磨轮次"}
+            
             result_str = final_content.content
-            max_reflections = 2
             iteration = 0
             anchor_result_str = result_str
             
@@ -336,15 +483,18 @@ class UnifiedContentWorkflow:
                     pass
 
                 client = LLMClient()
-                messages = [
-                    {"role": "system", "content": "你是一位资深内容专家。根据反馈优化文章，保持事实准确，字数稳定。\n\n【关键前提】：这篇文章的素材来源于采编团队从央视、腾讯新闻、新浪等官方新闻平台实时爬取的真实新闻。文中的事件、人物、数据均为真实信息。审查反馈中如果提到\"虚构\"\"捏造\"\"假新闻\"等评价，请忽略该部分反馈，因为那是审查AI的误判。你只需要关注写作质量方面的有效反馈。\n\n优化要求：1. 严禁删除或修改任何形式的图片占位符（如 [图片解析:] 或 V-SCENE）；2. 必须保留并刻意增强粗体 `**重点**`、小标题和引用块 `> 金句` 等高密度视觉排版，始终保持干脆利落的短句分段呼吸感。直接输出正文内容。"},
-                    {"role": "user", "content": f"反馈: {review_result.get('report')}\n原文: {anchor_result_str}\n当前: {result_str}"}
-                ]
+                
+                # 将反馈加入对话链
+                prompt_review = f"反馈: {review_result.get('report')}\n\n你是一位资深内容专家。根据反馈进一步优化文章，保持事实准确，字数稳定。\n\n要求：1. 严禁删除或修改任何形式的图片占位符；2. 必须保留并刻意增强粗体、小标题和引用块等高密度视觉排版。直接输出优化后的正文。"
+                conversation_history.append({"role": "user", "content": prompt_review})
                 
                 new_version = ""
-                for chunk in client.stream_chat(messages=messages):
+                for chunk in client.stream_chat(messages=conversation_history):
                     if chunk:
                         new_version += chunk
+                
+                # 记录打磨版本到对话链
+                conversation_history.append({"role": "assistant", "content": new_version})
                 
                 result_str = utils.remove_code_blocks(new_version)
                 iteration += 1
@@ -410,10 +560,10 @@ class UnifiedContentWorkflow:
                 yield {"type": "log", "message": f"📁 存储成功：文章已归档至 `{os.path.basename(article_path)}`"}
             yield {"type": "progress", "message": "[PROGRESS:SAVE:END]"}
             
-            # V4: 成功后将话题写入全景记忆库（含质量反馈分数）
+            # V4: 成功后将话题写入全景记忆库（含质量反馈分数及全文内容分析）
             try:
                 from src.ai_write_x.core.memory_manager import MemoryManager
-                MemoryManager().add_topic(topic, quality_score=quality_score)
+                MemoryManager().add_topic(topic, content=result_str, quality_score=quality_score)
                 yield {"type": "log", "message": f"🧠 全景记忆库已更新当前话题特征 (质量反馈: {quality_score:.1f}/5.0)" if quality_score else "🧠 全景记忆库已更新当前话题特征"}
             except Exception as e:
                 self.monitor.log_error("unified_workflow", f"写入记忆库失败: {e}", {"topic": topic})
@@ -916,3 +1066,64 @@ class UnifiedContentWorkflow:
     def register_platform_adapter(self, name: str, adapter):
         """注册新的平台适配器"""
         self.platform_adapters[name] = adapter
+
+    def _apply_recursive_self_correction(self, content: str, topic: str, conversation_history: list = None, **kwargs) -> str:
+        """V12.0: RSC 递归自我修正协议 - 核心实现"""
+        from src.ai_write_x.core.llm_client import LLMClient
+        client = LLMClient()
+        
+        current_content = content
+        max_iterations = 2
+        
+        # 如果没有传入历史记录（独立调用），则初始化一个临时的
+        if conversation_history is None:
+            conversation_history = [
+                {"role": "user", "content": f"请针对话题'{topic}'撰写初稿。"},
+                {"role": "assistant", "content": content}
+            ]
+        
+        for i in range(max_iterations):
+            lg.print_log(f"🧬 RSC 递归修正第 {i+1} 轮...", "info")
+            
+            # 1. 对抗性逻辑分析
+            adversarial_prompt = f"""你现在是 V12 系统的【逻辑审核官】。请对前文内容的逻辑严密性进行“第一性原理”级的批判。
+话题：{topic}
+
+请指出文中所有：
+- 逻辑跳跃或因果不强的地方
+- 平庸、AI 化的表达或废话
+- 论据支撑不足的观点
+
+仅输出批判建议，如果没有问题请输出“PASS”。"""
+            
+            # 加入对话链
+            conversation_history.append({"role": "user", "content": adversarial_prompt})
+            feedback = client.chat(messages=conversation_history)
+            conversation_history.append({"role": "assistant", "content": feedback})
+            
+            if "PASS" in feedback.upper() and len(feedback) < 10:
+                lg.print_log(f"✅ RSC 第 {i+1} 轮逻辑验证通过", "success")
+                break
+                
+            # 2. 逻辑重构
+            lg.print_log(f"🧠 RSC 修正建议已获取，正在重构逻辑路径...", "info")
+            refactor_prompt = """你现在是 V12 系统的【核心重构员】。请根据刚才的批判建议，对前文进行逻辑层面的深度优化。
+要求：保持事实不变，让逻辑更硬核、叙事更有呼吸感。直接输出优化后的正文。"""
+            
+            # 加入对话链
+            conversation_history.append({"role": "user", "content": refactor_prompt})
+            
+            current_content_streamed = ""
+            char_count_logged = 0
+            for chunk in client.stream_chat(messages=conversation_history):
+                if chunk:
+                    current_content_streamed += chunk
+                    if len(current_content_streamed) - char_count_logged >= 200:
+                        lg.print_log(f"⏳ RSC 逻辑重构中... 已生成 {len(current_content_streamed)} 字", "status")
+                        char_count_logged = len(current_content_streamed)
+                        
+            conversation_history.append({"role": "assistant", "content": current_content_streamed})
+            current_content = utils.remove_code_blocks(current_content_streamed)
+            lg.print_log(f"📝 RSC 本轮重构完成，最新内容长度: {len(current_content)} 字", "success")
+            
+        return current_content

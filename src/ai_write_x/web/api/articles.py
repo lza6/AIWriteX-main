@@ -119,6 +119,33 @@ class PublishRequest(BaseModel):
     platform: str = "wechat"
 
 
+@router.get("/stats")
+async def get_article_stats():
+    """获取文章统计数据，用于 Dashboard"""
+    try:
+        articles_dir = PathManager.get_article_dir()
+        articles = list(articles_dir.glob("*.html")) + list(articles_dir.glob("*.md"))
+        
+        # 统计今日文章
+        today = datetime.now().strftime("%Y-%m-%d")
+        today_count = 0
+        for f in articles:
+            if datetime.fromtimestamp(f.stat().st_ctime).strftime("%Y-%m-%d") == today:
+                today_count += 1
+                
+        return {
+            "status": "success",
+            "data": {
+                "total_articles": len(articles),
+                "today_articles": today_count,
+                "token_usage_estimate": len(articles) * 1200, # 粗略估计
+                "avg_quality_score": 88.5 # 示例值，实际可从数据库聚合
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/")
 async def list_articles():
     """获取文章列表"""

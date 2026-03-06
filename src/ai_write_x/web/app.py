@@ -37,6 +37,7 @@ from .api.knowledge import router as knowledge_router
 from .api.mcp import router as mcp_router
 from .api.newshub import router as newshub_router
 from .api.scheduler import router as scheduler_router
+from .api.updater import router as updater_router
 
 # 添加全局状态
 app_shutdown_event = asyncio.Event()
@@ -63,43 +64,62 @@ async def lifespan(app: FastAPI):
         if not app_state.config.load_config():
             log.print_log("配置加载失败，使用默认配置", "warning")
             
-        # 启动清道夫引擎 (V3 Phase 4)
-        from src.ai_write_x.core.scavenger import ScavengerEngine
-        app_state.scavenger = ScavengerEngine()
+        # 启动宇宙清道夫 (V10.0 Cosmic Scavenger)
+        from src.ai_write_x.core.scavenger import CosmicScavenger
+        app_state.scavenger = CosmicScavenger()
         asyncio.create_task(app_state.scavenger.start_daemon())
         
         # 启动定时任务调度服务 (V6 Scheduler)
         from src.ai_write_x.core.scheduler import scheduler_service
         scheduler_service.start()
         
-        # V6: 控制台大盘历史沉淀数据看板
-        try:
-            from rich.console import Console
-            from rich.panel import Panel
-            from rich.table import Table
-            from src.ai_write_x.database.db_manager import db_manager
-            
-            stats = db_manager.get_system_stats()
-            console = Console()
-            
-            table = Table(show_header=False, box=None)
-            table.add_column("Metric", style="cyan", justify="right")
-            table.add_column("Value", style="bold magenta")
-            table.add_row("🚀 总收录话题 (Topics):", str(stats.get("total_topics", 0)))
-            table.add_row("📚 沉淀自研文章 (Articles):", str(stats.get("total_articles", 0)))
-            table.add_row("🧠 AI 长期记忆总计 (Memories):", str(stats.get("total_memories", 0)))
-            table.add_row("⚠️ P0级失败血泪教训 (Lessons):", str(stats.get("lessons_learned", 0)))
-            
-            panel = Panel(
-                table,
-                title=f"[bold green]AIWriteX V{get_version()} Core Dash[/bold green]",
-                subtitle="[italic]Powered by Phase 4 UI Engine[/italic]",
-                border_style="deep_sky_blue1",
-                expand=False
-            )
-            console.print(panel)
-        except Exception as dash_err:
-            log.print_log(f"控制台看板渲染失败: {dash_err}", "warning")
+        # V13.0 Optimization: 将控制台大盘渲染和统计逻辑移至后台异步任务，防止阻塞服务器由于“就绪”检测导致的启动延迟
+        async def render_dashboard_background():
+            try:
+                # 稍微延迟一下，确保其他核心组件已就绪，且不争抢启动瞬间的 CPU
+                await asyncio.sleep(0.5)
+                
+                from rich.console import Console
+                from rich.panel import Panel
+                from rich.table import Table
+                from src.ai_write_x.database.db_manager import db_manager
+                
+                # 同步方法在线程池中执行，防止阻塞事件循环
+                stats = await asyncio.to_thread(db_manager.get_system_stats)
+                console = Console()
+                
+                table = Table(show_header=False, box=None)
+                table.add_column("Metric", style="cyan", justify="right")
+                table.add_column("Value", style="bold magenta")
+                table.add_row("🚀 总收录话题 (Topics):", str(stats.get("total_topics", 0)))
+                table.add_row("📚 沉淀自研文章 (Articles):", str(stats.get("total_articles", 0)))
+                table.add_row("🧠 AI 长期记忆总计 (Memories):", str(stats.get("total_memories", 0)))
+                table.add_row("⚠️ P0级失败血泪教训 (Lessons):", str(stats.get("lessons_learned", 0)))
+                
+                panel = Panel(
+                    table,
+                    title=f"[bold green]AIWriteX V{get_version()} Core Dash[/bold green]",
+                    subtitle="[italic]Powered by Phase 4 UI Engine[/italic]",
+                    border_style="deep_sky_blue1",
+                    expand=False
+                )
+                console.print(panel)
+            except Exception as dash_err:
+                log.print_log(f"控制台看板后台渲染失败: {dash_err}", "warning")
+
+        asyncio.create_task(render_dashboard_background())
+        
+        # V13.0 Optimization: 后台预热新闻聚合管理器 (NewsHub)
+        async def warmup_newshub():
+            try:
+                await asyncio.sleep(1.0) # 进一步推迟，优先级最低
+                from src.ai_write_x.web.api.newshub import get_hub_manager
+                await asyncio.to_thread(get_hub_manager)
+                log.print_log("[NewsHub] 后台预热完成", "info")
+            except Exception as e:
+                log.print_log(f"[NewsHub] 后台预热失败: {e}", "warning")
+                
+        asyncio.create_task(warmup_newshub())
 
     except Exception as e:
         log.print_log(f"Web服务启动失败: {str(e)}", "error")
@@ -153,6 +173,7 @@ app.include_router(knowledge_router)
 app.include_router(mcp_router)
 app.include_router(newshub_router)
 app.include_router(scheduler_router)
+app.include_router(updater_router)
 
 
 # 全局允许的客户端令牌集合

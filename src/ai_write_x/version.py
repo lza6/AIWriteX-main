@@ -1,10 +1,10 @@
 # -*- coding: UTF-8 -*-
-"""AIWriteX 版本信息 (V3.0.0)"""
+"""AIWriteX 版本信息 (V12.0.0 "Cosmic Singularity Evolution")"""
 
 from datetime import datetime
 
-__version__ = "3.0.0"
-__author__ = "本地开发版"
+__version__ = "12.0.0"
+__author__ = "本地开发版 (Cosmic Singularity)"
 __build_time__ = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 

@@ -1,0 +1,116 @@
+<div id="dashboard-view" class="view-content">
+    <div class="dashboard-header animate-enter">
+        <div class="dashboard-title">
+            <h2>全景数据看板 <span class="v7-badge">V7.0</span></h2>
+            <p>实时监控话题流转、内容生成与反AI拟人态指标</p>
+        </div>
+        <div class="dashboard-actions">
+            <button class="btn btn-secondary btn-sm" onclick="window.dashboardManager.refreshData()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15">
+                    </path>
+                </svg>
+                同步最新数据
+            </button>
+        </div>
+    </div>
+
+    <!-- 顶部统计卡片 -->
+    <div class="stats-grid animate-enter" style="animation-delay: 0.1s;">
+        <div class="stat-card glass-morphism">
+            <div class="stat-icon topic">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 1 1-7.6-10.6 8.5 8.5 0 0 1 7.6 10.6 Z"></path>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">活跃话题数</span>
+                <span id="stat-topics-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-trend positive">+12.5%</div>
+        </div>
+        <div class="stat-card glass-morphism">
+            <div class="stat-icon article">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">今日生成文章</span>
+                <span id="stat-articles-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-trend positive">+8.3%</div>
+        </div>
+        <div class="stat-card glass-morphism">
+            <div class="stat-icon quality">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">平均拟人得分</span>
+                <span id="stat-human-score" class="stat-value">0.0</span>
+            </div>
+            <div class="stat-trend positive">稳定</div>
+        </div>
+        <div class="stat-card glass-morphism">
+            <div class="stat-icon cost">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-label">AI 资源消耗</span>
+                <span id="stat-token-usage" class="stat-value">0</span>
+            </div>
+            <div class="stat-trend neutral">实时</div>
+        </div>
+    </div>
+
+    <!-- 中部：3D 拓扑图主容器 -->
+    <div class="dashboard-main-area animate-enter" style="animation-delay: 0.2s;">
+        <div class="topology-container glass-morphism">
+            <div class="container-header">
+                <h3>话题流转 3D 全景拓扑</h3>
+                <div class="chart-controls">
+                    <label class="control-item">
+                        <input type="checkbox" id="topo-auto-rotate" checked> 自动旋转
+                    </label>
+                    <button class="btn btn-icon btn-sm" onclick="window.dashboardManager.resetChart()" title="重置视角">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                            <path d="M3 3v5h5"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="topology-3d-chart" class="chart-holder">
+                <div class="chart-loading">
+                    <div class="spinner"></div>
+                    <span>正在构建 3D 拓扑空间...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部：详细指标分析 -->
+    <div class="dashboard-footer-grid animate-enter" style="animation-delay: 0.3s;">
+        <div class="chart-card glass-morphism">
+            <div class="container-header">
+                <h3>V7.0 拟人态多维分析</h3>
+            </div>
+            <div id="quality-radar-chart" class="chart-holder-small"></div>
+        </div>
+        <div class="chart-card glass-morphism">
+            <div class="container-header">
+                <h3>文章生成趋势 (24h)</h3>
+            </div>
+            <div id="generate-line-chart" class="chart-holder-small"></div>
+        </div>
+    </div>
+</div>

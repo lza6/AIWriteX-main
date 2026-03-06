@@ -1335,6 +1335,13 @@ class DynamicTemplateGenerator:
                 header_line = lines[0]
                 level = len(header_line) - len(header_line.lstrip('#'))
                 text = header_line.lstrip('#').strip()
+                
+                # 修复 Markdown 泄漏: 移除标题内部的 ** 或 * 语法
+                # 同时也移除可能已经被替换的 HTML 标签，确保标题纯净
+                text = re.sub(r'</?strong>', '', text)
+                text = re.sub(r'</?em>', '', text)
+                text = text.replace('**', '').replace('*', '').replace('_', '')
+                
                 formatted_paragraphs.append(f'<h{level}>{text}</h{level}>')
                 
                 # 如果标题后有内容，作为段落处理

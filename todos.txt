@@ -1,23 +1,17 @@
-AIWriteX V6.0 深度升级 - 原子级任务追踪清单 (todos.txt)
+# AIWriteX Infinite Evolution (V13.0+) TODOs
 
-=== 组 A：底层数据重构基座 (Phase 1) === 
-- [x] 任务 1.1：创建 db_manager.py，引入 SQLite，替代本地裸 JSON
-- [x] 任务 1.2：无损迁移话题数据、生成文章数据至数据库
-- [x] 任务 1.3：修改各 API 依赖 db_manager 而不是直接读写 JSON
-
-=== 组 B：AI 心智与长期记忆 (Phase 2) === 
-- [x] 任务 2.1：memory_manager.py RAG 上下文读取，建立 agent_memories
-- [x] 任务 2.2：final_reviewer.py 被打回时的专项修复机制（提取建议再次 prompt）
-- [x] 任务 2.3：Prompt Persona 骨架引入
-
-=== 组 C：反 AI 系统拟人态 (Phase 3) === 
-- [x] 任务 3.1：anti_ai.py 增加 Markdown 层排版僵硬感打破（转换为口语流畅叙事）
-- [x] 任务 3.2：防 AI 句子生成时随机加入“自我修正/推翻”语气词
-
-=== 组 D：前端 UX 与数据大盘监控 (Phase 4) === 
-- [x] 任务 4.1：Dashboard UI 数据可视化监控面板
-- [x] 任务 4.2：WebSocket “思维流/Chain of Thought” 实时透传展示
-- [x] 任务 4.3：全链路清理废弃冗余代码与产生的中间件
-
-[里程碑 V6.0 达成标志]
-全面集成完成，数据库运行流畅，并发无压力。
+- [x] Task 1: Check existing DB configuration (SQLModel vs Peewee) and prepare unified migration.
+- [x] Task 2: Refactor `core/scavenger.py` to fix "Failed to persist entropy state" and outdated DB patterns.
+- [x] Task 3: Refactor `api/generate.py` to ensure Generate button works smoothly.
+- [x] Task 4: Fix `DynamicTemplate` component and `get_llm_service` imports.
+- [x] Task 5: Upgrade Topic Discovery logic (prioritize high authority sources over hot topics).
+- [x] Task 6: Address "auto-delete published articles" UI setting and backend logic.
+- [/] Task 7: Implement robust retry and exponential backoff in publishing layer (`wx_publisher.py`).
+- [ ] Task 8: Enhance Quantum Logic Collapse/Reasoning protocols in the core logic.
+- [ ] Task 9: Overhaul WebGL/Three.js dashboard (entropy visualization).
+- [ ] Task 10: Optimize unified workflow scheduler (multiple kwargs fix, empty topics).
+- [ ] Task 11: Implement strict type hints and docstrings across core modules.
+- [ ] Task 12: Add defensive programming constructs (fallback logic for external API failures).
+- [ ] Task 13: Audit and remove legacy/cruft code from old versions.
+- [ ] Task 14: Final System Verification & Run tests.
+- [ ] Task 15: Generate Completion Report & Update `project_specs.md`.

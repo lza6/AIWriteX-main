@@ -243,7 +243,67 @@ class KnowledgeGraph:
         self.nodes: Dict[str, KnowledgeNode] = {}
         self.entity_extractor = EntityExtractor()
         self.relation_extractor = RelationExtractor()
+        
+        # V14.6: 持久化路径
+        from src.ai_write_x.utils.path_manager import PathManager
+        self.persist_path = PathManager.get_base_dir() / "knowledge_graph.json"
+        
+        # 初始化时尝试从本地加载
+        self.load_from_file()
     
+    def save_to_file(self):
+        """V14.6: 将知识图谱持久化到本地文件"""
+        try:
+            data = self.export_graph()
+            with open(self.persist_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            # from src.ai_write_x.utils import log
+            # log.print_log(f"💾 知识图谱已持久化至 {self.persist_path}", "success")
+        except Exception as e:
+            from src.ai_write_x.utils import log
+            log.print_log(f"知识图谱持久化失败: {e}", "warning")
+
+    def load_from_file(self):
+        """V14.6: 从本地文件加载知识图谱"""
+        if not self.persist_path.exists():
+            return
+            
+        try:
+            with open(self.persist_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # 导入实体
+            for node_data in data.get("nodes", []):
+                entity = Entity(
+                    id=node_data["id"],
+                    name=node_data["name"],
+                    type=EntityType(node_data["type"]),
+                    frequency=node_data.get("frequency", 1),
+                    confidence=node_data.get("confidence", 1.0)
+                )
+                self.nodes[entity.id] = KnowledgeNode(entity=entity)
+            
+            # 导入关系
+            for edge_data in data.get("edges", []):
+                source_id = edge_data["source"]
+                target_id = edge_data["target"]
+                if source_id in self.nodes:
+                    relation = Relation(
+                        source_id=source_id,
+                        target_id=target_id,
+                        type=RelationType(edge_data["type"]),
+                        weight=edge_data.get("weight", 1.0),
+                        evidence=edge_data.get("evidence", "")
+                    )
+                    self.nodes[source_id].relations.append(relation)
+                    self.nodes[source_id].connections.add(target_id)
+            
+            from src.ai_write_x.utils import log
+            log.print_log(f"🧠 已从本地加载知识图谱：{len(self.nodes)} 个实体", "success")
+        except Exception as e:
+            from src.ai_write_x.utils import log
+            log.print_log(f"加载知识图谱失败: {e}", "warning")
+
     def build_from_text(self, text: str) -> Dict[str, Any]:
         """从文本构建知识图谱"""
         # 提取实体
@@ -264,6 +324,9 @@ class KnowledgeGraph:
             if relation.source_id in self.nodes:
                 self.nodes[relation.source_id].relations.append(relation)
                 self.nodes[relation.source_id].connections.add(relation.target_id)
+        
+        # V14.6: 每次构建后自动持久化
+        self.save_to_file()
         
         return {
             "entities": [self._entity_to_dict(e) for e in entities],
@@ -405,10 +468,57 @@ class KnowledgeGraph:
         for node in self.nodes.values():
             counts[node.entity.type.value] += 1
         return dict(counts)
+
+    def discover_emerging_trends(self, window_size: int = 50) -> List[Dict[str, Any]]:
+        """
+        V7.0: 发现新兴趋势
+        分析最近加入图谱的实体，识别其关联度突然增高的簇。
+        """
+        all_entities = self.get_top_entities(limit=window_size)
+        trends = []
+        for item in all_entities:
+            entity = item["entity"]
+            connections = item["connections"]
+            # 逻辑：高频词且具有跨域连接 (与超过3种不同类型的实体相连)
+            connected_types = {self.nodes[conn_id].entity.type for conn_id in self.nodes[entity["id"]].connections if conn_id in self.nodes}
+            if len(connected_types) >= 2 or connections > 5:
+                trends.append({
+                    "topic": entity["name"],
+                    "significance": connections * entity["frequency"],
+                    "domain_coverage": [t.value for t in connected_types]
+                })
+        
+        trends.sort(key=lambda x: x["significance"], reverse=True)
+        return trends[:5]
+
+    def analyze_semantic_gaps(self, base_topics: List[str]) -> List[str]:
+        """
+        V7.0: 语义空白分析
+        基于现有主题，通过图谱推理寻找未被充分探讨的关联路径。
+        """
+        suggestions = []
+        for topic in base_topics:
+            results = self.search(topic)
+            if not results: continue
+            
+            entity_id = results[0]["entity"]["id"]
+            # 获取二度人脉中的高频实体但在base_topics中没出现的
+            network = self.get_entity_network(entity_id, depth=2)
+            for node in network["nodes"]:
+                if node["name"] not in base_topics and node["frequency"] > 1:
+                    suggestions.append(node["name"])
+        
+        return list(set(suggestions))[:5]
     
     def clear(self):
         """清空图谱"""
         self.nodes.clear()
+        # V14.6: 同时删除持久化文件
+        if self.persist_path.exists():
+            try:
+                os.remove(self.persist_path)
+            except:
+                pass
 
 
 class SemanticAnalyzer:
