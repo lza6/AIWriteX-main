@@ -158,9 +158,10 @@ def get_platform_news(platform: str, cnt: int = 10, exclude_topics: List[str] = 
     return filtered_topics
 
 
-def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None) -> List[str]:
+def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None, min_time: float = None) -> List[str]:
     """
     从高权重源（BBC, NYTimes, WSJ等）抓取优质话题
+    min_time: 限制仅返回该时间戳（秒）之后抓取的文章
     """
     if exclude_topics is None:
         exclude_topics = []
@@ -177,7 +178,11 @@ def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None) -> L
         
         for s in authority_spiders:
             # 获取最近抓取的文章标题作为话题
-            articles = spider_data_manager.get_articles(limit=limit, source=spider_runner.spiders.get(s, {}).get("source", s))
+            articles = spider_data_manager.get_articles(
+                limit=limit, 
+                source=spider_runner.spiders.get(s, {}).get("source", s),
+                min_time=min_time # 新增：支持时间过滤
+            )
             all_authority_news.extend([a['title'] for a in articles])
 
         if not all_authority_news:
@@ -191,7 +196,11 @@ def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None) -> L
                  asyncio.run(run_sync())
                  
                  for s in authority_spiders:
-                    articles = spider_data_manager.get_articles(limit=limit, source=spider_runner.spiders.get(s, {}).get("source", s))
+                    articles = spider_data_manager.get_articles(
+                        limit=limit, 
+                        source=spider_runner.spiders.get(s, {}).get("source", s),
+                        min_time=min_time
+                    )
                     all_authority_news.extend([a['title'] for a in articles])
              except:
                  pass
@@ -206,13 +215,19 @@ def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None) -> L
         return []
 
 
-def select_platform_topic(platform: Any, cnt: int = 10, exclude_topics: List[str] = None, authority_priority: bool = False) -> str:
+def select_platform_topic(
+    platform: Any, 
+    cnt: int = 10, 
+    exclude_topics: List[str] = None, 
+    authority_priority: bool = False,
+    min_time: float = None
+) -> str:
     """
-    获取话题，支持权威源优先
+    获取话题，支持权威源优先和时间过滤
     """
     topics = []
     if authority_priority:
-        topics = get_authority_topics(limit=cnt, exclude_topics=exclude_topics)
+        topics = get_authority_topics(limit=cnt, exclude_topics=exclude_topics, min_time=min_time)
         if topics:
             log.print_log(f"已从中外权威媒体（BBC/新华社等）选取高质量话题", "success")
     

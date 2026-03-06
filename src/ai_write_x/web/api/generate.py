@@ -161,6 +161,18 @@ async def generate_content(request: GenerateRequest):
                     lg.print_log(f"=====================================", "internal")
                     lg.print_log(f"🔜 [批量进度] 正在生成第 {i+1}/{article_count} 篇文章", "success")
                     
+                    # V12 Enhancement: 记录本次生成的起始时间，用于隔离旧数据
+                    # 如果开启了严格模式，则每次循环都重置时间戳，确保只取“刚刚生成的”
+                    strict_mode = getattr(cfg, "strict_freshness", True)
+                    session_start_time = time.time() if strict_mode else (time.time() - 3 * 3600)
+                    
+                    # 50% 概率回退逻辑（仅在关闭严格模式时生效）
+                    if not strict_mode and random.random() < 0.5:
+                        lg.print_log("🎲 按照用户偏好（非严格模式）：本次 50% 概率允许采用 3 小时内的历史优质话题", "info")
+                        # 已经是 -3h 了，不做额外处理
+                    elif not strict_mode:
+                        session_start_time = time.time() # 另外 50% 还是强制实时
+                    
                     t = ""
                     p = req_platform or "全网发现"
                     d_str = "最新"
@@ -220,7 +232,8 @@ async def generate_content(request: GenerateRequest):
                                     loop_spider.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
                                 loop_spider.close()
                                 
-                            articles = spider_data_manager.get_articles(limit=100)
+                            # V12: 传入 min_time 以实现话题隔离
+                            articles = spider_data_manager.get_articles(limit=100, min_time=session_start_time)
                             candidate_titles = []
                             for a in articles:
                                 a_title = a.get("title", "")
@@ -230,7 +243,14 @@ async def generate_content(request: GenerateRequest):
                             # 后备手段: 如果不够用，上权威榜单
                             if len(candidate_titles) < 5:
                                 from src.ai_write_x.tools import hotnews
-                                cand_hot = hotnews.select_platform_topic("全网热点", cnt=100, exclude_topics=used_session_topics, authority_priority=True)
+                                # V12: 同时支持权威源的时间过滤
+                                cand_hot = hotnews.select_platform_topic(
+                                    "全网热点", 
+                                    cnt=100, 
+                                    exclude_topics=used_session_topics, 
+                                    authority_priority=True,
+                                    min_time=session_start_time
+                                )
                                 if isinstance(cand_hot, str) and cand_hot:
                                     candidate_titles.append(f"[全网热搜] {cand_hot}")
                                 elif isinstance(cand_hot, list):

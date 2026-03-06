@@ -179,7 +179,7 @@ class SpiderDataManager:
         self._save_failed([])
         return True
 
-    def get_articles(self, limit: int = 100, source: str = None, category: str = None) -> List[Dict]:
+    def get_articles(self, limit: int = 100, source: str = None, category: str = None, min_time: float = None) -> List[Dict]:
         """获取文章列表"""
         articles = self._load_articles()
         need_save = False
@@ -200,6 +200,12 @@ class SpiderDataManager:
             articles = [a for a in articles if a.get('source') == source]
         if category:
             articles = [a for a in articles if a.get('category') == category]
+        
+        # V12: 支持时间过滤
+        if min_time:
+            # 过滤掉 ID 中的时间戳早于 min_time 的 (article['id'] 是毫秒时间戳)
+            # 或者使用 created_at 转换，但 id 更直接且统一
+            articles = [a for a in articles if a.get('id', 0) / 1000 >= min_time]
         
         # 按时间倒序
         articles.sort(key=lambda x: x.get('created_at', ''), reverse=True)

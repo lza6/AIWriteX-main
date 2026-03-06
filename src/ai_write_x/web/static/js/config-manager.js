@@ -352,6 +352,14 @@ class AIWriteXConfigManager {
             });
         }
 
+        // 严格新鲜度
+        const strictFreshnessCheckbox = document.getElementById('strict-freshness');
+        if (strictFreshnessCheckbox) {
+            strictFreshnessCheckbox.addEventListener('change', async (e) => {
+                await this.updateConfig({ strict_freshness: e.target.checked });
+            });
+        }
+
         // ========== 热搜平台设置事件绑定 ==========  
 
         // 保存平台配置按钮  
@@ -1207,6 +1215,12 @@ class AIWriteXConfigManager {
         const maxArticleLenInput = document.getElementById('max-article-len');
         if (maxArticleLenInput && this.config.max_article_len !== undefined) {
             maxArticleLenInput.value = this.config.max_article_len;
+        }
+
+        // ========== 8. 填充生成鲜度控制 ==========
+        const strictFreshnessCheckbox = document.getElementById('strict-freshness');
+        if (strictFreshnessCheckbox) {
+            strictFreshnessCheckbox.checked = this.config.strict_freshness !== false;
         }
 
         // ========== 8. 填充界面配置 ==========  
@@ -2922,8 +2936,13 @@ class AIWriteXConfigManager {
             const result = await response.json();
             this.config = result.data;
 
+            // 同步自定义列表到本地内存变量
+            if (this.config.api?.custom) this.customAPIs = this.config.api.custom;
+            if (this.config.img_api?.custom) this.customImgAPIs = this.config.img_api.custom;
+
             return true;
         } catch (error) {
+            console.error('加载配置失败:', error);
             return false;
         }
     }
@@ -3248,11 +3267,6 @@ class AIWriteXConfigManager {
     // 测试自定义API
     async testCustomAPI(index) {
         const api = this.customAPIs[index];
-        if (!api.api_base || !api.api_key) {
-            alert('请填写API BASE和API KEY');
-            return;
-        }
-
         const testBtn = document.querySelector(`.custom-api-card[data-index="${index}"] .btn-test`);
         const resultDiv = document.getElementById(`test-result-${index}`);
 
@@ -3345,6 +3359,86 @@ class AIWriteXConfigManager {
 
         testBtn.disabled = false;
         testBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接`;
+    }
+
+    // 测试内置图片API连通性 (Ali, ModelScope)
+    async testBuiltinImgAPI(providerKey) {
+        const apiKey = document.getElementById(`img-api-${providerKey}-api-key`)?.value || '';
+        const model = document.getElementById(`img-api-${providerKey}-model`)?.value || document.getElementById(`img-api-${providerKey}-model-input`)?.value || '';
+
+        let apiBase = '';
+        if (providerKey === 'ali') apiBase = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+        else if (providerKey === 'modelscope') apiBase = 'https://api-inference.modelscope.cn/v1';
+
+        if (!apiKey) {
+            window.app?.showNotification('请先填写 API Key', 'warning');
+            return;
+        }
+
+        if (!model && providerKey !== 'picsum') {
+            window.app?.showNotification('请先选择或输入模型名称', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById(`btn-test-builtin-img-${providerKey}`);
+        const resultContainer = document.getElementById(`test-result-builtin-img-${providerKey}`);
+
+        if (!resultContainer) {
+            console.error('Test result container not found for:', providerKey);
+            return;
+        }
+
+        const statusDiv = resultContainer.querySelector('.test-status');
+        const previewImg = resultContainer.querySelector('img');
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner"></span> 测试中...`;
+        }
+
+        resultContainer.style.display = 'block';
+        statusDiv.className = 'test-status info';
+        statusDiv.innerHTML = '<i class="spinner"></i> 正在发送请求并生成图片...';
+        previewImg.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/config/test-custom-img-api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_base: apiBase,
+                    api_key: apiKey,
+                    model: model,
+                    provider: providerKey
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                statusDiv.className = 'test-status success';
+                statusDiv.innerHTML = `✅ ${result.message}`;
+
+                if (result.url) {
+                    previewImg.src = result.url;
+                    previewImg.style.display = 'block';
+                }
+
+                window.app?.showNotification(`${providerKey} 连接成功`, 'success');
+            } else {
+                statusDiv.className = 'test-status error';
+                statusDiv.innerHTML = `❌ ${result.message}`;
+                window.app?.showNotification(result.message || '测试失败', 'error');
+            }
+        } catch (error) {
+            statusDiv.className = 'test-status error';
+            statusDiv.innerHTML = `请求异常: ${error.message}`;
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试`;
+            }
+        }
     }
 
     async fetchModels(index) {
@@ -3503,8 +3597,8 @@ class AIWriteXConfigManager {
             }
         });
 
-        // 加载并渲染自定义图片API
-        this.loadCustomImgAPIs();
+        // 追加自定义图片API卡片
+        this.renderCustomImgAPIs(true); // 传入 true 表示追加模式，不清理容器
     }
 
     // 加载自定义图片API配置
@@ -3525,7 +3619,8 @@ class AIWriteXConfigManager {
                 }
             }
         }
-        this.renderCustomImgAPIs();
+        // 注意：此处不再调用 renderCustomImgAPIs，
+        // 而是由父级流程（如 populateImgAPIUI）统一调度渲染
     }
 
     // 保存自定义图片API到localStorage
@@ -3534,11 +3629,21 @@ class AIWriteXConfigManager {
     }
 
     // 渲染自定义图片API卡片
-    renderCustomImgAPIs() {
+    renderCustomImgAPIs(isAppend = false) {
         const container = document.getElementById('img-api-providers-container');
         if (!container) return;
 
+        // 如果不是追加模式，则清空容器并重新填充整个面板（包含内置和自定义）
+        if (!isAppend) {
+            this.populateImgAPIUI();
+            return;
+        }
+
+        // 追加模式下，先确保不会重复添加（通过 dataset.index 检查）
         this.customImgAPIs.forEach((api, index) => {
+            if (container.querySelector(`.custom-api-card[data-index="${index}"]`)) {
+                return;
+            }
             const card = this.createCustomImgAPICard(api, index);
             container.appendChild(card);
         });
@@ -3586,7 +3691,12 @@ class AIWriteXConfigManager {
         const nameGroup = document.createElement('div');
         nameGroup.className = 'form-group form-group-full';
         nameGroup.innerHTML = `
-            <label>API名称</label>
+            <div class="api-preview-header">
+                <label>API名称</label>
+                <div class="api-full-url-preview" id="img-api-url-preview-${index}">
+                    URL预览: <span>${this.getImgAPIPullURL(api)}</span>
+                </div>
+            </div>
             <input type="text" value="${api.name || ''}" placeholder="例如: 我的Stable Diffusion" onchange="window.configManager.updateCustomImgAPI(${index}, 'name', this.value)">
         `;
 
@@ -3594,8 +3704,9 @@ class AIWriteXConfigManager {
         const baseGroup = document.createElement('div');
         baseGroup.className = 'form-group form-group-full';
         baseGroup.innerHTML = `
-            <label>API BASE</label>
-            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.stability.ai/v1" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_base', this.value)">
+            <label>API 接口地址 (Endpoint)</label>
+            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_base', this.value)">
+            <p class="field-help">如果是 OpenAI 兼容接口，请填写到 v1 目录</p>
         `;
 
         // API Key
@@ -3603,7 +3714,7 @@ class AIWriteXConfigManager {
         keyGroup.className = 'form-group form-group-full';
         keyGroup.innerHTML = `
             <label>API KEY</label>
-            <input type="password" value="${api.api_key || ''}" placeholder="输入API Key" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_key', this.value)">
+            <input type="password" value="${api.api_key || ''}" placeholder="输入 API Key (Bearer Token)" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_key', this.value)">
         `;
 
         // 模型选择（下拉 + 刷新 + 手动输入，与 LLM API 卡片一致）
@@ -3611,17 +3722,27 @@ class AIWriteXConfigManager {
         modelGroup.className = 'form-group form-group-full';
         const imgModelOptions = (api.models || []).map(m => `<option value="${m}" ${api.model === m ? 'selected' : ''}>${m}</option>`).join('');
         modelGroup.innerHTML = `
-            <label>模型</label>
+            <label>图片生成模型 (Model)</label>
             <div class="model-select-wrapper">
-                <select onchange="window.configManager.updateCustomImgAPI(${index}, 'model', this.value)">
-                    <option value="">请先检测API获取模型</option>
+                <select id="custom-img-model-select-${index}" onchange="window.configManager.updateCustomImgAPI(${index}, 'model', this.value)">
+                    <option value="">请先刷新列表或手动输入</option>
                     ${imgModelOptions}
                 </select>
-                <button type="button" class="model-dropdown-btn" onclick="window.configManager.fetchImgModels(${index})" title="刷新模型列表">
+                <button type="button" class="api-action-btn btn-fetch" onclick="window.configManager.fetchImgModels(${index})" title="获取可用模型列表">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                 </button>
+                <button type="button" class="api-action-btn btn-test-img" id="btn-test-custom-img-${index}" onclick="window.configManager.testCustomImgAPI(${index})" title="测试 API 连通性并生成一个测试图">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接
+                </button>
             </div>
-            <input type="text" value="${api.model || ''}" placeholder="或手动输入模型名称" style="margin-top:8px" onchange="window.configManager.updateCustomImgAPI(${index}, 'model', this.value)">
+            <input type="text" id="custom-img-model-input-${index}" value="${api.model || ''}" placeholder="或直接输入模型名，如: flux-pro / dall-e-3" style="margin-top:8px" onchange="window.configManager.updateCustomImgAPI(${index}, 'model', this.value)">
+            
+            <div id="test-result-custom-img-${index}" class="test-result-container" style="display: none; margin-top: 15px;">
+                <div class="test-status"></div>
+                <div class="test-image-preview" style="margin-top: 10px; text-align: center;">
+                    <img src="" style="max-width: 100%; border-radius: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                </div>
+            </div>
         `;
 
         form.appendChild(nameGroup);
@@ -3699,11 +3820,95 @@ class AIWriteXConfigManager {
         }
     }
 
+    // 测试自定义图片API连通性
+    async testCustomImgAPI(index) {
+        const api = this.customImgAPIs[index];
+        if (!api.api_base || !api.api_key) {
+            window.app?.showNotification('请先填写 API 地址和 API Key', 'warning');
+            return;
+        }
+
+        if (!api.model) {
+            window.app?.showNotification('请先填写或选择模型名称', 'warning');
+            const modelInput = document.getElementById(`custom-img-model-input-${index}`);
+            if (modelInput) modelInput.focus();
+            return;
+        }
+
+        const btn = document.getElementById(`btn-test-custom-img-${index}`);
+        const resultContainer = document.getElementById(`test-result-custom-img-${index}`);
+
+        if (!resultContainer) {
+            console.error('Test result container not found for index:', index);
+            return;
+        }
+
+        const statusDiv = resultContainer.querySelector('.test-status');
+        const previewImg = resultContainer.querySelector('img');
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner"></span> 正在测试...`;
+            btn.classList.add('spinning');
+        }
+
+        resultContainer.style.display = 'block';
+        statusDiv.className = 'test-status info';
+        statusDiv.innerHTML = '<i class="spinner"></i> 正在发送请求并生成图片 (可能需要 10-60 秒)...';
+        previewImg.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/config/test-custom-img-api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_base: api.api_base,
+                    api_key: api.api_key,
+                    model: api.model
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                statusDiv.className = 'test-status success';
+                statusDiv.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" style="margin-right:5px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>${result.message}`;
+
+                if (result.url) {
+                    previewImg.src = result.url;
+                    previewImg.style.display = 'block';
+                }
+
+                window.app?.showNotification('测试连接成功', 'success');
+            } else {
+                statusDiv.className = 'test-status error';
+                statusDiv.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" style="margin-right:5px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>${result.message}`;
+                window.app?.showNotification(result.message || '测试连接失败', 'error');
+            }
+        } catch (error) {
+            console.error('测试自定义图片API失败:', error);
+            statusDiv.className = 'test-status error';
+            statusDiv.innerHTML = `请求异常: ${error.message}`;
+            window.app?.showNotification('请求异常', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试连接`;
+                btn.classList.remove('spinning');
+            }
+        }
+    }
+
     // 设置当前使用的自定义图片API
     async setCurrentCustomImgAPI(index) {
         const api = this.customImgAPIs[index];
         if (!api.name || !api.api_base) {
-            alert('请先填写API名称和API BASE');
+            window.app?.showNotification('请先填写API名称和接口地址', 'warning');
+            return;
+        }
+
+        if (!api.model) {
+            window.app?.showNotification('请先选择或输入模型名称', 'warning');
             return;
         }
 
@@ -3724,14 +3929,42 @@ class AIWriteXConfigManager {
 
         window.app?.showNotification(`已将${api.name}设为当前使用`, 'success');
     }
-
     // 更新自定义图片API字段
     updateCustomImgAPI(index, field, value) {
         if (this.customImgAPIs[index]) {
             this.customImgAPIs[index][field] = value;
-            this.customImgAPIs[index].tested = false;
+
+            // 如果更新的是 model，同步更新下拉框和输入框
+            if (field === 'model') {
+                const select = document.getElementById(`custom-img-model-select-${index}`);
+                const input = document.getElementById(`custom-img-model-input-${index}`);
+                if (select && select.value !== value) select.value = value;
+                if (input && input.value !== value) input.value = value;
+            }
+
+            // 实时更新 URL 预览
+            const previewSpan = document.querySelector(`#img-api-url-preview-${index} span`);
+            if (previewSpan) {
+                previewSpan.textContent = this.getImgAPIPullURL(this.customImgAPIs[index]);
+            }
+
             this.saveCustomImgAPIs();
+
+            // 如果是当前正在使用的，也同步到 config 的 img_api（以便即时生效）
+            if (this.customImgAPIs[index].isCurrent) {
+                this.config.img_api.custom_index = index;
+            }
         }
+    }
+
+    // 获取完整 API 调用预览地址
+    getImgAPIPullURL(api) {
+        if (!api.api_base) return '等待配置地址...';
+        let base = api.api_base.trim().replace(/\/+$/, '');
+        if (!base.endsWith('images/generations') && !base.endsWith('image-synthesis')) {
+            return `${base}/images/generations`;
+        }
+        return base;
     }
 
     // 创建图片API提供商卡片  
@@ -3801,8 +4034,19 @@ class AIWriteXConfigManager {
                     <button type="button" class="model-dropdown-btn" onclick="window.configManager.fetchImgBuiltinModels('${providerKey}')" title="刷新模型列表">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                     </button>
+                    ${['ali', 'modelscope'].includes(providerKey) ? `
+                    <button type="button" class="api-action-btn btn-test-img" id="btn-test-builtin-img-${providerKey}" onclick="window.configManager.testBuiltinImgAPI('${providerKey}')" title="测试 API 连通性并生成一个测试图" style="margin-left: 8px;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> 测试
+                    </button>` : ''}
                 </div>
                 <input type="text" value="${providerData.model || ''}" placeholder="或手动输入模型名称" style="margin-top:8px" id="img-api-${providerKey}-model-input" onchange="window.configManager.updateImgAPIField('${providerKey}', 'model', this.value); document.getElementById('img-api-${providerKey}-model').value = this.value;">
+                
+                <div id="test-result-builtin-img-${providerKey}" class="test-result-container" style="display: none; margin-top: 15px;">
+                    <div class="test-status"></div>
+                    <div class="test-image-preview" style="margin-top: 10px; text-align: center;">
+                        <img src="" style="max-width: 100%; border-radius: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    </div>
+                </div>
             `;
         } else {
             modelGroup.innerHTML = `
@@ -3996,15 +4240,13 @@ class AIWriteXConfigManager {
             }
         };
 
-        // 始终同步自定义列表到后端，确保数据持久化（即便当前未选中自定义模式）
-        if (this.customImgAPIs && this.customImgAPIs.length > 0) {
-            imgApiConfig.custom = this.customImgAPIs;
-        }
+        // 始终同步自定义列表到后端，确保数据持久化
+        imgApiConfig.custom = this.customImgAPIs || [];
 
         // 如果当前是自定义模式，额外确保 api_type 和 custom_index 正确
         if (this.config.img_api.api_type === 'custom') {
             imgApiConfig.api_type = 'custom';
-            imgApiConfig.custom_index = this.config.img_api.custom_index;
+            imgApiConfig.custom_index = this.config.img_api.custom_index === undefined ? 0 : this.config.img_api.custom_index;
         }
 
         // 验证:如果选择阿里,必须填写API KEY  
@@ -5296,12 +5538,43 @@ testResultStyle.textContent = `
         border: 1px solid #ffccc7;
         color: #ff4d4f;
     }
+    .test-status {
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+    }
+    .test-status.info {
+        background: #e6f7ff;
+        border: 1px solid #91d5ff;
+        color: #1890ff;
+    }
+    .test-status.success {
+        background: #f6ffed;
+        border: 1px solid #b7eb8f;
+        color: #52c41a;
+    }
+    .test-status.error {
+        background: #fff2f0;
+        border: 1px solid #ffccc7;
+        color: #ff4d4f;
+    }
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
     .spinner, .spinning svg {
         animation: spin 1s linear infinite;
+    }
+    .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        margin-right: 8px;
     }
     .model-label-with-refresh {
         display: flex;

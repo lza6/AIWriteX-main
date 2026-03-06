@@ -228,8 +228,9 @@ class Config:
             },
             "use_template": True,
             "use_dynamic_template": True,  # 使用AI动态生成模板
-            "designer_model": "deepseek-v3",  # 模板设计模型
-            "refiner_model": "deepseek-v3",   # 语义精修模型
+            "strict_freshness": True,      # 强制话题新鲜度过滤
+            "designer_model": "",          # 模板设计模型 (留空则使用主模型)
+            "refiner_model": "",           # 语义精修模型 (留空则使用主模型)
             "template_category": "",
             "template": "",
             "use_compress": True,
@@ -1532,7 +1533,7 @@ class Config:
                 raise ValueError("配置未加载")
             return self.config["wechat"]["credentials"]
 
-    def get_llm_model(self, config_key: str = "model", default: str = "deepseek-v3") -> str:
+    def get_llm_model(self, config_key: str = "model", default: str = "") -> str:
         """
         获取LLM模型名称，带智能回退：
         1. 优先使用当前提供商配置中指定的角色索引 (如 designer_model_index)
@@ -2003,15 +2004,47 @@ class Config:
         except Exception as e:
             log.print_log(f"[Config] secrets 加载失败(非致命): {e}", "warning")
 
+    def _strip_secrets(self, config: Dict[Any, Any]) -> Dict[Any, Any]:
+        """递归剥离配置中的所有敏感密钥，防止泄漏到 config.yaml"""
+        import copy
+        sanitized = copy.deepcopy(config)
+        
+        # 定义需要被屏蔽的敏感字段名
+        SECRET_FIELDS = {"api_key", "appsecret", "appid", "key_index"}
+        
+        def _recurse_strip(obj):
+            if isinstance(obj, dict):
+                # 遍历字典
+                keys_to_reset = []
+                for k, v in obj.items():
+                    if k in SECRET_FIELDS:
+                        # 对于 api_key (通常是列表或字符串)，尝试根据默认值重置
+                        if k == "api_key":
+                            obj[k] = [] if isinstance(v, list) else ""
+                        else:
+                            obj[k] = ""
+                    else:
+                        _recurse_strip(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _recurse_strip(item)
+                    
+        _recurse_strip(sanitized)
+        return sanitized
+
     def save_config(self, config, aiforge_config=None):
-        """保存配置到 config.yaml，不验证"""
+        """保存配置到 config.yaml，自动剥离敏感密钥，不验证"""
         with self._lock:
             ret = True
             self.config = config
+            
+            # --- 🔐 安全屏障: 剥离敏感信息 ---
+            save_payload = self._strip_secrets(config)
+            
             try:
                 with open(self.config_path, "w", encoding="utf-8") as f:
                     yaml.dump(
-                        config,
+                        save_payload,
                         f,
                         Dumper=IndentedDumper,
                         allow_unicode=True,

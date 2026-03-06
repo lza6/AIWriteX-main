@@ -48,6 +48,7 @@ async def get_config():
             "article_format": config_dict.get("article_format", "html"),
             "format_publish": config_dict.get("format_publish", True),
             "dimensional_creative": config_dict.get("dimensional_creative", {}),
+            "strict_freshness": config_dict.get("strict_freshness", True),
             "aiforge_config": config.aiforge_config,
             "page_design": config_dict.get("page_design"),
         }
@@ -306,6 +307,145 @@ async def test_custom_api(config: CustomAPIConfig):
                     return {"status": "error", "message": f"请求失败 (HTTP {response.status}): {error_text[:200]}"}
     except Exception as e:
         return {"status": "error", "message": f"连接失败: {str(e)}"}
+
+
+@router.post("/test-custom-img-api")
+async def test_custom_img_api(config: CustomAPIConfig):
+    """测试自定义图片API连接 (支持OpenAI格式、异步轮询和本地预览)"""
+    try:
+        import aiohttp
+        import os
+        from src.ai_write_x.utils.path_manager import PathManager
+        from src.ai_write_x.utils import utils as u
+        
+        # 构建请求 (OpenAI 格式: images/generations)
+        url = config.api_base.rstrip('/')
+        if not url.endswith('images/generations') and not url.endswith('image-synthesis'):
+             url = url + "/images/generations"
+        
+        log.print_log(f"[ImageTest] 开始测试连接: {config.name or '未命名'}, URL: {url}", "info")
+        log.print_log(f"[ImageTest] 使用模型: {config.model or '默认'}", "info")
+             
+        headers = {
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # 使用一个非常简单的提示词进行测试
+        # 针对不同模型动态调整尺寸，大部分API支持 1024x1024
+        payload = {
+            "prompt": "a cute white cat, high quality, masterpiece",
+            "n": 1,
+            "size": "1024x1024"
+        }
+        if hasattr(config, "model") and config.model:
+            payload["model"] = config.model
+        
+        # 对于异步API（阿里/模型答），尝试开启异步模式
+        is_modelscope = "modelscope" in url.lower()
+        is_ali = "dashscope" in url.lower() or "aliyuncs" in url.lower()
+        
+        if is_modelscope:
+            headers["X-ModelScope-Async-Mode"] = "true"
+        if is_ali:
+            headers["X-DashScope-Async"] = "enable"
+
+        timeout = aiohttp.ClientTimeout(total=60)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers, timeout=timeout) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    log.print_log(f"[ImageTest] 请求失败 (HTTP {response.status}): {error_text[:200]}", "error")
+                    try:
+                        error_json = json.loads(error_text)
+                        msg = error_json.get("error", {}).get("message", error_text)
+                    except:
+                        msg = error_text
+                    return {"status": "error", "message": f"请求失败 (HTTP {response.status}): {msg[:200]}"}
+                
+                result = await response.json()
+                log.print_log(f"[ImageTest] 初始请求成功, 响应: {str(result)[:200]}...", "info")
+                
+                # 提取图片 URL 或 任务 ID
+                img_url = None
+                task_id = result.get("task_id") or (result.get("output", {}) if isinstance(result.get("output"), dict) else {}).get("task_id") or result.get("id")
+                
+                # 如果没有任务ID，尝试直接获取 URL (同步响应)
+                if not task_id:
+                    if "data" in result and len(result["data"]) > 0:
+                        img_url = result["data"][0].get("url")
+                    elif "output" in result and "url" in result["output"]:
+                        img_url = result["output"]["url"]
+                    
+                    if img_url:
+                        log.print_log(f"[ImageTest] 同步生成成功: {img_url}", "success")
+                
+                # 如果有任务ID，进行简单的轮询 (最多轮询 45 秒)
+                if task_id and not img_url:
+                    log.print_log(f"[ImageTest] 检测到异步任务 ID: {task_id}, 开始轮询...", "info")
+                    base_task_url = config.api_base.rstrip('/')
+                    if "/images/generations" in base_task_url:
+                        base_task_url = base_task_url.replace("/images/generations", "")
+                    
+                    if is_ali:
+                        task_url = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
+                    else:
+                        task_url = f"{base_task_url}/tasks/{task_id}"
+                        
+                    poll_headers = {"Authorization": f"Bearer {config.api_key}"}
+                    if is_modelscope:
+                        poll_headers["X-ModelScope-Task-Type"] = "image_generation"
+                    
+                    for _ in range(9): # 5s * 9 = 45s
+                        await asyncio.sleep(5)
+                        async with session.get(task_url, headers=poll_headers, timeout=10) as poll_res:
+                            if poll_res.status == 200:
+                                t_json = await poll_res.json()
+                                output = t_json.get("output", {}) if isinstance(t_json.get("output"), dict) else t_json
+                                status = t_json.get("task_status") or output.get("task_status") or t_json.get("status") or output.get("status")
+                                
+                                if status in ("SUCCEEDED", "SUCCEED", "COMPLETED", "success"):
+                                    log.print_log(f"[ImageTest] 任务完成, 状态: {status}", "success")
+                                    if "output_images" in t_json and len(t_json["output_images"]) > 0:
+                                        img_url = t_json["output_images"][0]
+                                    elif "results" in output and len(output["results"]) > 0:
+                                        img_url = output["results"][0].get("url")
+                                    elif "data" in t_json and len(t_json["data"]) > 0:
+                                        img_url = t_json["data"][0].get("url")
+                                    elif "url" in output:
+                                        img_url = output["url"]
+                                    break
+                                elif status in ("FAILED", "CANCELED", "failed", "error"):
+                                    log.print_log(f"[ImageTest] 任务失败, 状态: {status}", "error")
+                                    return {"status": "error", "message": f"生成失败: {status}"}
+                                else:
+                                    log.print_log(f"[ImageTest] 轮询中... 状态: {status}", "info")
+                
+                if img_url:
+                    # 下载图片并返回预览路径
+                    log.print_log(f"[ImageTest] 正在下载预览图: {img_url}", "info")
+                    image_dir = PathManager.get_image_dir()
+                    file_name = f"test_{int(time.time())}.png"
+                    file_path = os.path.join(str(image_dir), file_name)
+                    
+                    async with session.get(img_url, timeout=30) as img_res:
+                        if img_res.status == 200:
+                            img_data = await img_res.read()
+                            with open(file_path, "wb") as f:
+                                f.write(img_data)
+                            log.print_log(f"[ImageTest] 预览图下载完成: {file_name}", "success")
+                            return {
+                                "status": "success", 
+                                "message": "测试成功! 已生成预览图片。", 
+                                "url": f"/images/{file_name}"
+                            }
+                
+                log.print_log(f"[ImageTest] 连接成功但未获取到图片 URL", "warning")
+                return {"status": "success", "message": "连接成功 (未获取到图片预览)", "response": result}
+                
+    except Exception as e:
+        log.print_log(f"[ImageTest] 连接发生异常: {str(e)}", "error")
+        return {"status": "error", "message": f"连接发生异常: {str(e)}"}
 
 
 class ComfyUIConfig(BaseModel):

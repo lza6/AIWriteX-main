@@ -101,7 +101,7 @@ class AITemplateDesigner:
         
     def _get_designer_llm_model(self) -> str:
         """从配置获取设计专用模型，带回退逻辑"""
-        return self.config.get_llm_model("designer_model", "deepseek-v3")
+        return self.config.get_llm_model("designer_model")
 
     async def generate_unique_template(self, title: str, content: str, 
                                       topic: str = "", keywords: List[str] = None) -> str:

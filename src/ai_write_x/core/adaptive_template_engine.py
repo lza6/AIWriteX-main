@@ -708,7 +708,7 @@ class AdaptiveTemplateEngine:
             full_response = ""
             html_started = False
             
-            model = self.config.get_llm_model("refiner_model", "deepseek-v3")
+            model = self.config.get_llm_model("refiner_model")
             
             # 使用 LLMService 的 client 直接进行流式对话以支持消息列表
             async for chunk in self.llm_service.client.stream_chat_async(

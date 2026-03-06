@@ -30,3 +30,6 @@ asyncpg
 feedparser>=6.0.0
 psutil>=5.9.0
 playwright>=1.40.0
+pymysql
+psycopg2-binary
+sqlmodel

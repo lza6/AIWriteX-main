@@ -294,30 +294,42 @@ class VisualAssetsManager:
                             download_url = f"https://picsum.photos/{w_h[0]}/{w_h[1]}?random={idx+1}"
                             from src.ai_write_x.utils import utils as u
                             img_path = u.download_and_save_image(download_url, str(image_dir))
-                            # Skip the rest of the modelscope polling logic since we already got our image
                             
                         elif res.status_code != 200:
                             raise Exception(f"图像生成请求失败: {res.status_code} - {res.text}")
                             
                         if not img_path: # IF not already fulfilled by fallback
                             task_id = None
+                            # 灵活获取 task_id
                             if "task_id" in res_json:
                                 task_id = res_json["task_id"]
                             elif "output" in res_json and "task_id" in res_json["output"]:
                                 task_id = res_json["output"]["task_id"]
+                            elif "id" in res_json: # 部分通用 API
+                                task_id = res_json["id"]
                                 
                             img_url = None
                             if not task_id:
+                                # 尝试直接获取 url
                                 if "data" in res_json and len(res_json["data"]) > 0:
                                     img_url = res_json["data"][0].get("url")
+                                elif "output" in res_json and "url" in res_json["output"]:
+                                    img_url = res_json["output"]["url"]
                                 else:
                                     raise Exception(f"未能获取 task_id 或直接的 img_url: {res.text}")
                             else:
-                                lg.print_log(f"  获取到 task_id: {task_id}, 开始轮询 (大约需要10-20秒)...")
-                                # construct task url path
-                                task_url = f"{actual_api_base.rstrip('/')}/tasks/{task_id}"
-                                if "images/generations" in task_url:
-                                    task_url = task_url.replace("images/generations", "tasks")
+                                lg.print_log(f"  获取到任务ID: {task_id}, 开始轮询任务状态...")
+                                # 构建任务查询地址
+                                # 如果 api_base 包含 v1/images/generations, 尝试转换为 v1/tasks/task_id
+                                base_task_url = actual_api_base.rstrip('/')
+                                if "/images/generations" in base_task_url:
+                                    base_task_url = base_task_url.replace("/images/generations", "")
+                                
+                                # 支持 ModelScope 和 DashScope 的任务端点
+                                if is_ali:
+                                    task_url = f"https://dashscope.aliyuncs.com/api/v1/tasks/{task_id}"
+                                else:
+                                    task_url = f"{base_task_url}/tasks/{task_id}"
                                 
                                 poll_headers = {
                                     "Authorization": f"Bearer {img_api_key}"
@@ -325,28 +337,40 @@ class VisualAssetsManager:
                                 if is_modelscope:
                                     poll_headers["X-ModelScope-Task-Type"] = "image_generation"
                                     
-                                # V5: 兼容工作流的超长生成时间，轮询次数由 20 提高到 150 次 (约 7-8 分钟超时)
-                                for poll_idx in range(150):
-                                    time.sleep(3)
-                                    task_res = req_lib.get(task_url, headers=poll_headers, timeout=10)
-                                    t_json = task_res.json()
-                                    
-                                    status = ""
-                                    if "task_status" in t_json:
-                                        status = t_json["task_status"]
-                                    elif "output" in t_json and "task_status" in t_json["output"]:
-                                        status = t_json["output"]["task_status"]
+                                # 通用轮询逻辑
+                                for poll_idx in range(150): # 约 7-8 分钟
+                                    time.sleep(5)
+                                    try:
+                                        task_res = req_lib.get(task_url, headers=poll_headers, timeout=10)
+                                        t_json = task_res.json()
                                         
-                                    if status in ("SUCCEEDED", "SUCCEED"):
-                                        if "output" in t_json and "results" in t_json["output"]:
-                                            img_url = t_json["output"]["results"][0].get("url")
-                                        elif "output_images" in t_json and len(t_json["output_images"]) > 0:
-                                            img_url = t_json["output_images"][0]
-                                        elif "data" in t_json and len(t_json["data"]) > 0:
-                                            img_url = t_json["data"][0].get("url")
-                                        break
-                                    elif status in ("FAILED", "CANCELED"):
-                                        raise Exception(f"生成任务失败: {task_res.text}")
+                                        # 兼容多种状态字段
+                                        status = ""
+                                        output = t_json.get("output", {}) if isinstance(t_json.get("output"), dict) else t_json
+                                        status = t_json.get("task_status") or output.get("task_status") or t_json.get("status") or output.get("status")
+                                        
+                                        if not status and "task" in t_json: # 部分 API 嵌套在 task 中
+                                            status = t_json["task"].get("status")
+                                            
+                                        if status in ("SUCCEEDED", "SUCCEED", "COMPLETED", "success"):
+                                            lg.print_log(f"  ✅ 任务生成成功 (耗时 ~{poll_idx*5}s)")
+                                            # 获取结果 URL
+                                            if "output_images" in t_json and len(t_json["output_images"]) > 0:
+                                                img_url = t_json["output_images"][0]
+                                            elif "results" in output and len(output["results"]) > 0:
+                                                img_url = output["results"][0].get("url")
+                                            elif "data" in t_json and len(t_json["data"]) > 0:
+                                                img_url = t_json["data"][0].get("url")
+                                            elif "url" in output:
+                                                img_url = output["url"]
+                                            break
+                                        elif status in ("FAILED", "CANCELED", "failed", "error"):
+                                            raise Exception(f"生成任务失败: {status} - {t_json}")
+                                        
+                                        if poll_idx % 4 == 0:
+                                            lg.print_log(f"  ⏳ 正在排队或渲染中... ({status})")
+                                    except Exception as poll_e:
+                                        lg.print_log(f"  [轮询警告] {str(poll_e)}", "warning")
                                         
                                 if not img_url:
                                     raise Exception("轮询获取图片超时")

@@ -5,22 +5,31 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.7);
+    /* 加深遮罩颜色，提高对比度 */
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10000;
-    /* 提高到最高级别 */
+    /* 增加磨砂玻璃效果 */
+    backdrop-filter: blur(4px);
 }
 
 .modal-content {
-    background: var(--surface-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
+    background: var(--surface-color, #ffffff);
+    /* 确保背景色存在 */
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: 12px;
+    /* 稍微加大圆角，更显精致 */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    /* 加深阴影 */
     max-width: 600px;
     width: 90%;
-    max-height: 80vh;
+    max-height: 90vh;
+    /* 增加最大高度 */
     overflow-y: auto;
+    position: relative;
+    animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-header {

@@ -73,6 +73,9 @@ class WebViewGUI:
             return
 
         self.is_shutting_down = True
+        
+        # 0. 清理测试图片
+        self.cleanup_test_images()
 
         try:
             # 1. 停止托盘
@@ -96,6 +99,24 @@ class WebViewGUI:
         finally:
             # 强制退出
             os._exit(0)
+
+    def cleanup_test_images(self):
+        """退出前清理测试生成的图片 (文件名以 test_ 开头)"""
+        try:
+            from src.ai_write_x.utils.path_manager import PathManager
+            image_dir = PathManager.get_image_dir()
+            if image_dir.exists():
+                count = 0
+                for file in image_dir.glob("test_*"):
+                    try:
+                        file.unlink()
+                        count += 1
+                    except:
+                        pass
+                if count > 0:
+                    log.print_log(f"[Cleanup] 已自动清理 {count} 张测试预览图", "info")
+        except Exception as e:
+            print(f"清理测试图片出错: {e}")
 
     def start_server(self):
         """启动FastAPI服务器"""
