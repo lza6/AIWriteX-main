@@ -3398,7 +3398,7 @@ class AIWriteXConfigManager {
 
         resultContainer.style.display = 'block';
         statusDiv.className = 'test-status info';
-        statusDiv.innerHTML = '<i class="spinner"></i> 正在发送请求并生成图片...';
+        statusDiv.innerHTML = '<i class="spinner"></i> 正在发送请求并生成图片 (可能需要 10-60 秒)...';
         previewImg.style.display = 'none';
 
         try {

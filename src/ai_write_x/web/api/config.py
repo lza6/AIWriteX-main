@@ -396,7 +396,7 @@ async def test_custom_img_api(config: CustomAPIConfig):
                     if is_modelscope:
                         poll_headers["X-ModelScope-Task-Type"] = "image_generation"
                     
-                    for _ in range(9): # 5s * 9 = 45s
+                    for _ in range(12): # 5s * 12 = 60s
                         await asyncio.sleep(5)
                         async with session.get(task_url, headers=poll_headers, timeout=10) as poll_res:
                             if poll_res.status == 200:
