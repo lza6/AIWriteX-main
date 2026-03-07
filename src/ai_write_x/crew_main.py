@@ -13,6 +13,7 @@ from src.ai_write_x.utils import log
 from src.ai_write_x.config.config import Config
 from src.ai_write_x.core.system_init import setup_aiwritex
 from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+from src.ai_write_x.core.task_distributor import TaskDistributor
 
 
 warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
@@ -132,6 +133,16 @@ def run(inputs):
             "reference_content": inputs.get("reference_content", ""),
             "date_str": inputs.get("date_str", "近期 (以系统时间推测)")
         }
+
+        # V18.0: 蜂群并发逻辑判定
+        config = Config.get_instance()
+        if not config.serial_mode_forced and config.swarm_mode_enabled:
+            log.print_log("[Swarm] 检测到蜂群模式开启，启动去中心化任务分发驱动...", "success")
+            distributor = TaskDistributor()
+            # 异步分发子任务到蜂群
+            loop = asyncio.get_event_loop()
+            task_ids = loop.run_until_complete(distributor.distribute_article_task(topic))
+            return f"Swarm handled tasks: {task_ids}"
 
         return workflow.execute(topic=topic, **kwargs)
 

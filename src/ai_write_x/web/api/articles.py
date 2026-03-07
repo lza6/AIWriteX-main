@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, File, UploadFile
@@ -14,6 +14,7 @@ from src.ai_write_x.tools.wx_publisher import pub2wx
 from src.ai_write_x.utils import utils
 from src.ai_write_x.utils import log
 from src.ai_write_x.core.adaptive_template_engine import ContentAnalyzer, ModularTemplateBuilder, ComponentType, DesignScheme
+from src.ai_write_x.core.aesthetic_summarizer import AestheticSummarizer
 
 from bs4 import BeautifulSoup
 import re
@@ -117,6 +118,7 @@ class PublishRequest(BaseModel):
     article_paths: List[str]
     account_indices: List[int]
     platform: str = "wechat"
+    article_titles: Optional[List[str]] = None  # 新增：前端传入的文章标题
 
 
 @router.get("/stats")
@@ -141,6 +143,87 @@ async def get_article_stats():
                 "token_usage_estimate": len(articles) * 1200, # 粗略估计
                 "avg_quality_score": 88.5 # 示例值，实际可从数据库聚合
             }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/system/storage-stats")
+async def get_storage_stats():
+    """获取系统存储统计 (MB/GB) 与真实路径"""
+    try:
+        articles_dir = PathManager.get_article_dir()
+        images_dir = PathManager.get_image_dir()
+        # V13.0: 显式指定 DB 路径，增强准确性
+        db_file = PathManager.get_root_dir() / "db" / "ai_write_x.db"
+        
+        def get_dir_size(path):
+            if not path.exists(): return 0
+            return sum(f.stat().st_size for f in path.glob('**/*') if f.is_file())
+
+        articles_size = get_dir_size(articles_dir)
+        images_size = get_dir_size(images_dir)
+        db_size = db_file.stat().st_size if db_file.exists() else 0
+        
+        total_bytes = articles_size + images_size + db_size
+
+        def format_size(size_bytes):
+            if size_bytes < 1024 * 1024:
+                return f"{size_bytes / 1024:.2f} KB"
+            if size_bytes < 1024 * 1024 * 1024:
+                return f"{size_bytes / (1024 * 1024):.2f} MB"
+            return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+        return {
+            "status": "success",
+            "data": {
+                "total_size": format_size(total_bytes),
+                "total_size_formatted": format_size(total_bytes), # 保持兼容性
+                "articles_size": format_size(articles_size),
+                "images_size": format_size(images_size),
+                "db_size": format_size(db_size),
+                "root_path": str(PathManager.get_root_dir()),
+                "articles_path": str(articles_dir),
+                "images_path": str(images_dir),
+                "db_path": str(db_file)
+            }
+        }
+    except Exception as e:
+        log.print_log(f"获取存储统计失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/system/smart-clean")
+async def smart_clean_articles():
+    """AI 智能清理建议与自动执行"""
+    # 这里先实现一个基础逻辑：清理 30 天前且已发布的文章
+    try:
+        articles_dir = PathManager.get_article_dir()
+        from datetime import datetime, timedelta
+        limit_date = datetime.now() - timedelta(days=30)
+        
+        cleaned_count = 0
+        freed_size = 0
+        
+        # 简单逻辑：如果是 HTML 且在发布记录中显示成功，且超过 30 天
+        # 复杂逻辑（Phase 13 进阶）将由 AI Swarm 判断相似度
+        for f in articles_dir.glob("*.html"):
+            if datetime.fromtimestamp(f.stat().st_mtime) < limit_date:
+                title = f.stem.replace("_", "|")
+                if get_publish_status(title) == "published":
+                    freed_size += f.stat().st_size
+                    f.unlink()
+                    cleaned_count += 1
+                    # 同步清理设计文件
+                    design = f.with_suffix(".design.json")
+                    if design.exists():
+                        freed_size += design.stat().st_size
+                        design.unlink()
+
+        return {
+            "status": "success",
+            "message": f"AI 智能清理完成！清理了 {cleaned_count} 篇陈旧文章，释放空间 {freed_size / 1024:.1f} KB",
+            "freed_kb": freed_size / 1024
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -206,6 +289,40 @@ async def update_article_content(path: str, update: ArticleContentUpdate):
     return {"status": "success", "message": "文章已保存"}
 
 
+@router.post("/system/aesthetic-summarize")
+async def summarize_aesthetic_dna():
+    """触发 AI 汇总用户审美偏好并更新 Aesthetic Profile"""
+    try:
+        summarizer = AestheticSummarizer()
+        profile = await summarizer.summarize()
+        if profile:
+            return {
+                "status": "success",
+                "message": "AI 已成功解析并习得您的最新审美偏好",
+                "data": profile
+            }
+        return {"status": "error", "message": "未能生成有效的审美特征文件"}
+    except Exception as e:
+        log.print_log(f"审美汇总接口异常: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/system/aesthetic-profile")
+async def get_aesthetic_profile():
+    """获取当前审美DNA Profile"""
+    try:
+        from src.ai_write_x.utils.path_manager import PathManager
+        profile_path = PathManager.get_root_dir() / "config" / "aesthetic_profile.json"
+        if profile_path.exists():
+            with open(profile_path, "r", encoding="utf-8") as f:
+                profile = json.load(f)
+            return {"status": "success", "data": profile}
+        return {"status": "success", "data": None, "message": "尚未生成审美DNA"}
+    except Exception as e:
+        log.print_log(f"获取审美Profile失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/preview")
 async def preview_article(path: str):
     """安全预览文章 - 使用查询参数"""
@@ -219,10 +336,21 @@ async def preview_article(path: str):
     )
 
 
-@router.delete("/{article_path:path}")
-async def delete_article(article_path: str):
-    """删除文章"""
-    file_path = Path(article_path)
+@router.get("/source")
+async def get_article_source(path: str):
+    """获取文章原始内容（不进行任何处理）"""
+    file_path = Path(path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
+    content = file_path.read_text(encoding="utf-8")
+    return Response(content=content, media_type="text/plain; charset=utf-8")
+
+
+@router.delete("/")
+async def delete_article(path: str):
+    """删除文章 - 使用查询参数以支持复杂路径"""
+    file_path = Path(path)
     if file_path.exists():
         file_path.unlink()
         return {"status": "success", "message": "文章已删除"}
@@ -248,7 +376,10 @@ async def publish_articles(request: PublishRequest):
         # 记录成功发布的文章路径（用于自动删除）
         published_article_paths = set()
 
-        for article_path in request.article_paths:
+        # 获取前端传入的标题列表
+        article_titles = request.article_titles or []
+
+        for idx, article_path in enumerate(request.article_paths):
             file_path = Path(article_path)
             if not file_path.exists():
                 fail_count += 1
@@ -259,8 +390,23 @@ async def publish_articles(request: PublishRequest):
 
             ext = file_path.suffix.lower()
 
+            # 优先使用前端传入的标题
+            provided_title = article_titles[idx] if idx < len(article_titles) else None
+            
             try:
-                if ext == ".html":
+                if provided_title:
+                    # 使用前端传入的标题
+                    title = provided_title
+                    # 只提取摘要
+                    if ext == ".html":
+                        _, digest = utils.extract_html(content)
+                    elif ext == ".md":
+                        _, digest = utils.extract_markdown_content(content)
+                    elif ext == ".txt":
+                        _, digest = utils.extract_text_content(content)
+                    else:
+                        digest = "无摘要"
+                elif ext == ".html":
                     title, digest = utils.extract_html(content)
                 elif ext == ".md":
                     title, digest = utils.extract_markdown_content(content)
@@ -349,20 +495,30 @@ async def publish_articles(request: PublishRequest):
                     )
                     error_details.append(f"{cred.get('author', '未命名')}: {error_msg}")
 
-        # 自动删除成功发布的文章
+        # 自动删除成功发布的文章 (逻辑模型闭环加固)
         deleted_articles = []
-        auto_delete_enabled = Config.get_instance().config.get("auto_delete_published", False)
+        app_cfg = Config.get_instance()
+        auto_delete_enabled = app_cfg.config.get("auto_delete_published", False)
         
-        if auto_delete_enabled:
+        if auto_delete_enabled and success_count > 0:
+            log.print_log(f"🧹 [自动清理] 检测到 auto_delete_published 开启，正在清理本批次 {len(published_article_paths)} 篇已发布文章", "info")
             for article_path in published_article_paths:
                 try:
                     file_path = Path(article_path)
-                    if file_path.exists():
+                    if file_path.exists() and file_path.is_file():
                         file_path.unlink()
                         deleted_articles.append(article_path)
-                        log.print_log(f"已自动删除发布的文章: {article_path}", "info")
+                        log.print_log(f"✅ [清理成功] {article_path}", "success")
+                        
+                        # 同步清理相关的设计文件和封面图预览逻辑可在此处扩展
+                        design_file = file_path.with_suffix(".design.json")
+                        if design_file.exists():
+                            design_file.unlink()
+                            log.print_log(f"   - 已同步移除关联设计文件: {design_file.name}", "internal")
+                    else:
+                        log.print_log(f"⚠️ [无效路径] 无法删除不存在的文件: {article_path}", "warning")
                 except Exception as e:
-                    log.print_log(f"删除文章失败: {article_path}, 错误: {e}", "warning")
+                    log.print_log(f"❌ [删除失败] {article_path}, 原因: {e}", "error")
 
         return {
             "status": "success" if success_count > 0 else "error",
@@ -761,27 +917,29 @@ async def re_template_article(request: ReTemplateRequest):
     designer = AITemplateDesigner()
 
     async def event_generator(core_content_arg=core_content):
-        yield json.dumps({"type": "log", "message": "🤖 AI 设计师已感知任务，正在唤醒可视化引擎..."}) + "\n"
-        yield json.dumps({"type": "log", "message": "🧬 正在提取原文深度语义结构..."}) + "\n"
+        log_msg = "🤖 AI 设计师已感知任务，正在唤醒可视化引擎..."
+        log.print_log(f"[AI换模板] {log_msg}", "info")
+        yield json.dumps({"type": "log", "message": log_msg}) + "\n"
         
-        # 将参数绑定到本地可变或独立命名的变量，避免 UnboundLocalError
+        log_msg = "🧬 正在提取原文深度语义结构..."
+        log.print_log(f"[AI换模板] {log_msg}", "info")
+        yield json.dumps({"type": "log", "message": log_msg}) + "\n"
+        
         core_content = core_content_arg
         try:
-            yield json.dumps({"type": "log", "message": "🎨 正在制定全局设计蓝图与视觉色调..."}) + "\n"
+            log_msg = "🎨 正在制定全局设计蓝图与视觉色调..."
+            log.print_log(f"[AI换模板] {log_msg}", "info")
+            yield json.dumps({"type": "log", "message": log_msg}) + "\n"
             
-            # 直接使用 async for 迭代异步生成器
-            # AdaptiveTemplateEngine 已经处理了所有的 5 阶强化逻辑
             async for item in designer.stream_unique_template(title, core_content):
+                # 同时输出日志到CMD控制台
+                if item.get("type") == "log":
+                    log.print_log(f"[AI换模板] {item.get('message', '')}", "info")
                 # 直接转发所有引擎事件 (logs, thoughts, chunks, full_html)
                 yield json.dumps(item) + "\n"
                 
         except Exception as e:
-            log.print_log(f"流式模板生成异常: {e}", "error")
-            yield json.dumps({"type": "log", "message": f"❌ 严重错误: {str(e)}"}) + "\n"
-            yield json.dumps({"type": "done"}) + "\n"
-
-        except Exception as e:
-            log.print_log(f"流式模板生成异常: {e}", "error")
+            log.print_log(f"[AI换模板] 流式模板生成异常: {e}", "error")
             yield json.dumps({"type": "log", "message": f"❌ 严重错误: {str(e)}"}) + "\n"
             yield json.dumps({"type": "done"}) + "\n"
 
@@ -809,9 +967,294 @@ async def get_article_source(article_name: str):
             content = source_path.read_text(encoding="utf-8")
             return {"status": "success", "content": content}
         
+        # 尝试从路径名转换（如果传入的是 .html 路径）
+        if article_name.endswith('.html'):
+            alt_name = article_name.replace('.html', '')
+            alt_path = articles_dir / f"{alt_name}.source.txt"
+            if alt_path.exists():
+                content = alt_path.read_text(encoding="utf-8")
+                return {"status": "success", "content": content}
+        
         # 兜底：如果没有找到对应的 source.txt，返回提示
         return {"status": "success", "content": "【系统提示：找不到该文章的原始参考文本】"}
         
     except Exception as e:
         log.print_log(f"获取文章源文件失败: {str(e)}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== AI一键换标题功能 ====================
+
+class TitleOptimizationRequest(BaseModel):
+    article_path: str
+    platform: str = ""
+
+
+@router.post("/optimize-title")
+async def optimize_article_title(request: TitleOptimizationRequest):
+    """
+    AI一键换标题 - 为文章生成多个爆款标题选项
+    """
+    try:
+        from src.ai_write_x.core.quality_engine import TitleOptimizer
+        from bs4 import BeautifulSoup
+        
+        # 读取文章内容
+        articles_dir = PathManager.get_article_dir()
+        article_path = articles_dir / request.article_path
+        
+        if not article_path.exists():
+            raise HTTPException(status_code=404, detail="文章不存在")
+        
+        html_content = article_path.read_text(encoding="utf-8")
+        
+        # 从HTML中提取标题
+        soup = BeautifulSoup(html_content, "html.parser")
+        title_tag = soup.find('title')
+        current_title = title_tag.get_text().strip() if title_tag else ""
+        
+        if not current_title:
+            # 尝试从h1标签获取
+            h1_tag = soup.find('h1')
+            current_title = h1_tag.get_text().strip() if h1_tag else "无标题"
+        
+        # 提取正文内容（用于分析）
+        # 移除script和style标签
+        for script in soup(["script", "style"]):
+            script.decompose()
+        text_content = soup.get_text(separator='\n', strip=True)
+        
+        # 调用标题优化器
+        result = await TitleOptimizer.optimize_title(
+            title=current_title,
+            content=text_content[:1500],  # 前1500字作为参考
+            platform=request.platform
+        )
+        
+        # 检查是否有错误
+        if result.get("error"):
+            log.print_log(f"AI换标题LLM调用失败: {result.get('error')}", "error")
+            return {
+                "status": "error",
+                "error_type": "llm_error",
+                "message": f"AI服务暂时不可用，请检查API配置或稍后再试。详情: {result.get('error')}",
+                "original_title": current_title,
+                "titles": [],
+                "recommended": current_title
+            }
+        
+        return {
+            "status": "success",
+            "original_title": result.get("original_title", current_title),
+            "titles": result.get("optimized_titles", []),
+            "recommended": result.get("recommended", current_title)
+        }
+        
+    except Exception as e:
+        log.print_log(f"AI换标题失败: {str(e)}", "error")
+        return {
+            "status": "error",
+            "error_type": "system_error",
+            "message": f"处理失败: {str(e)}",
+            "original_title": "",
+            "titles": [],
+            "recommended": ""
+        }
+
+
+@router.post("/apply-title")
+async def apply_new_title(request: TitleOptimizationRequest):
+    """
+    应用新标题到文章
+    """
+    try:
+        articles_dir = PathManager.get_article_dir()
+        article_path = articles_dir / request.article_path
+        
+        if not article_path.exists():
+            raise HTTPException(status_code=404, detail="文章不存在")
+        
+        html_content = article_path.read_text(encoding="utf-8")
+        
+        # 更新HTML中的标题
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, "html.parser")
+        
+        # 更新<title>标签
+        title_tag = soup.find('title')
+        if title_tag:
+            title_tag.string = request.platform  # 这里platform字段复用为新标题
+        
+        # 更新h1标签（如果有）
+        h1_tag = soup.find('h1', class_='article-title')
+        if h1_tag:
+            h1_tag.string = request.platform
+        
+        # 保存修改
+        article_path.write_text(str(soup), encoding="utf-8")
+        
+        return {"status": "success", "message": "标题已更新"}
+        
+    except Exception as e:
+        log.print_log(f"应用新标题失败: {str(e)}", "error")
+        raise HTTPException(status_code=500, detail=f"应用新标题失败: {str(e)}")
+
+
+class AestheticVote(BaseModel):
+    article_path: str
+    rating: int
+    positive_tags: List[str] = []
+    negative_tags: List[str] = []
+    comment: Optional[str] = ""
+
+@router.post("/vote")
+async def vote_article_aesthetic(vote: AestheticVote):
+    """V19.6: 提交审美投票"""
+    from src.ai_write_x.database.db_manager import get_session
+    from src.ai_write_x.database.models import Article, ArticleAesthetic
+    from sqlmodel import select, func
+    
+    try:
+        article_path = Path(vote.article_path)
+        # 尝试通过路径匹配数据库中的文章
+        article_name = article_path.stem
+        
+        with get_session() as session:
+            # 搜索匹配的文章记录
+            statement = select(Article).where(Article.content.contains(article_name))
+            results = session.exec(statement).all()
+            article_id = results[0].id if results else None
+            
+            # 检查是否已投票过（根据 article_path 或 article_id 检查）
+            if vote.article_path:
+                # 主要检查：基于 article_path 检查
+                check_stmt = select(ArticleAesthetic).where(
+                    ArticleAesthetic.article_path == vote.article_path
+                )
+                existing_vote = session.exec(check_stmt).first()
+                
+                if existing_vote:
+                    # 从路径提取文件名用于显示
+                    import re
+                    file_name = re.split(r'[/\\]', vote.article_path)[-1] if vote.article_path else "未知"
+                    return {
+                        "status": "already_voted",
+                        "message": f"您已经为「{file_name}」投过票了噢～如需重新投票，请先撤销现有投票。",
+                        "existing_vote_id": str(existing_vote.id)
+                    }
+            elif article_id:
+                # 备选检查：基于 article_id
+                check_stmt = select(ArticleAesthetic).where(
+                    ArticleAesthetic.article_id == article_id
+                )
+                existing_vote = session.exec(check_stmt).first()
+                
+                if existing_vote:
+                    return {
+                        "status": "already_voted",
+                        "message": "您已经为这篇文章投过票了噢～如需重新投票，请先撤销现有投票。",
+                        "existing_vote_id": str(existing_vote.id)
+                    }
+            
+            # 读取对应的 .design.json 获取 DNA
+            design_dna = None
+            design_path = article_path.with_suffix(".design.json")
+            if design_path.exists():
+                design_dna = design_path.read_text(encoding="utf-8")
+            
+            new_vote = ArticleAesthetic(
+                article_id=article_id,
+                article_path=vote.article_path,  # 保存完整路径便于后续检查
+                positive_tags=json.dumps(vote.positive_tags, ensure_ascii=False),
+                negative_tags=json.dumps(vote.negative_tags, ensure_ascii=False),
+                rating=vote.rating,
+                comment=vote.comment,
+                design_dna=design_dna
+            )
+            session.add(new_vote)
+            session.commit()
+            
+            # V13.0: 投完票后自动触发一次审美特征更新 (异步后台执行避免阻塞)
+            try:
+                import asyncio
+                summarizer = AestheticSummarizer()
+                asyncio.create_task(summarizer.summarize())
+                log.print_log("🧵 [审美进化] 已在后台启动审美特征 DNA 更新流程", "info")
+            except Exception as e:
+                log.print_log(f"后台更新审美 DNA 失败: {e}", "warning")
+            
+        return {
+            "status": "success", 
+            "message": "感谢您的反馈！我们将以此进化 AI 审美水平。",
+            "voted_id": str(article_id) if article_id else "independent"
+        }
+    except Exception as e:
+        log.print_log(f"审美投票失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=f"投票入库失败: {str(e)}")
+
+
+@router.get("/voted-articles")
+async def get_voted_articles():
+    """获取已投票的文章列表"""
+    from src.ai_write_x.database.db_manager import get_session
+    from src.ai_write_x.database.models import ArticleAesthetic
+    from sqlmodel import select, func, desc
+    
+    try:
+        with get_session() as session:
+            # 获取所有投票记录
+            statement = select(ArticleAesthetic).order_by(desc(ArticleAesthetic.created_at))
+            votes = session.exec(statement).all()
+            
+            voted_list = []
+            for v in votes:
+                voted_list.append({
+                    "id": str(v.id),  # 转换为字符串
+                    "article_path": v.article_path,
+                    "rating": v.rating,
+                    "positive_tags": json.loads(v.positive_tags) if v.positive_tags else [],
+                    "negative_tags": json.loads(v.negative_tags) if v.negative_tags else [],
+                    "comment": v.comment,
+                    "created_at": v.created_at.isoformat() if v.created_at else None
+                })
+            
+            return {
+                "status": "success",
+                "data": {
+                    "total": len(voted_list),
+                    "votes": voted_list
+                }
+            }
+    except Exception as e:
+        log.print_log(f"获取已投票列表失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/vote/{vote_id}")
+async def delete_vote(vote_id: str):
+    """撤销/删除投票记录"""
+    from src.ai_write_x.database.db_manager import get_session
+    from src.ai_write_x.database.models import ArticleAesthetic
+    from sqlmodel import select
+    
+    try:
+        with get_session() as session:
+            # vote_id 可能是 UUID 字符串
+            statement = select(ArticleAesthetic).where(ArticleAesthetic.id == vote_id)
+            vote = session.exec(statement).first()
+            
+            if not vote:
+                raise HTTPException(status_code=404, detail="投票记录不存在")
+            
+            session.delete(vote)
+            session.commit()
+            
+            return {
+                "status": "success",
+                "message": "投票记录已撤销"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.print_log(f"删除投票失败: {e}", "error")
         raise HTTPException(status_code=500, detail=str(e))

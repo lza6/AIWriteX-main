@@ -176,34 +176,23 @@ def get_authority_topics(limit: int = 50, exclude_topics: List[str] = None, min_
         # 为了避免异步嵌套复杂性，优先从 spider_data_manager 获取最近抓取的
         from src.ai_write_x.tools.spider_manager import spider_data_manager
         
-        for s in authority_spiders:
-            # 获取最近抓取的文章标题作为话题
-            articles = spider_data_manager.get_articles(
-                limit=limit, 
-                source=spider_runner.spiders.get(s, {}).get("source", s),
-                min_time=min_time # 新增：支持时间过滤
-            )
-            all_authority_news.extend([a['title'] for a in articles])
-
-        if not all_authority_news:
-             # 如果数据库没有，尝试实时跑一下（仅在必要时）
-             log.print_log("数据库中无权威源数据，尝试实时采集...", "info")
-             try:
-                 # 同步环境下运行异步
-                 async def run_sync():
-                     tasks = [spider_runner.run_spider(s, limit=10) for s in authority_spiders]
-                     await asyncio.gather(*tasks)
-                 asyncio.run(run_sync())
-                 
-                 for s in authority_spiders:
-                    articles = spider_data_manager.get_articles(
-                        limit=limit, 
-                        source=spider_runner.spiders.get(s, {}).get("source", s),
-                        min_time=min_time
-                    )
-                    all_authority_news.extend([a['title'] for a in articles])
-             except:
-                 pass
+        # V18 Fix: 直接获取所有文章，不限制source，避免source名称不匹配问题
+        all_articles = spider_data_manager.get_articles(limit=limit*3, min_time=min_time)
+        
+        # 从权威源获取的文章优先
+        authority_sources = ["BBC中文网", "纽约时报中文网", "华尔街日报中文网", "联合早报", 
+                            "新华网", "美国之音", "8视界", "中国日报", "新浪国际", "澎湃新闻"]
+        
+        for article in all_articles:
+            source = article.get('source', '')
+            if any(auth in source for auth in authority_sources):
+                all_authority_news.append(article['title'])
+            else:
+                # 非权威源也加入，但后面会去重
+                all_authority_news.append(article['title'])
+        
+        # 去重
+        all_authority_news = list(dict.fromkeys(all_authority_news))
 
         filtered = [t for t in all_authority_news if t not in exclude_topics]
         # 去重

@@ -38,6 +38,9 @@ class AgentConfig:
     system_template: Optional[str] = None
     prompt_template: Optional[str] = None
     response_template: Optional[str] = None
+    # V18.0: 蜂群模式支持
+    swarm_metadata: Dict[str, Any] = field(default_factory=dict)
+    capabilities: List[str] = field(default_factory=list)
 
 
 @dataclass

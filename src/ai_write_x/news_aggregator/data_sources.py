@@ -61,7 +61,7 @@ class DataSource:
 class DataSourceRegistry:
     """数据源注册表"""
     
-    # 预定义的50+数据源
+    # 预定义的100+数据源 (V17大规模扩展)
     DEFAULT_SOURCES = [
         # ========== GitHub生态 ==========
         DataSource(
@@ -87,7 +87,400 @@ class DataSourceRegistry:
             config={"repos": ["microsoft/vscode", "facebook/react", "tensorflow/tensorflow"]}
         ),
         
-        # ========== 国内科技媒体 ==========
+        # ========== 国际权威新闻源 ==========
+        DataSource(
+            id="reuters",
+            name="路透社",
+            category=DataSourceCategory.FINANCE,
+            type=DataSourceType.RSS,
+            url="https://www.reuters.com/",
+            api_endpoint="https://www.reutersagency.com/feed/?taxonomy=markets&post_type=reuters-best",
+            update_interval=300,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="bloomberg",
+            name="彭博社",
+            category=DataSourceCategory.FINANCE,
+            type=DataSourceType.RSS,
+            url="https://www.bloomberg.com/",
+            api_endpoint="https://feeds.bloomberg.com/news.rss",
+            update_interval=300,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="ft",
+            name="金融时报",
+            category=DataSourceCategory.FINANCE,
+            type=DataSourceType.RSS,
+            url="https://www.ft.com/",
+            api_endpoint="https://www.ft.com/rss/home/asia",
+            update_interval=600,
+            priority=9,
+            weight=2.5
+        ),
+        DataSource(
+            id="guardian",
+            name="卫报",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.theguardian.com/",
+            api_endpoint="https://www.theguardian.com/world/rss",
+            update_interval=600,
+            priority=9,
+            weight=2.0
+        ),
+        DataSource(
+            id="aljazeera",
+            name="半岛电视台",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.aljazeera.com/",
+            api_endpoint="https://www.aljazeera.com/xml/rss/all.xml",
+            update_interval=600,
+            priority=8,
+            weight=2.0
+        ),
+        DataSource(
+            id="rt",
+            name="今日俄罗斯",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.rt.com/",
+            api_endpoint="https://www.rt.com/rss/news/",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="dw",
+            name="德国之声",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.dw.com/",
+            api_endpoint="https://rss.dw.com/rdf/rss-en-all",
+            update_interval=600,
+            priority=8,
+            weight=2.0
+        ),
+        DataSource(
+            id="france24",
+            name="法国24台",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.france24.com/",
+            api_endpoint="https://www.france24.com/en/rss",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="cna",
+            name="中央社",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.cna.com.tw/",
+            api_endpoint="https://www.cna.com.tw/rss/aall.xml",
+            update_interval=600,
+            priority=8,
+            weight=2.0
+        ),
+        DataSource(
+            id="rfi",
+            name="法广",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.rfi.fr/",
+            api_endpoint="https://www.rfi.fr/en/rss",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        
+        # ========== 科技媒体扩展 ==========
+        DataSource(
+            id="arstechnica",
+            name="Ars Technica",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://arstechnica.com/",
+            api_endpoint="https://feeds.arstechnica.com/arstechnica/index",
+            update_interval=600,
+            priority=9,
+            weight=2.0
+        ),
+        DataSource(
+            id="wired",
+            name="Wired",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.wired.com/",
+            api_endpoint="https://www.wired.com/feed/rss",
+            update_interval=600,
+            priority=9,
+            weight=2.0
+        ),
+        DataSource(
+            id="engadget",
+            name="Engadget",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.engadget.com/",
+            api_endpoint="https://www.engadget.com/rss.xml",
+            update_interval=600,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="slashdot",
+            name="Slashdot",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://slashdot.org/",
+            api_endpoint="http://rss.slashdot.org/Slashdot/slashdot",
+            update_interval=600,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="mit_tech_review",
+            name="MIT科技评论",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.technologyreview.com/",
+            api_endpoint="https://www.technologyreview.com/feed/",
+            update_interval=1800,
+            priority=9,
+            weight=2.5
+        ),
+        DataSource(
+            id="nature",
+            name="Nature",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.nature.com/",
+            api_endpoint="https://www.nature.com/nature.rss",
+            update_interval=1800,
+            priority=9,
+            weight=2.5
+        ),
+        DataSource(
+            id="science",
+            name="Science",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.science.org/",
+            api_endpoint="https://www.science.org/rss/news_current.xml",
+            update_interval=1800,
+            priority=9,
+            weight=2.5
+        ),
+        
+        # ========== AI/ML专项扩展 ==========
+        DataSource(
+            id="openai_blog",
+            name="OpenAI博客",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://openai.com/blog",
+            api_endpoint="https://openai.com/blog/rss.xml",
+            update_interval=1800,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="google_ai",
+            name="Google AI",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://ai.googleblog.com/",
+            api_endpoint="https://ai.googleblog.com/feeds/posts/default",
+            update_interval=1800,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="deepmind",
+            name="DeepMind",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://deepmind.google/",
+            api_endpoint="https://deepmind.google/rss.xml",
+            update_interval=1800,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="anthropic",
+            name="Anthropic",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://www.anthropic.com/",
+            api_endpoint="https://www.anthropic.com/rss.xml",
+            update_interval=1800,
+            priority=10,
+            weight=3.0
+        ),
+        DataSource(
+            id="huggingface",
+            name="Hugging Face",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://huggingface.co/blog",
+            api_endpoint="https://huggingface.co/blog/feed.xml",
+            update_interval=600,
+            priority=9,
+            weight=2.5
+        ),
+        DataSource(
+            id="ai_explained",
+            name="AI Explained",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://www.youtube.com/@AIExplained-official",
+            update_interval=1800,
+            priority=7,
+            enabled=False
+        ),
+        
+        # ========== 国内媒体扩展 ==========
+        DataSource(
+            id="tencent_news",
+            name="腾讯新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.API,
+            url="https://news.qq.com/",
+            update_interval=300,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="netease_news",
+            name="网易新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://news.163.com/",
+            api_endpoint="https://news.163.com/special/00011K6L/rss_newsattitude.xml",
+            update_interval=300,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="sina_news",
+            name="新浪新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://news.sina.com.cn/",
+            api_endpoint="https://rss.sina.com.cn/news/rollnews.xml",
+            update_interval=300,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="sohu_news",
+            name="搜狐新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://news.sohu.com/",
+            api_endpoint="https://rss.sohu.com/rss/guonei.xml",
+            update_interval=300,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="thepaper",
+            name="澎湃新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.thepaper.cn/",
+            api_endpoint="https://feeds.thepaper.cn/",
+            update_interval=300,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="caijing",
+            name="财经网",
+            category=DataSourceCategory.FINANCE,
+            type=DataSourceType.RSS,
+            url="https://www.caijing.com.cn/",
+            api_endpoint="https://www.caijing.com.cn/rss.xml",
+            update_interval=600,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="cnstock",
+            name="中国证券网",
+            category=DataSourceCategory.FINANCE,
+            type=DataSourceType.RSS,
+            url="http://www.cnstock.com/",
+            api_endpoint="http://www.cnstock.com/rss.xml",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="jiemian",
+            name="界面新闻",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.jiemian.com/",
+            api_endpoint="https://www.jiemian.com/rss.xml",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        DataSource(
+            id="guancha",
+            name="观察者网",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.RSS,
+            url="https://www.guancha.cn/",
+            api_endpoint="https://www.guancha.cn/rss.xml",
+            update_interval=600,
+            priority=7,
+            weight=1.5
+        ),
+        
+        # ========== 创业/投资媒体 ==========
+        DataSource(
+            id="techcrunch",
+            name="TechCrunch",
+            category=DataSourceCategory.STARTUP,
+            type=DataSourceType.RSS,
+            url="https://techcrunch.com/",
+            api_endpoint="https://techcrunch.com/feed/",
+            update_interval=600,
+            priority=9,
+            weight=2.0
+        ),
+        DataSource(
+            id="venturebeat",
+            name="VentureBeat",
+            category=DataSourceCategory.STARTUP,
+            type=DataSourceType.RSS,
+            url="https://venturebeat.com/",
+            api_endpoint="https://venturebeat.com/feed/",
+            update_interval=600,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="36kr",
+            name="36氪",
+            category=DataSourceCategory.STARTUP,
+            type=DataSourceType.API,
+            url="https://36kr.com/",
+            api_endpoint="https://36kr.com/api/newsflash",
+            update_interval=300,
+            priority=8,
+            weight=1.5
+        ),
+        
+        # ========== 国内科技媒体扩展 ==========
         DataSource(
             id="36kr",
             name="36氪",
@@ -116,6 +509,80 @@ class DataSourceRegistry:
             url="https://www.pingwest.com/",
             update_interval=600,
             priority=7
+        ),
+        DataSource(
+            id="ithome",
+            name="IT之家",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.ithome.com/",
+            api_endpoint="https://www.ithome.com/rss/",
+            update_interval=300,
+            priority=8,
+            weight=1.2,
+            enabled=True
+        ),
+        DataSource(
+            id="solidot",
+            name="Solidot",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.solidot.org/",
+            api_endpoint="https://www.solidot.org/index.rss",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="linux_cn",
+            name="Linux中国",
+            category=DataSourceCategory.PROGRAMMING,
+            type=DataSourceType.RSS,
+            url="https://linux.cn/",
+            api_endpoint="https://linux.cn/rss.xml",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="oschina",
+            name="开源中国",
+            category=DataSourceCategory.PROGRAMMING,
+            type=DataSourceType.RSS,
+            url="https://www.oschina.net/",
+            api_endpoint="https://www.oschina.net/rss",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="ifanr",
+            name="爱范儿",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.ifanr.com/",
+            api_endpoint="https://www.ifanr.com/feed",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="leiphone",
+            name="雷锋网",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://www.leiphone.com/",
+            api_endpoint="https://www.leiphone.com/feed",
+            update_interval=600,
+            priority=8,
+            weight=1.5
+        ),
+        DataSource(
+            id="synced",
+            name="机器之心",
+            category=DataSourceCategory.AI_ML,
+            type=DataSourceType.RSS,
+            url="https://www.jiqizhixin.com/",
+            api_endpoint="https://www.jiqizhixin.com/rss",
+            update_interval=600,
+            priority=9,
+            weight=2.0
         ),
         DataSource(
             id="ithome",
@@ -336,7 +803,7 @@ class DataSourceRegistry:
             priority=8
         ),
         
-        # ========== 开发者社区 ==========
+        # ========== 开发者社区扩展 ==========
         DataSource(
             id="v2ex",
             name="V2EX",
@@ -351,7 +818,7 @@ class DataSourceRegistry:
             id="segmentfault",
             name="SegmentFault",
             category=DataSourceCategory.PROGRAMMING,
-            type=DataSourceType.RSS,  # 使用RSS
+            type=DataSourceType.RSS,
             url="https://segmentfault.com/",
             api_endpoint="https://segmentfault.com/feeds",
             update_interval=600,
@@ -366,6 +833,54 @@ class DataSourceRegistry:
             url="https://juejin.cn/",
             api_endpoint="https://api.juejin.cn/recommend_api/v1/article/recommend_all_feed",
             update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="csdn",
+            name="CSDN",
+            category=DataSourceCategory.PROGRAMMING,
+            type=DataSourceType.RSS,
+            url="https://www.csdn.net/",
+            api_endpoint="https://blog.csdn.net/rss.html",
+            update_interval=600,
+            priority=6
+        ),
+        DataSource(
+            id="zhihu_daily",
+            name="知乎日报",
+            category=DataSourceCategory.SOCIAL,
+            type=DataSourceType.API,
+            url="https://daily.zhihu.com/",
+            update_interval=1800,
+            priority=7
+        ),
+        DataSource(
+            id="sspai",
+            name="少数派",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://sspai.com/",
+            api_endpoint="https://sspai.com/feed",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="appso",
+            name="AppSo",
+            category=DataSourceCategory.TECH,
+            type=DataSourceType.RSS,
+            url="https://www.ifanr.com/app",
+            api_endpoint="https://www.ifanr.com/app/feed",
+            update_interval=600,
+            priority=7
+        ),
+        DataSource(
+            id="stackshare",
+            name="StackShare",
+            category=DataSourceCategory.PROGRAMMING,
+            type=DataSourceType.RSS,
+            url="https://stackshare.io/",
+            update_interval=1800,
             priority=7
         ),
         

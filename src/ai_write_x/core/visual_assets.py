@@ -57,33 +57,40 @@ class VisualAssetsManager:
         safe_max = max(5, content_len // 300)
         if safe_max > 15: safe_max = 15 # 硬上限，防止过度生成
         
-        system_prompt = f'''你是一位具有顶级审美和叙事节奏感的视觉总监。
-你的任务是深度分析文章的“叙事张力(Tension)”与“信息密度(Density)”，自主决定配图位置。
+        system_prompt = f'''你现在是顶级 **AI 视觉逆向工程师 (AI Vision Reverse-Engineer)**，负责将文章的叙事瞬间解构为像素级的绘画提示词。
+你的目标是生成 **生产级提示词集 (Production-Ready Prompt Set)**，实现 1:1 的视觉还原，彻底杜绝“脸部畸变、文字乱码、人物重复”。
 
-## 核心任务：视觉呼吸 (Visual Breathing)
-不要机械地每隔多少字放一张图。你的目标是通过配图来“缓解阅读疲劳”：
-1. **信息波峰点**：当连续出现长段落、复杂数据或高强度逻辑时，必须插入图片。
-2. **叙事转折点**：重大情节转折、观点切换时，插入图片标志新篇章的开始。
-3. **情感爆发点**：极具感染力的描写或金句出现时，用强视觉冲击力的图片锚定情感。
+## 核心协议：精准扫描 (Strict Protocols)
+1. **WYSIWYG & 空间扫描 (Center-to-Edge)**：
+   - 必须描述主体人物的相对位置，避免多主体时出现“双生脸”。
+   - 扫描背景边际细节（如：数据中心的布线、砖块纹理、光网络纤维）。
+2. **术语精确化 (Terminology Precision)**：
+   - **服装剪裁**：禁止使用模糊词汇。必须指定：`cap sleeves`, `sleeveless`, `off-shoulder`, `mandarin collar`, `business suit with notched lapel`。
+   - **发型与特征**：精确到 `wispy air bangs`, `almond eyes`, `pore-level skin texture`。
+3. **物理与材质映射 (Physics Mapping)**：
+   - 区分材质：`silk` vs `matte cotton` vs `brushed metal`。
+   - 光影交互：引入 `Subsurface Scattering` (皮肤透光), `Rim light` (轮廓光), `Volumetric lighting` (体积光)。
 
-## 视觉风格增强 (V7.0 Elite)
-你必须根据文章基调，在英文提示词中加入以下专业术语（如果合适）：
-- **渲染器**: Unreal Engine 5, Octane Render, Redshift, Ray Tracing.
-- **光影**: Volumetric lighting, global illumination, rim lighting, soft box lighting.
-- **细节**: 8k resolution, highly detailed, masterpieces, sharp focus, hyper-realistic.
-- **NF4/Flux 优化**: 使用自然语言描述的同时，加入特定的艺术风格标签。
-
-## 约束准则
-- **数量限制**：根据本文内容量，正文插图数量必须在 **{safe_min} 到 {safe_max} 张之间**，绝不可过多（导致排版杂乱）或过少。
-- **首图强制**：首段（或引言）后必须插入 2.35:1 的封面大图。
-- **构图多样性**：禁止单一比例。16:9 适合全景，3:4 适合人物/特写，4:3 适合标准叙事。
-- **提示词艺术**：输出专业级 Midjourney 英文提示词，并在末尾附上简短中文说明。
+## 视觉纠偏策略 (V19.5 Core)
+- **防止文字畸变**：针对仪表盘或显示器，要求 AI 描述 `sharp digital typography`, `legible financial charts`, `clear UI elements`。
+- **防止人物重复**：明确主次，使用描述性差异化词汇（如：一位年长的引导者与一位年轻的记录者）。
+- **人脸保底**：强制加入 `detailed facial features`, `symmetrical face`, `soulful gaze`。
 
 ## 占位符格式 (必须严格遵守)
-严格遵循：[[V-SCENE: <英文提示词> (<中文说明>) | <比例>]]
+严格遵循：[[V-SCENE: <Part 1: Positive Prompt> (中文说明) | <Part 2: Negative Prompt> | <比例>]]
 
-## 输出要求
-直接输出文章全貌，不要返回多余的解释。'''
+【Part 1: Positive Prompt 要求】：
+[Medium/Style], [Camera/Framing], [Subject Attributes], [Clothing Precise Cuts], [Environment Details], [Lighting & Atmosphere], [Technical Specs: 8k, Unreal Engine 5 render style]
+
+【Part 2: Negative Prompt 要求】：
+必须包含：bad anatomy, blurry face, text distortion, watermark, headless, duplicate features, distorted text.
+
+## 约束准则
+- **数量限制**：正文插图数量在 **{safe_min} 到 {safe_max} 张之间**。
+- **首图强制**：必须插入 2.35:1 的封面大图。
+- **构图**：16:9 (全景), 3:4 (人物), 4:3 (标准)。
+
+直接输出文章全貌，包括正文与占位符，不要任何解释。'''
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -145,11 +152,24 @@ class VisualAssetsManager:
         # 优先级 C: 捕捉自然语言出现的圆括号描述 (prompt)
         
         # 模式 A & B
-        pattern = r'(?:\[\[V-SCENE:|\[(?:IMG_PROMPT|图片解析)[:：])\s*(.+?)\s*(?:\|\s*([\d\.:]+))?\s*(?:\]\]|\])'
+        # 模式 A & B (V19.5 升级版：支持三段式格式)
+        # [[V-SCENE: positive (comment) | negative | ratio]]
+        pattern = r'\[\[V-SCENE:\s*(.+?)\s*(?:\((.*?)\))?\s*(?:\|\s*(.+?)\s*)?\|\s*([\d\.:]+)\s*\]\]'
         for m in re.finditer(pattern, text_with_prompts):
-            actual_ratio = m.group(2).strip() if m.group(2) else "16:9"
+            pos_prompt = m.group(1).strip()
+            comment = m.group(2).strip() if m.group(2) else ""
+            neg_prompt = m.group(3).strip() if m.group(3) else "bad anatomy, text, watermark, blurry face"
+            actual_ratio = m.group(4).strip() if m.group(4) else "16:9"
+            
+            # 整合提示词，如果后端支持 negative prompt 字段则分开，
+            # 否则拼接到正向提示词末尾 (Midjourney/DALL-E 风格)
+            full_prompt = f"{pos_prompt} --no {neg_prompt}" if neg_prompt else pos_prompt
+            
             all_tasks.append({
-                "prompt": m.group(1).strip(),
+                "prompt": full_prompt,
+                "pos_prompt": pos_prompt,
+                "neg_prompt": neg_prompt,
+                "comment": comment,
                 "ratio": actual_ratio,
                 "original": m.group(0)
             })
@@ -204,8 +224,16 @@ class VisualAssetsManager:
         
         config = Config.get_instance()
         img_api_type = config.img_api_type
-        img_api_key = config.img_api_key
+        # 获取所有可用 Key 列表
+        img_api_keys = config.get_img_api_keys()
         img_api_model = config.img_api_model
+        
+        # 初始化 Key 指针
+        current_img_key_idx = 0
+        if not img_api_keys:
+            img_api_keys = [config.img_api_key]
+        
+        img_api_key = img_api_keys[current_img_key_idx]
         image_dir = PathManager.get_image_dir()
         
         # 获取 API base
@@ -214,13 +242,28 @@ class VisualAssetsManager:
             "modelscope": "https://api-inference.modelscope.cn/v1",
             "ali": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         }
+        
+        # 智能提取当前选中的配置
         img_type_cfg = img_config.get(img_api_type, {})
-        if isinstance(img_type_cfg, list) and len(img_type_cfg) > 0:
-            img_type_cfg = img_type_cfg[0]
+        if img_api_type == "custom" and isinstance(img_type_cfg, list):
+            custom_index = int(img_config.get("custom_index", 0) or 0)
+            if 0 <= custom_index < len(img_type_cfg):
+                img_type_cfg = img_type_cfg[custom_index]
+            else:
+                img_type_cfg = img_type_cfg[0] if img_type_cfg else {}
         elif not isinstance(img_type_cfg, dict):
             img_type_cfg = {}
+            
         api_base = img_type_cfg.get("api_base", api_bases.get(img_api_type, ""))
-        
+        # 兼容性补充：如果全局 config 没拿到 key/model，尝试从局部提取
+        if img_api_type == "custom":
+            extracted_key = img_type_cfg.get("api_key")
+            if extracted_key:
+                img_api_key = extracted_key
+            extracted_model = img_type_cfg.get("model")
+            if extracted_model:
+                img_api_model = extracted_model
+            
         result_text = text_with_prompts
         generated_count = 0
         
@@ -285,15 +328,29 @@ class VisualAssetsManager:
                             "size": size.replace("*", "x")
                         }
                         
-                        res = req_lib.post(endpoint, headers=headers, json=payload, timeout=30)
+                        # 获取全局代理
+                        proxy = config.proxy
+                        proxies = {"http": proxy, "https": proxy} if proxy else None
+                        
+                        res = req_lib.post(endpoint, headers=headers, json=payload, timeout=30, proxies=proxies)
+                        
+                        # --- 多 Key 自动容灾逻辑 (V19.0) ---
+                        if (res.status_code == 429 or res.status_code == 401) and len(img_api_keys) > 1:
+                            # 如果当前 Key 限流或失效，尝试切换下一个
+                            current_img_key_idx = (current_img_key_idx + 1) % len(img_api_keys)
+                            img_api_key = img_api_keys[current_img_key_idx]
+                            lg.print_log(f"  [Failover] 图片 API {res.status_code}，切换至 Key {current_img_key_idx} 重试...", "warning")
+                            # 重新执行当前任务循环 (通过继续外部循环的一个微调逻辑)
+                            # 为了简单起见，我们在这里直接进行一次内部递归或重发请求
+                            # 这里采用重发请求以保持逻辑线性
+                            headers["Authorization"] = f"Bearer {img_api_key}"
+                            res = req_lib.post(endpoint, headers=headers, json=payload, timeout=30, proxies=proxies)
+                        
                         res_json = res.json()
                         
                         if res.status_code == 429:
-                            lg.print_log(f"  [降级] {img_api_type} API 触发限流 (429)，将使用 Picsum 随机图片作为替代方案。", "warning")
-                            w_h = size.split("*")
-                            download_url = f"https://picsum.photos/{w_h[0]}/{w_h[1]}?random={idx+1}"
-                            from src.ai_write_x.utils import utils as u
-                            img_path = u.download_and_save_image(download_url, str(image_dir))
+                            lg.print_log(f"  [跳过] {img_api_type} API 触发限流 (429) 且备用 Key 已耗尽。保留原文空位。", "warning")
+                            continue
                             
                         elif res.status_code != 200:
                             raise Exception(f"图像生成请求失败: {res.status_code} - {res.text}")
@@ -341,7 +398,10 @@ class VisualAssetsManager:
                                 for poll_idx in range(150): # 约 7-8 分钟
                                     time.sleep(5)
                                     try:
-                                        task_res = req_lib.get(task_url, headers=poll_headers, timeout=10)
+                                        # 获取全局代理
+                                        proxy = config.proxy
+                                        proxies = {"http": proxy, "https": proxy} if proxy else None
+                                        task_res = req_lib.get(task_url, headers=poll_headers, timeout=10, proxies=proxies)
                                         t_json = task_res.json()
                                         
                                         # 兼容多种状态字段
@@ -378,26 +438,59 @@ class VisualAssetsManager:
                             if img_url:
                                 file_name = f"{img_api_type}_{int(time.time()*1000)}_{idx}.png"
                                 file_path = os.path.join(str(image_dir), file_name)
+                                # 获取全局代理
+                                proxy = config.proxy
+                                proxies = {"http": proxy, "https": proxy} if proxy else None
                                 with open(file_path, "wb") as f:
-                                    f.write(req_lib.get(img_url, timeout=30).content)
+                                    f.write(req_lib.get(img_url, timeout=30, proxies=proxies).content)
                                 img_path = file_path
                             
                     else:
                         from openai import OpenAI
-                        client = OpenAI(api_key=img_api_key, base_url=actual_api_base)
-                        response = client.images.generate(
-                            model=img_api_model,
-                            prompt=prompt,
-                            n=1,
-                            size=size.replace("*", "x")  # OpenAI format: 1024x1024
-                        )
-                        if response.data and len(response.data) > 0:
-                            img_url = response.data[0].url
-                            file_name = f"{img_api_type}_{int(time.time()*1000)}_{idx}.png"
-                            file_path = os.path.join(str(image_dir), file_name)
-                            with open(file_path, "wb") as f:
-                                f.write(req_lib.get(img_url, timeout=30).content)
-                            img_path = file_path
+                        # 获取全局代理
+                        proxy = config.proxy
+                        proxies = {"http": proxy, "https": proxy} if proxy else None
+                        
+                        # OpenAI 客户端目前主要通过 HTTP 代理
+                        http_client = None
+                        if proxy:
+                            import httpx
+                            http_client = httpx.Client(proxy=proxy)
+                            
+                            client = OpenAI(api_key=img_api_key, base_url=actual_api_base, http_client=http_client)
+                            try:
+                                response = client.images.generate(
+                                    model=img_api_model,
+                                    prompt=prompt,
+                                    n=1,
+                                    size=size.replace("*", "x")  # OpenAI format: 1024x1024
+                                )
+                            except Exception as oai_err:
+                                # OpenAI SDK 错误捕捉与多 Key 容灾
+                                if ("429" in str(oai_err) or "401" in str(oai_err)) and len(img_api_keys) > 1:
+                                    current_img_key_idx = (current_img_key_idx + 1) % len(img_api_keys)
+                                    img_api_key = img_api_keys[current_img_key_idx]
+                                    lg.print_log(f"  [Failover] OpenAI 图像接口故障，切换 Key {current_img_key_idx}...", "warning")
+                                    client = OpenAI(api_key=img_api_key, base_url=actual_api_base, http_client=http_client)
+                                    response = client.images.generate(
+                                        model=img_api_model,
+                                        prompt=prompt,
+                                        n=1,
+                                        size=size.replace("*", "x")
+                                    )
+                                else:
+                                    raise oai_err
+
+                            if response.data and len(response.data) > 0:
+                                img_url = response.data[0].url
+                                file_name = f"{img_api_type}_{int(time.time()*1000)}_{idx}.png"
+                                file_path = os.path.join(str(image_dir), file_name)
+                                # 获取全局代理
+                                proxy = config.proxy
+                                proxies = {"http": proxy, "https": proxy} if proxy else None
+                                with open(file_path, "wb") as f:
+                                    f.write(req_lib.get(img_url, timeout=30, proxies=proxies).content)
+                                img_path = file_path
 
                 elif img_api_type == "comfyui":
                     # 通用 ComfyUI 支持 - 端口从用户配置中读取，不硬编码默认值
@@ -431,6 +524,16 @@ class VisualAssetsManager:
                         if "35" in workflow_data and "inputs" in workflow_data["35"]:
                             workflow_data["35"]["inputs"]["seed"] = random.randint(1000000000, 99999999999999)
                         
+                        # V19.5 Revision: 自动注入负向提示词 (Negative Prompt Injection)
+                        neg_prompt = task.get("neg_prompt", "bad anatomy, blurry face, text distortion, watermark, duplicate features")
+                        # 启发式识别负向提示词节点：寻找 class_type 为 CLIPTextEncode 的节点，且 ID 不是 34
+                        for node_id, node_info in workflow_data.items():
+                            if node_info.get("class_type") == "CLIPTextEncode" and node_id != "34":
+                                if "inputs" in node_info and "text" in node_info["inputs"]:
+                                    node_info["inputs"]["text"] = neg_prompt
+                                    lg.print_log(f"  [Negative] 已将负面提示词注入节点 {node_id}")
+                                    break
+
                         # V7.0 特有：NF4 优化 - 如果检测到是 NF4 工作流，注入质量增强词
                         if "z_image_turbo_nvfp4" in str(workflow_data):
                             if "34" in workflow_data and "inputs" in workflow_data["34"]:
@@ -448,7 +551,7 @@ class VisualAssetsManager:
                         
                         lg.print_log(f"  🔗 正在连接 ComfyUI WebSocket...")
                         ws = ws_client.WebSocket()
-                        ws.settimeout(300)  # 5分钟超时
+                        ws.settimeout(99999)  # 用户禁用超时限制
                         ws.connect(f"{ws_url}/ws?clientId={client_id}", timeout=60)
                         lg.print_log(f"  ✅ WebSocket 连接已建立 (clientId: {client_id[:8]})")
                         
@@ -711,11 +814,20 @@ class VisualAssetsManager:
                 "ali": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             }
             img_type_cfg = img_config.get(img_api_type, {})
-            if isinstance(img_type_cfg, list) and len(img_type_cfg) > 0:
-                img_type_cfg = img_type_cfg[0]
+            if img_api_type == "custom" and isinstance(img_type_cfg, list):
+                custom_index = int(img_config.get("custom_index", 0) or 0)
+                if 0 <= custom_index < len(img_type_cfg):
+                    img_type_cfg = img_type_cfg[custom_index]
+                else:
+                    img_type_cfg = img_type_cfg[0] if img_type_cfg else {}
             elif not isinstance(img_type_cfg, dict):
                 img_type_cfg = {}
             api_base = img_type_cfg.get("api_base", api_bases.get(img_api_type, ""))
+            
+            # 同步更新当前使用的 key/model
+            if img_api_type == "custom":
+                img_api_key = img_type_cfg.get("api_key", img_api_key)
+                img_api_model = img_type_cfg.get("model", img_api_model)
             
             # --- 核心生成逻辑 ---
             img_path = None

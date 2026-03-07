@@ -149,11 +149,16 @@ class PathManager:
     def get_base_dir():
         """获取项目根目录"""
         if not utils.get_is_release_ver():
-            # 开发模式：使用项目根目录
+            # 开发模式：使用项目根目录 (PathManager.py is in src/ai_write_x/utils/)
             return Path(__file__).parent.parent.parent.parent
         else:
-            # 发布模式：使用可执行文件所在目录或用户数据目录
+            # 发布模式
             import sys
             if getattr(sys, 'frozen', False):
                 return Path(sys.executable).parent
             return PathManager.get_app_data_dir()
+
+    @staticmethod
+    def get_root_dir():
+        """获取项目根目录 (别名，用于兼容性)"""
+        return PathManager.get_base_dir()

@@ -6,6 +6,7 @@ from src.ai_write_x.database import (
     Topic, Article, AgentMemory, SystemSetting, 
     ScheduledTask, TaskLog, VisualAsset, TopicStatus, SystemEntropy
 )
+from src.ai_write_x.core.exceptions import DatabaseError, RecordNotFoundError, DuplicateRecordError
 from src.ai_write_x.utils import log
 import json
 
@@ -25,32 +26,47 @@ class DBManager:
 
     # --- Topic Operations ---
     def add_topic(self, title: str, source_platform: str = "unknown", hot_score: int = 0) -> Optional[Topic]:
+        from sqlmodel import SQLModel
+        from sqlalchemy.exc import SQLAlchemyError
+        
         try:
             with get_session() as session:
+                # 首先尝试查询
                 statement = select(Topic).where(Topic.title == title)
                 topic = session.exec(statement).first()
                 if not topic:
-                    topic = Topic(
-                        title=title,
-                        source_platform=source_platform,
-                        hot_score=hot_score,
-                        status=TopicStatus.PENDING
-                    )
-                    session.add(topic)
-                    session.commit()
-                    session.refresh(topic)
+                    try:
+                        topic = Topic(
+                            title=title,
+                            source_platform=source_platform,
+                            hot_score=hot_score,
+                            status=TopicStatus.PENDING
+                        )
+                        session.add(topic)
+                        session.commit()
+                        session.refresh(topic)
+                    except SQLAlchemyError:
+                        # 如果提交失败（可能是并发写入），尝试再次查询
+                        session.rollback()
+                        topic = session.exec(statement).first()
                 return topic
+        except SQLAlchemyError as e:
+            log.print_log(f"[DBManager] 数据库错误 - 添加主题 '{title}': {e}", "error")
+            raise DatabaseError(f"添加主题失败: {title}") from e
         except Exception as e:
-            log.print_log(f"[DBManager] Failed to add topic '{title}': {e}", "error")
-            return None
+            log.print_log(f"[DBManager] 未知错误 - 添加主题 '{title}': {e}", "error")
+            raise DatabaseError(f"添加主题失败: {title}") from e
 
     def get_topic(self, title: str) -> Optional[Topic]:
         try:
             with get_session() as session:
                 statement = select(Topic).where(Topic.title == title)
                 return session.exec(statement).first()
-        except Exception:
-            return None
+        except DatabaseError:
+            raise
+        except Exception as e:
+            log.print_log(f"[DBManager] Failed to get topic: {e}", "error")
+            raise DatabaseError(f"获取主题失败: {title}") from e
 
     def update_topic_status(self, title: str, status: str) -> bool:
         try:
@@ -95,7 +111,8 @@ class DBManager:
                     topic_id=topic.id,
                     content=content,
                     format=fmt,
-                    version=version
+                    version=version,
+                    human_rating=None  # 显式设置默认值
                 )
                 session.add(article)
                 session.commit()

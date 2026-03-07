@@ -1,0 +1,17 @@
+[package]
+name = "vector_ops"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "vector_ops"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+numpy = "0.21"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

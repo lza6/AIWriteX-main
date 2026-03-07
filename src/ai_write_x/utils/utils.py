@@ -204,8 +204,13 @@ def download_and_save_image(image_url, local_image_folder):
         if not os.path.exists(local_image_folder):
             os.makedirs(local_image_folder)
 
+        # 获取全局代理
+        from src.ai_write_x.config.config import Config
+        proxy = Config.get_instance().proxy
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+
         # 下载图片，允许重定向
-        response = requests.get(image_url, stream=True, allow_redirects=True)
+        response = requests.get(image_url, stream=True, allow_redirects=True, proxies=proxies, timeout=30)
         response.raise_for_status()
 
         # 生成本地文件名
@@ -371,6 +376,10 @@ def remove_code_blocks(content):
     # 移除单行内联代码块标识
     content = re.sub(r"`([^`]*)`", r"\1", content)
 
+    # 移除思辨块标签及内容（针对内容生成流中的残留）
+    content = re.sub(r'<(Reasoning|Critique)>.*?</\1>', '', content, flags=re.IGNORECASE | re.DOTALL)
+    content = re.sub(r'<(Reasoning|Critique)>.*', '', content, flags=re.IGNORECASE | re.DOTALL) # 处理未闭合的情况
+    
     # AI这里不受控，总是带字数注释，这里强行去除
     pattern = r"""
     [(\[【]            # 起始括号（全角/半角）
@@ -420,6 +429,14 @@ def extract_markdown_content(content):
         if line.startswith("# "):
             title = line[2:].strip()
             break
+    
+    # 如果没找到 # 标题，使用第一行作为标题
+    if title is None:
+        for line in lines:
+            line = line.strip()
+            if line:  # 找到第一个非空行作为标题
+                title = line
+                break
 
     # 提取前几行作为摘要，跳过标题行和空行
     content_lines = []

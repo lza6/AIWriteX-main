@@ -1,0 +1,23 @@
+/* V18.0 Swarm Monitor Styles (补遗) */
+#swarm-cy-container {
+    height: 100%;
+    min-height: 500px;
+}
+
+.mini-log-viewer::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mini-log-viewer::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+}
+
+.swarm-monitor-view .view-header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}

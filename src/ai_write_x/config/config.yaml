@@ -1,42 +1,42 @@
 platforms:
   - name: 微博
-    weight: 0.07692307692307696
+    weight: 0.3
     enabled: true
   - name: 抖音
-    weight: 0.38461538461538475
+    weight: 0.2
     enabled: true
   - name: 小红书
-    weight: 0.04615384615384616
+    weight: 0.12
     enabled: true
   - name: 今日头条
-    weight: 0.38461538461538475
+    weight: 0.1
     enabled: true
   - name: 百度热点
-    weight: 0.030769230769230778
+    weight: 0.08
     enabled: true
   - name: 哔哩哔哩
-    weight: 0.02307692307692308
+    weight: 0.06
     enabled: true
   - name: 快手
-    weight: 0.01923076923076924
+    weight: 0.05
     enabled: true
   - name: 虎扑
-    weight: 0.01923076923076924
+    weight: 0.05
     enabled: true
   - name: 豆瓣小组
-    weight: 0.0076923076923076945
+    weight: 0.02
     enabled: true
   - name: 澎湃新闻
-    weight: 0.0038461538461538472
+    weight: 0.01
     enabled: true
   - name: 知乎热榜
-    weight: 0.0038461538461538472
+    weight: 0.01
     enabled: true
 publish_platform: wechat
 wechat:
   credentials:
-    - appid: wx6f081e9b9754a174
-      appsecret: 7c47e848ba097b51938ea365eb30a705
+    - appid: ''
+      appsecret: ''
       author: 听风
       draft_only: true
       call_sendall: false
@@ -46,79 +46,87 @@ api:
   api_type: 心流
   OpenRouter:
     key: OPENROUTER_API_KEY
-    key_index: 0
+    key_index: ''
     api_key: []
-    model_index: 0
-    model:
-      - openrouter/deepseek/deepseek-chat-v3-0324:free
-      - openrouter/deepseek/deepseek-r1-0528:free
-      - openrouter/deepseek/deepseek-prover-v2:free
-      - openrouter/deepseek/deepseek-r1:free
-      - openrouter/deepseek/deepseek-chat:free
-      - openrouter/qwen/qwen3-32b:free
-      - openrouter/qwen/qwq-32b:free
-      - openrouter/google/gemini-2.0-flash-lite-preview-02-05:free
-      - openrouter/google/gemini-2.0-flash-thinking-exp:free
-    api_base: https://openrouter.ai/api/v1
   Deepseek:
     key: DEEPSEEK_API_KEY
-    key_index: 0
+    key_index: ''
     api_key: []
     model_index: 0
+    fallback_model_index: -1
     model:
-      - deepseek/deepseek-chat
-      - deepseek/deepseek-reasoner
-    api_base: https://api.deepseek.com/v1
-  Grok:
-    key: XAI_API_KEY
-    key_index: 0
-    api_key: []
-    model_index: 0
-    model:
-      - xai/grok-3
-    api_base: https://api.x.ai/v1/chat/completions
+      - deepseek-chat
+      - deepseek-reasoner
+    vision_model_index: 0
+    vision_model: []
+    api_base: https://api.deepseek.com
+    api_extra_params: {}
   Qwen:
-    key: OPENAI_API_KEY
-    key_index: 0
+    key: QWEN_API_KEY
+    key_index: ''
     api_key: []
     model_index: 0
+    fallback_model_index: -1
     model:
-      - openai/qwen-plus
+      - qwen-turbo
+      - qwen-plus
+      - qwen-max
     api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_extra_params: {}
   Gemini:
     key: GEMINI_API_KEY
-    key_index: 0
+    key_index: ''
     api_key: []
     model_index: 0
+    fallback_model_index: -1
     model:
-      - gemini/gemini-1.5-flash
-      - gemini/gemini-1.5-pro
-      - gemini/gemini-2.0-flash
-    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
-  Ollama:
+      - gemini-2.0-flash
+      - gemini-2.0-flash-lite
+    api_base: https://generativelanguage.googleapis.com/v1beta
+    api_extra_params: {}
+  OpenAI:
     key: OPENAI_API_KEY
-    model_index: 0
-    key_index: 0
+    key_index: ''
     api_key: []
+    model_index: 0
+    fallback_model_index: -1
     model:
-      - ollama/deepseek-r1:14b
-      - ollama/deepseek-r1:7b
-    api_base: http://localhost:11434
+      - gpt-4o-mini
+      - gpt-4o
+    api_base: https://api.openai.com/v1
+    api_extra_params: {}
   SiliconFlow:
-    key: OPENAI_API_KEY
-    key_index: 0
+    key: SILICONFLOW_API_KEY
+    key_index: ''
     api_key: []
     model_index: 0
+    fallback_model_index: -1
     model:
-      - openai/deepseek-ai/DeepSeek-V3
-      - openai/deepseek-ai/DeepSeek-R1
-      - openai/Qwen/QwQ-32B
-      - openai/Qwen/Qwen3-32B
+      - Qwen/Qwen2.5-7B-Instruct
+      - Qwen/Qwen2.5-32B-Instruct
+      - deepseek-ai/DeepSeek-V2-Chat
+    vision_model_index: 0
+    vision_model: []
     api_base: https://api.siliconflow.cn/v1
+    api_extra_params:
+      stream: true
+  XAI:
+    key: XAI_API_KEY
+    key_index: ''
+    api_key: []
+    model_index: 0
+    fallback_model_index: -1
+    model:
+      - grok-2-1212
+      - grok-2-vision-1212
+    api_base: https://api.x.ai/v1
+    api_extra_params: {}
   心流:
-    api_key:
-      - sk-de76377688b895f405ff04be9cef5009
-    key_index: 0
+    key: IFLOW_API_KEY
+    key_index: ''
+    api_key: []
+    model_index: 1
+    fallback_model_index: -1
     model:
       - iflow-rome-30ba3b
       - qwen3-coder-plus
@@ -126,7 +134,6 @@ api:
       - qwen3-vl-plus
       - kimi-k2-0905
       - qwen3-max-preview
-      - glm-4.6
       - kimi-k2
       - deepseek-v3.2
       - deepseek-r1
@@ -135,826 +142,61 @@ api:
       - qwen3-235b-a22b-thinking-2507
       - qwen3-235b-a22b-instruct
       - qwen3-235b
-    model_index: 1
-    api_base: https://apis.iflow.cn/v1
+    vision_model_index: 0
     vision_model:
       - qwen3-vl-plus
-    vision_model_index: 0
+    api_base: https://apis.iflow.cn/v1
+    api_extra_params: {}
   deleted_providers:
-    - OpenRouter
     - Deepseek
-    - Grok
     - Qwen
     - Gemini
-    - Ollama
+    - OpenAI
     - SiliconFlow
+    - XAI
+auto_publish: false
+format_publish: true
+auto_delete_published: false
+use_template: false
+template_category: 新闻时事
+template: ''
 img_api:
-  api_type: custom
   ali:
     api_key: ''
-    model: wanx2.0-t2i-turbo
-  picsum:
+    model: wanx2.1-i2s
+    api_base: https://dashscope.aliyuncs.com/api/v1
+  modelscope:
     api_key: ''
-    model: ''
+    model: wanx2.1-i2s
+    api_base: https://api.modelscope.cn/v1
   comfyui:
     api_key: ''
     model: ''
     api_base: http://127.0.0.1:8000
-  custom:
-    - name: 摩达社区
-      api_base: https://api-inference.modelscope.cn/v1
-      api_key: ms-529ac21e-650e-4e96-9cfe-e9c58510a6ac
-      model: Tongyi-MAI/Z-Image-Turbo
-      models:
-        - deepseek-ai/DeepSeek-R1-0528
-        - deepseek-ai/DeepSeek-R1-Distill-Llama-70B
-        - deepseek-ai/DeepSeek-R1-Distill-Llama-8B
-        - deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-        - deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
-        - deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
-        - deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
-        - deepseek-ai/DeepSeek-V3.2
-        - LLM-Research/c4ai-command-r-plus-08-2024
-        - LLM-Research/Llama-4-Maverick-17B-128E-Instruct
-        - meituan-longcat/LongCat-Flash-Lite
-        - MiniMax/MiniMax-M1-80k
-        - MiniMax/MiniMax-M2.5
-        - mistralai/Ministral-8B-Instruct-2410
-        - mistralai/Mistral-Large-Instruct-2407
-        - mistralai/Mistral-Small-Instruct-2409
-        - moonshotai/Kimi-K2.5
-        - MusePublic/Qwen-Image-Edit
-        - opencompass/CompassJudger-1-32B-Instruct
-        - OpenGVLab/InternVL3_5-241B-A28B
-        - PaddlePaddle/ERNIE-4.5-0.3B-PT
-        - PaddlePaddle/ERNIE-4.5-21B-A3B-PT
-        - PaddlePaddle/ERNIE-4.5-300B-A47B-PT
-        - PaddlePaddle/ERNIE-4.5-VL-28B-A3B-PT
-        - Qwen/QVQ-72B-Preview
-        - Qwen/Qwen-Image-Edit
-        - Qwen/Qwen3-0.6B
-        - Qwen/Qwen3-1.7B
-        - Qwen/Qwen3-14B
-        - Qwen/Qwen3-235B-A22B
-        - Qwen/Qwen3-235B-A22B-Instruct-2507
-        - Qwen/Qwen3-235B-A22B-Thinking-2507
-        - Qwen/Qwen3-30B-A3B
-        - Qwen/Qwen3-30B-A3B-Thinking-2507
-        - Qwen/Qwen3-32B
-        - Qwen/Qwen3-4B
-        - Qwen/Qwen3-8B
-        - Qwen/Qwen3-Coder-30B-A3B-Instruct
-        - Qwen/Qwen3-Coder-480B-A35B-Instruct
-        - Qwen/Qwen3-Next-80B-A3B-Instruct
-        - Qwen/Qwen3-Next-80B-A3B-Thinking
-        - Qwen/Qwen3-VL-235B-A22B-Instruct
-        - Qwen/Qwen3-VL-8B-Instruct
-        - Qwen/Qwen3-VL-8B-Thinking
-        - Qwen/Qwen3.5-122B-A10B
-        - Qwen/Qwen3.5-27B
-        - Qwen/Qwen3.5-35B-A3B
-        - Qwen/Qwen3.5-397B-A17B
-        - Qwen/QwQ-32B
-        - Qwen/QwQ-32B-Preview
-        - Shanghai_AI_Laboratory/Intern-S1
-        - Shanghai_AI_Laboratory/Intern-S1-mini
-        - stepfun-ai/Step-3.5-Flash
-        - XGenerationLab/XiYanSQL-QwenCoder-32B-2412
-        - XGenerationLab/XiYanSQL-QwenCoder-32B-2504
-        - XiaomiMiMo/MiMo-V2-Flash
-        - ZhipuAI/GLM-4.7-Flash
-        - ZhipuAI/GLM-5
-      isCurrent: true
-      tested: false
+  custom: []
   custom_index: 0
-use_template: true
-template_category: ''
-template: ''
-use_compress: true
-min_article_len: 1000
-max_article_len: 2000
-auto_publish: false
-article_format: html
-format_publish: true
-dimensional_creative:
-  enabled: true
-  creative_intensity: 0.7
-  preserve_core_info: true
-  allow_experimental: false
-  auto_dimension_selection: false
-  selected_dimensions: []
-  priority_categories:
-    - audience
-    - format
-    - emotion
-    - theme
-  max_dimensions: 3
-  compatibility_threshold: 0.7
-  available_categories:
-    - style
-    - culture
-    - time
-    - personality
-    - emotion
-    - format
-    - scene
-    - audience
-    - theme
-    - technique
-    - language
-    - tone
-    - perspective
-    - structure
-    - rhythm
-  enabled_dimensions:
-    style: false
-    culture: false
-    time: false
-    personality: false
-    emotion: false
-    format: false
-    scene: false
-    audience: false
-    theme: false
-    technique: false
-    language: false
-    tone: false
-    perspective: false
-    structure: false
-    rhythm: false
-  dimension_options:
-    style:
-      name: 文体风格
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: poetry
-          value: 诗歌
-          weight: 1
-          description: 韵律优美，意境深远
-        - name: prose
-          value: 散文
-          weight: 1
-          description: 形散神聚，情感真挚
-        - name: novel
-          value: 小说
-          weight: 1
-          description: 情节丰富，人物鲜明
-        - name: essay
-          value: 议论文
-          weight: 1
-          description: 观点明确，论证严密
-        - name: narrative
-          value: 叙事文
-          weight: 1
-          description: 故事性强，引人入胜
-        - name: expository
-          value: 说明文
-          weight: 1
-          description: 条理清晰，解释详尽
-        - name: academic
-          value: 学术论文
-          weight: 1
-          description: 严谨规范，逻辑清晰
-        - name: news
-          value: 新闻报道
-          weight: 1
-          description: 客观真实，时效性强
-        - name: children
-          value: 儿童文学
-          weight: 1
-          description: 天真烂漫，寓教于乐
-        - name: fantasy
-          value: 奇幻文学
-          weight: 1
-          description: 想象丰富，魔幻色彩
-    culture:
-      name: 文化视角
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: eastern_philosophy
-          value: 东方哲学
-          weight: 1
-          description: 道家思想，禅宗智慧
-        - name: western_logic
-          value: 西方思辨
-          weight: 1
-          description: 理性分析，逻辑严密
-        - name: japanese_mono
-          value: 日式物哀
-          weight: 1
-          description: 瞬间美学，淡淡哀愁
-        - name: french_romance
-          value: 法式浪漫
-          weight: 1
-          description: 优雅情调，艺术气息
-        - name: american_freedom
-          value: 美式自由
-          weight: 1
-          description: 个人主义，追求自由
-        - name: chinese_tradition
-          value: 中华传统
-          weight: 1
-          description: 儒家文化，礼仪之邦
-        - name: european_classical
-          value: 欧洲古典
-          weight: 1
-          description: 文艺复兴，古典艺术
-        - name: latin_american
-          value: 拉美风情
-          weight: 1
-          description: 热情奔放，魔幻现实
-        - name: african_tribal
-          value: 非洲部落
-          weight: 1
-          description: 原始力量，图腾崇拜
-        - name: middle_eastern
-          value: 中东神秘
-          weight: 1
-          description: 沙漠文明，宗教色彩
-    time:
-      name: 时空背景
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: ancient_china
-          value: 春秋战国
-          weight: 1
-          description: 礼崩乐坏，百家争鸣
-        - name: tang_song
-          value: 唐宋盛世
-          weight: 1
-          description: 文化繁荣，诗词鼎盛
-        - name: republic
-          value: 民国风云
-          weight: 1
-          description: 新旧交替，风起云涌
-        - name: eighties
-          value: 80年代
-          weight: 1
-          description: 改革开放，青春热血
-        - name: cyberpunk
-          value: 赛博朋克2077
-          weight: 1
-          description: 科技未来，霓虹反乌托邦
-        - name: medieval
-          value: 中世纪
-          weight: 1
-          description: 骑士精神，神秘主义
-        - name: prehistoric
-          value: 史前时代
-          weight: 1
-          description: 原始社会，洪荒之力
-        - name: space_age
-          value: 太空纪元
-          weight: 1
-          description: 星际旅行，宇宙探索
-        - name: victorian
-          value: 维多利亚时代
-          weight: 1
-          description: 工业革命，社会变革
-        - name: renaissance
-          value: 文艺复兴
-          weight: 1
-          description: 人文主义，艺术复兴
-    personality:
-      name: 人格角色
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: libai
-          value: 李白
-          weight: 1
-          description: 浪漫主义诗人，豪放不羁
-        - name: luxun
-          value: 鲁迅
-          weight: 1
-          description: 现代文学家，深刻批判
-        - name: confucius
-          value: 孔子
-          weight: 1
-          description: 思想家，仁爱之道
-        - name: dreamer_poet
-          value: 梦境诗人
-          weight: 1
-          description: 善于将现实与梦境交织
-        - name: data_philosopher
-          value: 数据哲学家
-          weight: 1
-          description: 用数据思维解读人文
-        - name: time_traveler
-          value: 时空旅者
-          weight: 1
-          description: 穿梭时代，独特视角
-        - name: emotion_healer
-          value: 情感治愈师
-          weight: 1
-          description: 温暖人心，抚慰心灵
-        - name: mystery_detective
-          value: 悬疑侦探
-          weight: 1
-          description: 逻辑推理，揭秘真相
-        - name: innovator
-          value: 创新先锋
-          weight: 1
-          description: 勇于探索，突破传统
-        - name: storyteller
-          value: 故事大王
-          weight: 1
-          description: 生动叙述，引人入胜
-        - name: scientist
-          value: 科学家
-          weight: 1
-          description: 理性严谨，探索真理
-        - name: artist
-          value: 艺术家
-          weight: 1
-          description: 感性创造，美学追求
-    emotion:
-      name: 情感调性
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: healing
-          value: 治愈系
-          weight: 1
-          description: 温暖人心，抚慰心灵
-        - name: suspense
-          value: 悬疑惊悚
-          weight: 1
-          description: 紧张刺激，扣人心弦
-        - name: inspiring
-          value: 热血励志
-          weight: 1
-          description: 激情澎湃，正能量满满
-        - name: philosophical
-          value: 深度哲思
-          weight: 1
-          description: 思辨深刻，启发智慧
-        - name: humorous
-          value: 幽默诙谐
-          weight: 1
-          description: 轻松愉快，妙趣横生
-        - name: melancholy
-          value: 忧郁怀旧
-          weight: 1
-          description: 淡淡忧伤，回忆如潮
-        - name: romantic
-          value: 浪漫爱情
-          weight: 1
-          description: 甜蜜温馨，情意绵绵
-        - name: mysterious
-          value: 神秘莫测
-          weight: 1
-          description: 扑朔迷离，引人遐想
-        - name: tragic
-          value: 悲剧色彩
-          weight: 1
-          description: 悲壮深沉，命运抗争
-        - name: epic
-          value: 史诗气概
-          weight: 1
-          description: 宏大叙事，英雄传奇
-    format:
-      name: 表达格式
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: diary
-          value: 日记体
-          weight: 1
-          description: 私密真实，情感流露
-        - name: dialogue
-          value: 对话体
-          weight: 1
-          description: 生动活泼，互动性强
-        - name: poetry
-          value: 诗歌散文
-          weight: 1
-          description: 韵律优美，意境深远
-        - name: script
-          value: 剧本形式
-          weight: 1
-          description: 戏剧冲突，画面感强
-        - name: letter
-          value: 书信体
-          weight: 1
-          description: 情真意切，时光穿越
-        - name: interview
-          value: 访谈录
-          weight: 1
-          description: 问答互动，真实自然
-        - name: report
-          value: 调查报告
-          weight: 1
-          description: 数据支撑，客观分析
-        - name: fable
-          value: 寓言故事
-          weight: 1
-          description: 寓意深刻，启发思考
-        - name: essay
-          value: 随笔杂谈
-          weight: 1
-          description: 自由灵活，见解独特
-        - name: manual
-          value: 操作手册
-          weight: 1
-          description: 步骤清晰，实用指导
-    scene:
-      name: 场景环境
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: coffee_shop
-          value: 咖啡馆
-          weight: 1
-          description: 温馨惬意，都市情调
-        - name: midnight_subway
-          value: 深夜地铁
-          weight: 1
-          description: 孤独思考，城市夜色
-        - name: rainy_bookstore
-          value: 雨夜书店
-          weight: 1
-          description: 文艺浪漫，知识殿堂
-        - name: seaside_cabin
-          value: 海边小屋
-          weight: 1
-          description: 自然宁静，心灵栖息
-        - name: bustling_city
-          value: 繁华都市
-          weight: 1
-          description: 节奏快速，机遇挑战
-        - name: mountain_temple
-          value: 山中古寺
-          weight: 1
-          description: 清幽宁静，禅意深远
-        - name: university_campus
-          value: 大学校园
-          weight: 1
-          description: 青春洋溢，求知氛围
-        - name: futuristic_city
-          value: 未来都市
-          weight: 1
-          description: 科技感强，超现实
-        - name: forest
-          value: 神秘森林
-          weight: 1
-          description: 原始自然，探险奇遇
-        - name: library
-          value: 古老图书馆
-          weight: 1
-          description: 知识海洋，智慧殿堂
-    audience:
-      name: 目标受众
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: gen_z
-          value: Z世代
-          weight: 1
-          description: 年轻时尚，网络原生
-        - name: professionals
-          value: 职场精英
-          weight: 1
-          description: 理性务实，效率导向
-        - name: seniors
-          value: 银发族
-          weight: 1
-          description: 阅历丰富，情感细腻
-        - name: students
-          value: 学生党
-          weight: 1
-          description: 青春活力，求知欲强
-        - name: parents
-          value: 宝妈群体
-          weight: 1
-          description: 关爱家庭，实用贴心
-        - name: entrepreneurs
-          value: 创业者
-          weight: 1
-          description: 冒险精神，创新意识
-        - name: tech_workers
-          value: 技术人员
-          weight: 1
-          description: 逻辑思维，追求效率
-        - name: artists
-          value: 文艺青年
-          weight: 1
-          description: 审美独特，情感丰富
-        - name: retirees
-          value: 退休人员
-          weight: 1
-          description: 闲暇时光，生活感悟
-        - name: travelers
-          value: 旅行爱好者
-          weight: 1
-          description: 探索世界，体验丰富
-    theme:
-      name: 主题内容
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: growth
-          value: 成长蜕变
-          weight: 1
-          description: 青春成长，自我发现
-        - name: time_healing
-          value: 时间治愈
-          weight: 1
-          description: 岁月如歌，伤痛愈合
-        - name: dream_pursuit
-          value: 梦想追寻
-          weight: 1
-          description: 理想主义，不懈奋斗
-        - name: human_nature
-          value: 人性探索
-          weight: 1
-          description: 心理深度，道德思辨
-        - name: tech_reflection
-          value: 科技反思
-          weight: 1
-          description: 技术进步，人文关怀
-        - name: environmental
-          value: 环保理念
-          weight: 1
-          description: 绿色生态，可持续发展
-        - name: social_justice
-          value: 社会公正
-          weight: 1
-          description: 公平正义，社会责任
-        - name: cultural_heritage
-          value: 文化传承
-          weight: 1
-          description: 传统延续，文化保护
-        - name: love
-          value: 爱情故事
-          weight: 1
-          description: 情感纠葛，心灵共鸣
-        - name: adventure
-          value: 冒险历程
-          weight: 1
-          description: 挑战极限，勇往直前
-    technique:
-      name: 表现技法
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: first_person
-          value: 第一人称
-          weight: 1
-          description: 亲身体验，情感直接
-        - name: omniscient
-          value: 全知视角
-          weight: 1
-          description: 上帝视角，洞察全局
-        - name: multiple
-          value: 多重叙述
-          weight: 1
-          description: 多角度展现，复杂立体
-        - name: stream
-          value: 意识流
-          weight: 1
-          description: 内心独白，思维跳跃
-        - name: flashback
-          value: 倒叙
-          weight: 1
-          description: 时空交错，悬念重生
-        - name: montage
-          value: 蒙太奇
-          weight: 1
-          description: 画面拼接，时空压缩
-        - name: symbolism
-          value: 象征主义
-          weight: 1
-          description: 寓意深刻，含蓄表达
-        - name: satire
-          value: 讽刺手法
-          weight: 1
-          description: 幽默批判，辛辣讽刺
-        - name: metaphor
-          value: 隐喻象征
-          weight: 1
-          description: 比喻暗示，意味深长
-        - name: contrast
-          value: 对比反衬
-          weight: 1
-          description: 鲜明对照，突出主题
-    language:
-      name: 语言风格
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: classical
-          value: 古典雅致
-          weight: 1
-          description: 文言韵味，典雅庄重
-        - name: modern
-          value: 现代白话
-          weight: 1
-          description: 通俗易懂，贴近生活
-        - name: vernacular
-          value: 方言土语
-          weight: 1
-          description: 地域特色，生动亲切
-        - name: foreign
-          value: 外语混杂
-          weight: 1
-          description: 多语融合，国际范儿
-        - name: technical
-          value: 专业术语
-          weight: 1
-          description: 行业词汇，精准表达
-        - name: slang
-          value: 网络流行
-          weight: 1
-          description: 潮流用语，年轻时尚
-        - name: poetic
-          value: 诗意语言
-          weight: 1
-          description: 韵律优美，意境深远
-        - name: plain
-          value: 朴素平实
-          weight: 1
-          description: 简洁明了，朴实无华
-    tone:
-      name: 语调语气
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: serious
-          value: 严肃庄重
-          weight: 1
-          description: 郑重其事，不容置疑
-        - name: casual
-          value: 轻松随意
-          weight: 1
-          description: 自然亲切，不拘一格
-        - name: sarcastic
-          value: 讽刺挖苦
-          weight: 1
-          description: 反语讥讽，辛辣犀利
-        - name: enthusiastic
-          value: 热情洋溢
-          weight: 1
-          description: 激情澎湃，感染力强
-        - name: calm
-          value: 平静温和
-          weight: 1
-          description: 心平气和，娓娓道来
-        - name: urgent
-          value: 急切紧迫
-          weight: 1
-          description: 迫在眉睫，刻不容缓
-        - name: mysterious
-          value: 神秘莫测
-          weight: 1
-          description: 扑朔迷离，引人入胜
-        - name: humorous
-          value: 幽默诙谐
-          weight: 1
-          description: 妙趣横生，令人发笑
-    perspective:
-      name: 叙述视角
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: first_person
-          value: 第一人称
-          weight: 1
-          description: 以我为主，亲身经历
-        - name: second_person
-          value: 第二人称
-          weight: 1
-          description: 直接对话，身临其境
-        - name: third_person_limited
-          value: 第三人称有限
-          weight: 1
-          description: 聚焦主角，深入内心
-        - name: third_person_omniscient
-          value: 第三人称全知
-          weight: 1
-          description: 全知全能，洞察一切
-        - name: multiple_pov
-          value: 多视角切换
-          weight: 1
-          description: 不同人物，不同视角
-        - name: observer
-          value: 旁观者视角
-          weight: 1
-          description: 客观记录，冷眼旁观
-        - name: participant
-          value: 参与者视角
-          weight: 1
-          description: 身在其中，主观感受
-    structure:
-      name: 文章结构
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: chronological
-          value: 时间顺序
-          weight: 1
-          description: 按时间发展，脉络清晰
-        - name: spatial
-          value: 空间顺序
-          weight: 1
-          description: 按空间位置，层次分明
-        - name: thematic
-          value: 主题分类
-          weight: 1
-          description: 按主题划分，逻辑严密
-        - name: problem_solution
-          value: 问题解决
-          weight: 1
-          description: 提出问题，分析解决
-        - name: cause_effect
-          value: 因果关系
-          weight: 1
-          description: 分析原因，探讨结果
-        - name: compare_contrast
-          value: 对比对照
-          weight: 1
-          description: 比较异同，突出特点
-        - name: circular
-          value: 首尾呼应
-          weight: 1
-          description: 开头结尾，遥相呼应
-        - name: layered
-          value: 层层递进
-          weight: 1
-          description: 由浅入深，逐步深入
-    rhythm:
-      name: 节奏韵律
-      allow_custom: true
-      selected_option: ''
-      custom_input: ''
-      preset_options:
-        - name: fast
-          value: 快节奏
-          weight: 1
-          description: 紧凑激烈，扣人心弦
-        - name: slow
-          value: 慢节奏
-          weight: 1
-          description: 舒缓悠扬，娓娓道来
-        - name: variable
-          value: 变化多端
-          weight: 1
-          description: 张弛有度，起伏跌宕
-        - name: steady
-          value: 平稳均匀
-          weight: 1
-          description: 节奏一致，稳定推进
-        - name: accelerating
-          value: 逐渐加快
-          weight: 1
-          description: 层层推进，越来越快
-        - name: decelerating
-          value: 逐渐放缓
-          weight: 1
-          description: 渐入佳境，慢慢回味
-        - name: syncopated
-          value: 切分节奏
-          weight: 1
-          description: 错落有致，富有变化
+  api_type: comfyui
+  picsum:
+    api_key: ''
+    model: ''
+strict_freshness: true
+aiforge_search_max_results: 20
+aiforge_search_min_results: 10
+min_article_len: 800
+max_article_len: 3000
+proxy: ''
 page_design:
-  use_original_styles: true
-  container:
-    max_width: 750
-    margin_horizontal: 10
-    background_color: '#f8f9fa'
-  card:
-    border_radius: 12
-    box_shadow: 0 4px 16px rgba(0,0,0,0.06)
-    padding: 24
-    background_color: '#ffffff'
-  typography:
-    base_font_size: 16
-    line_height: 1.6
-    heading_scale: 1.5
-    text_color: '#333333'
-    heading_color: '#333333'
-  spacing:
-    section_margin: 24
-    element_margin: 16
-  accent:
-    primary_color: '#3a7bd5'
-    secondary_color: '#00b09b'
-    highlight_bg: '#f0f7ff'
-auto_delete_published: true
+  theme: default
+  font_family: Microsoft YaHei, sans-serif
+  font_size: 16
+  line_height: 1.8
+  article_max_height: 0
+  show_thumbnail: true
+  thumbnail_position: right
+  thumbnail_max_width: 300
+  show_word_count: true
+  show_source: true
+  show_divider: true
+  custom_css: ''
+  custom_header: ''
+  custom_footer: ''

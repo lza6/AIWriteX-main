@@ -40,6 +40,8 @@
     <link rel="stylesheet" href="/static/css/views/mcp-manager.css?v=20260304a">
     <link rel="stylesheet" href="/static/css/views/newshub.css?v=20260304a">
     <link rel="stylesheet" href="/static/css/views/dashboard.css?v=20260304a">
+    <link rel="stylesheet" href="/static/css/swarm-monitor.css?v=20260307">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
 </head>
 
 <body class="window-mode-standard" data-window-mode="standard">
@@ -65,6 +67,8 @@
                     {% include 'components/views/newshub.html' %}
                     {% include 'components/views/scheduler.html' %}
                     {% include 'components/views/config-manager/config-manager.html' %}
+                    {% include 'components/views/swarm-monitor.html' %}
+                    {% include 'components/views/database-manager.html' %}
                 </main>
             </div>
         </div>
@@ -443,7 +447,7 @@
     <script src="/static/js/update-checker.js?v=20260301c"></script>
     <script src="/static/js/footer-marquee.js?v=20260301c"></script>
     <script src="/static/js/task-queue.js?v=20260303a"></script>
-    <script src="/static/js/main.js?v=20260301d"></script>
+    <script src="/static/js/main.js"></script>
     <script src="/static/js/progress-manager.js?v=20260301c"></script>
     <script src="/static/js/creative-workshop.js?v=20260301c"></script>
     <script src="/static/js/article-manager.js?v=20260301c"></script>
@@ -458,6 +462,9 @@
     <script src="/static/js/theme-manager.js?v=20260301c"></script>
     <script src="/static/js/scheduler-manager.js?v=20260305a"></script>
     <script src="/static/js/window-modes.js?v=20260301c"></script>
+    <script src="/static/js/swarm-monitor.js?v=20260307"></script>
+    <script src="/static/js/database-manager.js?v=20260307"></script>
+    <script src="/static/js/aesthetic-voting.js?v=20260307"></script>
 </body>
 
 </html>

@@ -75,6 +75,22 @@ class ColorScheme(Enum):
         "text": "#f9fafb",
         "light": "#374151"
     }
+    ELEGANT_DARK = {
+        "primary": "#c084fc",
+        "secondary": "#a855f7",
+        "accent": "#8b5cf6",
+        "background": "#0f172a",
+        "text": "#f8fafc",
+        "light": "#1e293b"
+    }
+    VIBRANT_NEON = {
+        "primary": "#22d3ee",
+        "secondary": "#38bdf8",
+        "accent": "#818cf8",
+        "background": "#020617",
+        "text": "#f1f5f9",
+        "light": "#1e293b"
+    }
 
 
 @dataclass
@@ -100,6 +116,101 @@ class TemplateComponent:
     html_template: str
     css_styles: str
     suitable_for: List[str]
+
+
+class AIDesignOrchestrator:
+    """AI 审美编排器 - 由 LLM 决定的视觉设计系统 (V19.4)"""
+    
+    def __init__(self):
+        self.fallback_palette = {
+            "primary": "#4F46E5",
+            "secondary": "#6366F1",
+            "accent": "#8B5CF6",
+            "background": "#F8FAFC",
+            "text": "#334155",
+            "light": "#F1F5F9"
+        }
+        # V19.4 新增：多色彩语义池，解决单一颜色标注感
+        self.fallback_highlights = {
+            "data": {"bg": "rgba(59, 130, 246, 0.12)", "text": "#1E40AF"},
+            "warn": {"bg": "rgba(239, 68, 68, 0.12)", "text": "#991B1B"},
+            "gold": {"bg": "rgba(245, 158, 11, 0.12)", "text": "#92400E"},
+            "info": {"bg": "rgba(16, 185, 129, 0.12)", "text": "#065F46"}
+        }
+
+    @staticmethod
+    def get_design_prompt(title: str, topic: str, content_preview: str) -> str:
+        # V13.0: 注入审美特征 DNA (Aesthetic Profile)
+        from src.ai_write_x.utils.path_manager import PathManager
+        profile_path = PathManager.get_root_dir() / "config" / "aesthetic_profile.json"
+        dna_context = ""
+        if profile_path.exists():
+            try:
+                profile = json.loads(profile_path.read_text(encoding="utf-8"))
+                dna_context = f"""
+[User Aesthetic DNA - REQUIRED]
+- Layout Preferences: {profile.get('layout_preferences', 'Dynamic')}
+- Color Style: {profile.get('color_style', 'Evolved')}
+- Core Vibes: {', '.join(profile.get('vibe_keywords', []))}
+- Structural Rules: {profile.get('structural_rules', 'Standard')}
+"""
+            except Exception: pass
+
+        return f"""你是一位顶级网页设计师与视觉艺术总监。
+你的目标是：通过视觉心跳（Visual Heartbeat）最大化用户的停留时长与下滑欲望。
+{dna_context}
+文章标题：{title}
+文章题材：{topic}
+内容预览：{content_preview[:800]}...
+
+你需要返回一个包含以下字段的 JSON 对象（不要返回任何其他文字）：
+1. "theme_style": 对应风格 (minimal, tech, warm, business, creative, academic, story, news)
+2. "palette": {{
+    "primary": "主色", "secondary": "次色", "accent": "强调色",
+    "background": "背景色", "text": "文本色", "light": "浅色"
+}}
+3. "semantic_highlights": {{
+     "data": {{ "bg": "rgba(...)", "text": "#..." }},
+     "warn": {{ "bg": "rgba(...)", "text": "#..." }},
+     "gold": {{ "bg": "rgba(...)", "text": "#..." }},
+     "info": {{ "bg": "rgba(...)", "text": "#..." }}
+  }}
+4. "ui_effects": {{
+    "glass_opacity": 0.2-0.8 之间的数值,
+    "border_radius": "带单位的数值",
+    "box_shadow": "CSS 阴影定义",
+    "animation_intensity": "low/medium/high"
+}}
+5. "layout_pacing": "tight (紧凑)/loose (舒缓)/organic (交替)",
+6. "hook_strategy": "针对首屏 3s 的视觉冲击指令。必须包含对 `intro-card` 或 `summary-box` 的排版要求，参考『自然疗愈』模板，确保有清晰的引言区。",
+7. "structure_guidance": "强制要求：1. 必须有 h1 标题及 h2 副标题；2. 核心段落必须分区（Sectioning）；3. 结尾必须有总结性容器。",
+8. "design_logic": "简短描述你为什么选择这套方案"
+"""
+
+    def resolve_design(self, title: str, content: str, topic: str = "") -> Optional[Dict]:
+        """调用 LLM 进行设计决策"""
+        from src.ai_write_x.core.llm_client import LLMClient
+        client = LLMClient()
+        
+        prompt = self.get_design_prompt(title, topic, content)
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            # 使用更快的模型进行设计决策
+            response = client.chat(messages, temperature=0.3, max_tokens=1500)
+            # 处理可能的 Markdown 代码块
+            json_str = re.search(r'\{.*\}', response, re.DOTALL).group(0)
+            design_data = json.loads(json_str)
+            
+            # 补全保底数据
+            if "semantic_highlights" not in design_data:
+                design_data["semantic_highlights"] = self.fallback_highlights
+            if "layout_pacing" not in design_data:
+                design_data["layout_pacing"] = "organic"
+            
+            return design_data
+        except Exception as e:
+            log.print_log(f"[AI审计] 审美决策失败，回退到规则引擎: {e}", "warning")
+            return None
 
 
 class DynamicTemplateGenerator:
@@ -387,19 +498,36 @@ class DynamicTemplateGenerator:
             return TemplateStyle.MINIMAL
     
     def _determine_colors(self, emotions: List[str], topic: str) -> ColorScheme:
-        """确定配色方案"""
-        if "tech" in emotions or "科技" in topic:
-            return ColorScheme.BLUE
-        elif "环保" in topic or "健康" in topic or "生机" in emotions:
-            return ColorScheme.GREEN
-        elif "创意" in topic or "艺术" in topic or "excited" in emotions:
-            return ColorScheme.PURPLE
-        elif "美食" in topic or "温暖" in emotions:
+        """根据情感倾向与主题动态决策配色方案"""
+        # 优先级高于一切的情感映射
+        if "sad" in emotions or "遗憾" in topic:
+            return ColorScheme.DARK
+        
+        if "tech" in emotions or "innovation" in emotions:
+            return ColorScheme.VIBRANT_NEON if "excited" in emotions else ColorScheme.BLUE
+            
+        if "warm" in emotions or "感动" in emotions:
             return ColorScheme.ORANGE
-        elif "story" in emotions or "情感" in topic:
-            return ColorScheme.PINK
-        else:
-            return ColorScheme.BLUE
+            
+        if "excited" in emotions or "creative" in emotions:
+            return ColorScheme.PURPLE if "serious" not in emotions else ColorScheme.ELEGANT_DARK
+            
+        # 基于主题的保底映射
+        topic_map = {
+            "科技": ColorScheme.BLUE,
+            "智能": ColorScheme.VIBRANT_NEON,
+            "健康": ColorScheme.GREEN,
+            "环保": ColorScheme.GREEN,
+            "文化": ColorScheme.ORANGE,
+            "艺术": ColorScheme.PURPLE,
+            "新闻": ColorScheme.DARK
+        }
+        
+        for key, scheme in topic_map.items():
+            if key in topic:
+                return scheme
+                
+        return ColorScheme.BLUE
     
     def _extract_topic(self, title: str, content: str) -> str:
         """提取主题"""
@@ -467,7 +595,7 @@ class DynamicTemplateGenerator:
         js_scripts = self._generate_js_scripts()
         
         # 生成CSS样式
-        css_styles = self._generate_css_styles(colors, style_config)
+        css_styles = self._generate_css_styles(analysis, colors, style_config)
         
         # 组合完整HTML
         template_parts = [
@@ -516,8 +644,35 @@ class DynamicTemplateGenerator:
         
         return "\n".join(template_parts)
     
-    def _generate_css_styles(self, colors: Dict, style_config: Dict) -> str:
+    def _generate_css_styles(self, analysis: ContentAnalysis, colors: Dict, style_config: Dict) -> str:
         """生成现代CSS样式 - 玻璃拟态、渐变、动画"""
+        # 获取 AI 特效配置
+        ui_effects = getattr(analysis, 'ai_ui_effects', None)
+        if ui_effects is None:
+            ui_effects = {
+                "glass_opacity": 0.7,
+                "border_radius": style_config['border_radius'],
+                "box_shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 20px 25px -5px rgba(0, 0, 0, 0.03)",
+                "animation_intensity": "medium"
+            }
+        
+        # 针对 AI 可能返回 None 的个别键进行保底
+        glass_opacity = ui_effects.get("glass_opacity", 0.7)
+        if glass_opacity is None: glass_opacity = 0.7
+        
+        # 转换动画强度
+        anim_intensity = ui_effects.get("animation_intensity", "medium")
+        if anim_intensity is None: anim_intensity = "medium"
+        anim_dur = {"low": "30s", "medium": "20s", "high": "10s"}.get(anim_intensity, "20s")
+
+        # 获取语义高亮色
+        semantic_hl = getattr(analysis, 'ai_semantic_highlights', {
+            "data": {"bg": "rgba(59, 130, 246, 0.12)", "text": "#1E40AF"},
+            "warn": {"bg": "rgba(239, 68, 68, 0.12)", "text": "#991B1B"},
+            "gold": {"bg": "rgba(245, 158, 11, 0.12)", "text": "#92400E"},
+            "info": {"bg": "rgba(16, 185, 129, 0.12)", "text": "#065F46"}
+        })
+
         return f"""
         /* ===== 基础变量 ===== */
         :root {{
@@ -527,8 +682,118 @@ class DynamicTemplateGenerator:
             --background: {colors['background']};
             --text: {colors['text']};
             --light: {colors['light']};
-            --shadow: {style_config['shadow']};
-            --radius: {style_config['border_radius']};
+            --shadow: {ui_effects.get('box_shadow')};
+            --radius: {ui_effects.get('border_radius')};
+            --glass-opacity: {glass_opacity};
+            --anim-duration: {anim_dur};
+            
+            /* V19.4 语义高亮色 */
+            --hl-data-bg: {semantic_hl['data']['bg']};
+            --hl-data-text: {semantic_hl['data']['text']};
+            --hl-warn-bg: {semantic_hl['warn']['bg']};
+            --hl-warn-text: {semantic_hl['warn']['text']};
+            --hl-gold-bg: {semantic_hl['gold']['bg']};
+            --hl-gold-text: {semantic_hl['gold']['text']};
+            --hl-info-bg: {semantic_hl['info']['bg']};
+            --hl-info-text: {semantic_hl['info']['text']};
+
+            /* V19.6: 增强结构组件 (Structural Components) */
+            --intro-bg: {colors['primary']}08;
+            --intro-border: {colors['primary']};
+
+            /* V19.6 表格变量 */
+            --table-border: #edf2f7;
+            --table-head-bg: #f7fafc;
+            --table-hover-bg: #f8fafc;
+        }}
+
+        /* ===== 现代表格样式 (V19.6) ===== */
+        .table-container {{
+            width: 100%;
+            overflow-x: auto;
+            margin: 32px 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border: 1px solid var(--table-border);
+        }}
+        th {{
+            background-color: var(--table-head-bg);
+            color: var(--primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 16px;
+            border-bottom: 2px solid var(--table-border);
+            font-size: 0.95rem;
+        }}
+        td {{
+            padding: 16px;
+            border-bottom: 1px solid var(--table-border);
+            color: #4a5568;
+            font-size: 0.95rem;
+        }}
+        tr:last-child td {{
+            border-bottom: none;
+        }}
+        tr:hover td {{
+            background-color: var(--table-hover-bg);
+        }}
+
+        /* ===== 简化标注样式 (V19.6) ===== */
+        strong {{
+            color: var(--text);
+            font-weight: 700;
+            background: linear-gradient(180deg, transparent 70%, {colors['primary']}20 70%);
+            padding: 0 2px;
+        }}
+        u {{
+            text-decoration: none;
+            border-bottom: 1.5px dashed var(--primary);
+            padding-bottom: 1px;
+        }}
+
+        /* ===== 现代结构化样式 (V19.6) ===== */
+        .intro-card, .summary-box {{
+            background: linear-gradient(135deg, var(--intro-bg), {colors['secondary']}08);
+            border-left: 4px solid var(--intro-border);
+            padding: 24px;
+            margin: 32px 0;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            font-size: 1.1rem;
+            color: {colors['text']};
+        }}
+
+        .intro-card::after {{
+            content: "";
+            position: absolute;
+            top: 0; right: 0;
+            width: 80px; height: 80px;
+            background: radial-gradient(circle at top right, {colors['accent']}1a, transparent);
+            pointer-events: none;
+        }}
+
+        h2 {{
+            font-size: 1.8rem;
+            margin: 48px 0 24px 0;
+            color: {colors['primary']};
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 2px solid {colors['primary']}1a;
+            padding-bottom: 8px;
+        }}
+        
+        h2::before {{
+            content: "◆";
+            font-size: 1rem;
+            color: {colors['accent']};
         }}
         
         /* ===== 重置与基础 ===== */
@@ -584,7 +849,7 @@ class DynamicTemplateGenerator:
             border-radius: 50%;
             filter: blur(80px);
             opacity: 0.4;
-            animation: float 20s infinite ease-in-out;
+            animation: float var(--anim-duration) infinite ease-in-out;
         }}
         
         .orb-1 {{
@@ -623,16 +888,12 @@ class DynamicTemplateGenerator:
         
         /* ===== 玻璃拟态卡片 ===== */
         .glass-card {{
-            background: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, var(--glass-opacity));
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 24px;
-            box-shadow: 
-                0 4px 6px -1px rgba(0, 0, 0, 0.05),
-                0 10px 15px -3px rgba(0, 0, 0, 0.05),
-                0 20px 25px -5px rgba(0, 0, 0, 0.03),
-                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.6);
         }}
         
         /* ===== 头部样式 ===== */
@@ -1257,23 +1518,41 @@ class DynamicTemplateGenerator:
         return "; ".join(f"{k.replace('_', '-')}: {v}" for k, v in style_dict.items())
     
     def generate_template_with_content(self, title: str, content: str, topic: str = "") -> str:
-        """根据内容生成完整模板"""
-        # 分析内容
+        """根据内容生成完整模板 - 优先由 AI 编排审美"""
+        # 尝试通过 AI 获取设计决策
+        orchestrator = AIDesignOrchestrator()
+        ai_design = orchestrator.resolve_design(title, content, topic)
+        
+        # 分析内容 (作为基础或 AI 失败时的备选)
         analysis = self.analyze_content(title, content, topic)
         
-        log.print_log(f"[模板生成] 检测到风格: {analysis.recommended_style.value}, 配色: {analysis.recommended_colors.name}")
-        log.print_log(f"[模板生成] 关键词: {', '.join(analysis.keywords[:5])}")
+        # 如果 AI 提供了方案，动态注入
+        if ai_design:
+            log.print_log(f"[AI审计] AI 审美决策成功 -> 风格: {ai_design.get('theme_style')}, 逻辑: {ai_design.get('design_logic')}")
+            analysis.recommended_style = TemplateStyle(ai_design.get('theme_style', 'minimal'))
+            # 注入 AI 决定的颜色
+            analysis.ai_custom_colors = ai_design.get('palette')
+            # 注入 AI 决定的 UI 特效
+            analysis.ai_ui_effects = ai_design.get('ui_effects')
+        else:
+            analysis.ai_custom_colors = None
+            analysis.ai_ui_effects = None
+            log.print_log(f"[模板生成] 规则引擎决策 -> 风格: {analysis.recommended_style.value}")
         
         # 生成模板
         template = self.generate_template(analysis)
         
         # 将内容填充到模板中
-        # 这里需要将markdown内容转换为HTML并适配模板样式
         formatted_content = self._format_content_for_template(content, analysis)
-        
         final_html = template.replace("{content}", formatted_content)
         
         return final_html
+
+    def _get_active_colors(self, analysis: ContentAnalysis) -> Dict:
+        """获取当前激活的配色方案"""
+        if hasattr(analysis, 'ai_custom_colors') and analysis.ai_custom_colors:
+            return analysis.ai_custom_colors
+        return analysis.recommended_colors.value
     
     def _format_content_for_template(self, content: str, analysis: ContentAnalysis) -> str:
         """将内容格式化为模板样式 - 智能Markdown解析"""
@@ -1455,7 +1734,7 @@ class DynamicTemplateGenerator:
                 row_html = ''.join(f'<td>{c}</td>' for c in cells)
                 rows_html += f'<tr>{row_html}</tr>'
             
-            return f'\n<table><thead><tr>{header_html}</tr></thead><tbody>{rows_html}</tbody></table>\n'
+            return f'\n<div class="table-container"><table><thead><tr>{header_html}</tr></thead><tbody>{rows_html}</tbody></table></div>\n'
         
         return re.sub(pattern, replace_table, content)
     

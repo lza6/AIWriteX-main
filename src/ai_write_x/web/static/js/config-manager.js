@@ -360,6 +360,21 @@ class AIWriteXConfigManager {
             });
         }
 
+        // 串行模式强制开关 (V18.0)
+        const serialModeCheckbox = document.getElementById('serial-mode-forced');
+        if (serialModeCheckbox) {
+            serialModeCheckbox.addEventListener('change', async (e) => {
+                const forced = e.target.checked;
+                await this.updateConfig({
+                    swarm_settings: {
+                        ...this.config.swarm_settings,
+                        serial_mode_forced: forced,
+                        swarm_mode_enabled: !forced  // 串行模式与蜂群模式互斥
+                    }
+                });
+            });
+        }
+
         // ========== 热搜平台设置事件绑定 ==========  
 
         // 保存平台配置按钮  
@@ -517,6 +532,26 @@ class AIWriteXConfigManager {
                     }
                 }
             });
+            
+            // 处理文本输入框的input事件 - 实时更新配置
+            wechatContainer.addEventListener('input', async (e) => {
+                if (e.target.matches('input[type="text"][id^="wechat-appid-"]') ||
+                    e.target.matches('input[type="text"][id^="wechat-appsecret-"]') ||
+                    e.target.matches('input[type="text"][id^="wechat-author-"]') ||
+                    e.target.matches('input[type="number"][id^="wechat-tag-id-"]')) {
+                    const id = e.target.id;
+                    const match = id.match(/wechat-(\w+)-(\d+)/);
+                    if (match) {
+                        const [, field, indexStr] = match;
+                        const index = parseInt(indexStr);
+                        // 防抖更新
+                        clearTimeout(this._wechatUpdateTimer);
+                        this._wechatUpdateTimer = setTimeout(() => {
+                            this.updateWeChatCredential(index);
+                        }, 500);
+                    }
+                }
+            });
         }
 
         // ========== 大模型API设置事件绑定 ==========  
@@ -525,17 +560,7 @@ class AIWriteXConfigManager {
         const saveAPIConfigBtn = document.getElementById('save-api-config');
         if (saveAPIConfigBtn) {
             saveAPIConfigBtn.addEventListener('click', async () => {
-                const success = await this.saveConfig();
-
-                if (success) {
-                    saveAPIConfigBtn.classList.remove('has-changes');
-                    saveAPIConfigBtn.innerHTML = '保存设置';
-                }
-
-                window.app?.showNotification(
-                    success ? 'API配置已保存' : '保存API配置失败',
-                    success ? 'success' : 'error'
-                );
+                await this.saveAPIConfig();
             });
         }
 
@@ -563,17 +588,7 @@ class AIWriteXConfigManager {
         const saveImgAPIConfigBtn = document.getElementById('save-img-api-config');
         if (saveImgAPIConfigBtn) {
             saveImgAPIConfigBtn.addEventListener('click', async () => {
-                const success = await this.saveConfig();
-
-                if (success) {
-                    saveImgAPIConfigBtn.classList.remove('has-changes');
-                    saveImgAPIConfigBtn.innerHTML = '保存设置';
-                }
-
-                window.app?.showNotification(
-                    success ? '图片API配置已保存' : '保存图片API配置失败',
-                    success ? 'success' : 'error'
-                );
+                await this.saveImgAPIConfig();
             });
         }
 
@@ -1221,6 +1236,12 @@ class AIWriteXConfigManager {
         const strictFreshnessCheckbox = document.getElementById('strict-freshness');
         if (strictFreshnessCheckbox) {
             strictFreshnessCheckbox.checked = this.config.strict_freshness !== false;
+        }
+
+        // ========== 9. 填充并发模式控制 (V18.0) ==========
+        const serialModeCheckbox = document.getElementById('serial-mode-forced');
+        if (serialModeCheckbox && this.config.swarm_settings) {
+            serialModeCheckbox.checked = this.config.swarm_settings.serial_mode_forced !== false;
         }
 
         // ========== 8. 填充界面配置 ==========  
@@ -2406,32 +2427,48 @@ class AIWriteXConfigManager {
         const showAddInput = () => {
             dropdown.innerHTML = '';
 
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'select-input';
-            input.placeholder = `输入新的${type}`;
+            const isKeyType = type === 'API KEY';
+            const input = document.createElement(isKeyType ? 'textarea' : 'input');
+            if (!isKeyType) input.type = 'text';
+            input.className = isKeyType ? 'select-textarea' : 'select-input';
+            input.placeholder = isKeyType ? '输入API Key，一行一个支持负载均衡' : `输入新的${type}`;
+            if (isKeyType) {
+                input.rows = 5;
+                // 如果是 API KEY，填充当前所有 key（换行分隔）
+                input.value = items.join('\n');
+            }
 
-            // 回车添加  
-            input.addEventListener('keydown', async (e) => {
-                if (e.key === 'Enter') {
-                    const newValue = input.value.trim();
-                    if (newValue) {
-                        if (type === 'API KEY') {
-                            await this.addAPIKey(providerKey, newValue);
-                        } else if (type === '视觉模型') {
-                            await this.addVisionModel(providerKey, newValue);
+            // 监听保存
+            const handleSave = async () => {
+                const rawValue = input.value.trim();
+                if (rawValue) {
+                    if (isKeyType) {
+                        // 一行一个，过滤空行
+                        const newKeys = rawValue.split('\n').map(k => k.trim()).filter(k => k !== '');
+                        await this.setAPIKeys(providerKey, newKeys);
+                    } else {
+                        if (type === '视觉模型') {
+                            await this.addVisionModel(providerKey, rawValue);
                         } else {
-                            await this.addModel(providerKey, newValue);
+                            await this.addModel(providerKey, rawValue);
                         }
-                        dropdown.style.display = 'none';
                     }
+                    dropdown.style.display = 'none';
+                }
+            };
+
+            input.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !isKeyType)) {
+                    await handleSave();
                 } else if (e.key === 'Escape') {
                     renderOptions();
                 }
             });
 
-            input.addEventListener('blur', () => {
-                if (!input.value.trim()) {
+            input.addEventListener('blur', async () => {
+                if (isKeyType) {
+                    await handleSave();
+                } else if (!input.value.trim()) {
                     renderOptions();
                 }
             });
@@ -2450,6 +2487,14 @@ class AIWriteXConfigManager {
         // 点击显示框切换下拉框  
         display.addEventListener('click', (e) => {
             e.stopPropagation();
+            
+            // 如果是API KEY类型，弹出大窗口编辑框
+            if (type === 'API KEY') {
+                this.showAPIKeyEditor(providerKey, items);
+                return;
+            }
+            
+            // 其他类型保持原来的下拉框行为
             const isVisible = dropdown.style.display === 'block';
             dropdown.style.display = isVisible ? 'none' : 'block';
 
@@ -2469,6 +2514,228 @@ class AIWriteXConfigManager {
         container.appendChild(dropdown);
 
         return container;
+    }
+
+    // 显示API Key编辑弹窗（大窗口模式）
+    showAPIKeyEditor(providerKey, currentKeys) {
+        // 移除已存在的弹窗
+        const existingModal = document.getElementById('api-key-editor-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // 创建弹窗遮罩
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'api-key-editor-modal';
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+        // 创建弹窗容器
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+        modal.style.cssText = 'background:#fff;border-radius:8px;width:600px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+        // 标题栏
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
+        header.innerHTML = `
+            <h3 style="margin:0;font-size:16px;color:#333;">编辑 API KEY</h3>
+            <button class="modal-close-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:0;width:30px;height:30px;">×</button>
+        `;
+
+        // 提示文字
+        const hint = document.createElement('div');
+        hint.style.cssText = 'padding:12px 20px;background:#fffbe6;border-bottom:1px solid #ffe58f;font-size:12px;color:#666;';
+        hint.innerHTML = '💡 <strong>提示：</strong>一行一个KEY，支持自动负载均衡。当第一个KEY失效时会自动切换到下一个。';
+
+        // 内容区域（带行号）
+        const content = document.createElement('div');
+        content.style.cssText = 'padding:20px;flex:1;overflow:hidden;display:flex;';
+
+        // 行号容器
+        const lineNumbers = document.createElement('div');
+        lineNumbers.id = 'key-editor-line-numbers';
+        lineNumbers.style.cssText = 'width:40px;background:#f5f5f5;border-right:1px solid #ddd;padding:12px 8px;text-align:right;color:#999;font-size:13px;line-height:1.6;user-select:none;overflow-y:auto;font-family:monospace;';
+        lineNumbers.textContent = '1';
+
+        // 文本区域
+        const textarea = document.createElement('textarea');
+        textarea.id = 'key-editor-textarea';
+        textarea.style.cssText = 'flex:1;border:1px solid #ddd;border-left:none;padding:12px;font-size:13px;line-height:1.6;resize:none;outline:none;font-family:monospace;';
+        textarea.placeholder = '在此输入API KEY，一行一个...';
+        textarea.value = currentKeys.join('\n');
+
+        // 更新行号
+        const updateLineNumbers = () => {
+            const lines = textarea.value.split('\n').length;
+            let nums = '';
+            for (let i = 1; i <= lines; i++) {
+                nums += i + '\n';
+            }
+            lineNumbers.textContent = nums;
+        };
+        textarea.addEventListener('input', updateLineNumbers);
+        textarea.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = textarea.scrollTop;
+        });
+        updateLineNumbers();
+
+        content.appendChild(lineNumbers);
+        content.appendChild(textarea);
+
+        // 按钮栏
+        const footer = document.createElement('div');
+        footer.style.cssText = 'padding:16px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:12px;';
+        footer.innerHTML = `
+            <button class="modal-cancel-btn" style="padding:8px 20px;border:1px solid #ddd;background:#fff;border-radius:4px;cursor:pointer;font-size:14px;">取消</button>
+            <button class="modal-confirm-btn" style="padding:8px 20px;border:none;background:#1890ff;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">确定</button>
+        `;
+
+        // 组装弹窗
+        modal.appendChild(header);
+        modal.appendChild(hint);
+        modal.appendChild(content);
+        modal.appendChild(footer);
+        modalOverlay.appendChild(modal);
+        document.body.appendChild(modalOverlay);
+
+        // 事件处理
+        const closeModal = () => {
+            modalOverlay.remove();
+        };
+
+        const confirmSave = async () => {
+            const rawValue = textarea.value.trim();
+            const newKeys = rawValue.split('\n').map(k => k.trim()).filter(k => k !== '');
+            await this.setAPIKeys(providerKey, newKeys);
+            closeModal();
+        };
+
+        header.querySelector('.modal-close-btn').addEventListener('click', closeModal);
+        footer.querySelector('.modal-cancel-btn').addEventListener('click', closeModal);
+        footer.querySelector('.modal-confirm-btn').addEventListener('click', confirmSave);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // 聚焦文本框
+        setTimeout(() => textarea.focus(), 100);
+    }
+
+    // 显示图片API Key编辑弹窗（大窗口模式）
+    showImgAPIKeyEditor(providerKey, currentKeys) {
+        // 移除已存在的弹窗
+        const existingModal = document.getElementById('img-api-key-editor-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // 创建弹窗遮罩
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'img-api-key-editor-modal';
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+        // 创建弹窗容器
+        const modal = document.createElement('div');
+        modal.className = 'modal-content';
+        modal.style.cssText = 'background:#fff;border-radius:8px;width:600px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+
+        // 标题栏
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:16px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;';
+        header.innerHTML = `
+            <h3 style="margin:0;font-size:16px;color:#333;">编辑图片API KEY</h3>
+            <button class="modal-close-btn" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:0;width:30px;height:30px;">×</button>
+        `;
+
+        // 提示文字
+        const hint = document.createElement('div');
+        hint.style.cssText = 'padding:12px 20px;background:#fffbe6;border-bottom:1px solid #ffe58f;font-size:12px;color:#666;';
+        hint.innerHTML = '💡 <strong>提示：</strong>一行一个KEY，支持自动负载均衡。当第一个KEY失效时会自动切换到下一个。';
+
+        // 内容区域（带行号）
+        const content = document.createElement('div');
+        content.style.cssText = 'padding:20px;flex:1;overflow:hidden;display:flex;';
+
+        // 行号容器
+        const lineNumbers = document.createElement('div');
+        lineNumbers.id = 'img-key-editor-line-numbers';
+        lineNumbers.style.cssText = 'width:40px;background:#f5f5f5;border-right:1px solid #ddd;padding:12px 8px;text-align:right;color:#999;font-size:13px;line-height:1.6;user-select:none;overflow-y:auto;font-family:monospace;';
+        lineNumbers.textContent = '1';
+
+        // 文本区域
+        const textarea = document.createElement('textarea');
+        textarea.id = 'img-key-editor-textarea';
+        textarea.style.cssText = 'flex:1;border:1px solid #ddd;border-left:none;padding:12px;font-size:13px;line-height:1.6;resize:none;outline:none;font-family:monospace;';
+        textarea.placeholder = '在此输入API KEY，一行一个...';
+        textarea.value = currentKeys.join('\n');
+
+        // 更新行号
+        const updateLineNumbers = () => {
+            const lines = textarea.value.split('\n').length;
+            let nums = '';
+            for (let i = 1; i <= lines; i++) {
+                nums += i + '\n';
+            }
+            lineNumbers.textContent = nums;
+        };
+        textarea.addEventListener('input', updateLineNumbers);
+        textarea.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = textarea.scrollTop;
+        });
+        updateLineNumbers();
+
+        content.appendChild(lineNumbers);
+        content.appendChild(textarea);
+
+        // 按钮栏
+        const footer = document.createElement('div');
+        footer.style.cssText = 'padding:16px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:12px;';
+        footer.innerHTML = `
+            <button class="modal-cancel-btn" style="padding:8px 20px;border:1px solid #ddd;background:#fff;border-radius:4px;cursor:pointer;font-size:14px;">取消</button>
+            <button class="modal-confirm-btn" style="padding:8px 20px;border:none;background:#1890ff;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">确定</button>
+        `;
+
+        // 组装弹窗
+        modal.appendChild(header);
+        modal.appendChild(hint);
+        modal.appendChild(content);
+        modal.appendChild(footer);
+        modalOverlay.appendChild(modal);
+        document.body.appendChild(modalOverlay);
+
+        // 事件处理
+        const closeModal = () => {
+            modalOverlay.remove();
+        };
+
+        const confirmSave = async () => {
+            const rawValue = textarea.value.trim();
+            const newKeys = rawValue.split('\n').map(k => k.trim()).filter(k => k !== '');
+            const apiKeyValue = newKeys.join('\n');
+            
+            // 更新到配置
+            await this.updateImgAPIField(providerKey, 'api_key', apiKeyValue);
+            
+            // 同时更新DOM中的输入框显示
+            const inputEl = document.getElementById(`img-api-${providerKey}-api-key`);
+            if (inputEl) {
+                inputEl.value = apiKeyValue;
+            }
+            
+            closeModal();
+        };
+
+        header.querySelector('.modal-close-btn').addEventListener('click', closeModal);
+        footer.querySelector('.modal-cancel-btn').addEventListener('click', closeModal);
+        footer.querySelector('.modal-confirm-btn').addEventListener('click', confirmSave);
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // 聚焦文本框
+        setTimeout(() => textarea.focus(), 100);
     }
 
     // 显示右键菜单    
@@ -2532,6 +2799,19 @@ class AIWriteXConfigManager {
                 }
             }
         });
+    }
+
+    // 设置 API KEY 列表 (V19.0 支持负载均衡)
+    async setAPIKeys(providerKey, keys) {
+        await this.updateConfig({
+            api: {
+                [providerKey]: {
+                    ...this.config.api[providerKey],
+                    api_key: keys
+                }
+            }
+        });
+        this.populateAPIUI();
     }
 
     // 添加API KEY    
@@ -3126,15 +3406,16 @@ class AIWriteXConfigManager {
         baseGroup.className = 'form-group form-group-full';
         baseGroup.innerHTML = `
             <label>API BASE</label>
-            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1" onchange="window.configManager.updateCustomAPI(${index}, 'api_base', this.value)">
+            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1 (末尾加#强制使用原始地址)" onchange="window.configManager.updateCustomAPI(${index}, 'api_base', this.value)">
+            <small style="color:#888;font-size:11px;">💡 提示：系统会自动补全/v1路径，如需强制使用原始地址请在末尾添加#</small>
         `;
 
         // API Key
         const keyGroup = document.createElement('div');
         keyGroup.className = 'form-group form-group-full';
         keyGroup.innerHTML = `
-            <label>API KEY</label>
-            <input type="password" value="${api.api_key || ''}" placeholder="输入API Key" onchange="window.configManager.updateCustomAPI(${index}, 'api_key', this.value)">
+            <label>API KEY (支持多 Key，一行一 Key)</label>
+            <textarea placeholder="输入API Key，一行一个支持自动重试负载均衡" rows="3" onchange="window.configManager.updateCustomAPI(${index}, 'api_key', this.value)">${Array.isArray(api.api_key) ? api.api_key.join('\n') : (api.api_key || '')}</textarea>
         `;
 
         // 模型选择
@@ -3221,6 +3502,8 @@ class AIWriteXConfigManager {
             // 将自定义API添加到后端配置
             const customProviderKey = api.name || `CustomAPI_${Date.now()}`;
 
+            const apiKeys = Array.isArray(api.api_key) ? api.api_key : (api.api_key ? api.api_key.split('\n').map(k => k.trim()).filter(k => k !== '') : []);
+
             // 更新后端配置
             await this.updateConfig({
                 api: {
@@ -3228,7 +3511,7 @@ class AIWriteXConfigManager {
                     api_type: customProviderKey,
                     [customProviderKey]: {
                         key: "OPENAI_API_KEY",  // 添加key字段
-                        api_key: [api.api_key],
+                        api_key: apiKeys,
                         key_index: 0,
                         model: api.model ? [api.model] : ['gpt-3.5-turbo'],
                         model_index: 0,
@@ -3258,7 +3541,12 @@ class AIWriteXConfigManager {
     // 更新自定义API
     updateCustomAPI(index, field, value) {
         if (this.customAPIs[index]) {
-            this.customAPIs[index][field] = value;
+            if (field === 'api_key') {
+                // 如果是 API Key，存为数组
+                this.customAPIs[index][field] = value.split('\n').map(k => k.trim()).filter(k => k !== '');
+            } else {
+                this.customAPIs[index][field] = value;
+            }
             this.customAPIs[index].tested = false;
             this.saveCustomAPIs();
         }
@@ -3705,8 +3993,8 @@ class AIWriteXConfigManager {
         baseGroup.className = 'form-group form-group-full';
         baseGroup.innerHTML = `
             <label>API 接口地址 (Endpoint)</label>
-            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_base', this.value)">
-            <p class="field-help">如果是 OpenAI 兼容接口，请填写到 v1 目录</p>
+            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1 (末尾加#强制使用原始地址)" onchange="window.configManager.updateCustomImgAPI(${index}, 'api_base', this.value)">
+            <p class="field-help">💡 提示：系统会自动补全/v1路径，如需强制使用原始地址请在末尾添加#</p>
         `;
 
         // API Key
@@ -4019,6 +4307,22 @@ class AIWriteXConfigManager {
         );
         apiKeyGroup.classList.add('form-group-half');
 
+        // 给图片API的API KEY输入框添加点击弹窗事件（picsum除外）
+        if (providerKey !== 'picsum') {
+            const apiKeyInput = apiKeyGroup.querySelector('input');
+            if (apiKeyInput) {
+                apiKeyInput.style.cursor = 'pointer';
+                apiKeyInput.title = '点击编辑API KEY（一行一个，支持负载均衡）';
+                apiKeyInput.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // 将单行key转换为数组传给弹窗
+                    const currentKey = providerData.api_key || '';
+                    const keys = currentKey ? currentKey.split('\n').filter(k => k.trim()) : [];
+                    this.showImgAPIKeyEditor(providerKey, keys);
+                });
+            }
+        }
+
         // 模型字段（带检测按钮，picsum除外）
         const modelGroup = document.createElement('div');
         modelGroup.className = 'form-group form-group-half';
@@ -4171,10 +4475,19 @@ class AIWriteXConfigManager {
         }
     }
 
-    // 实时更新内置图片API字段（不保存到文件，需用户点保存）
-    updateImgAPIField(providerKey, field, value) {
+    // 实时更新内置图片API字段
+    async updateImgAPIField(providerKey, field, value) {
         if (this.config.img_api && this.config.img_api[providerKey]) {
             this.config.img_api[providerKey][field] = value;
+
+            // 实时同步到后端内存
+            await this.updateConfig({
+                img_api: {
+                    [providerKey]: {
+                        [field]: value
+                    }
+                }
+            });
         }
     }
 
@@ -4420,7 +4733,8 @@ class AIWriteXConfigManager {
         baseGroup.className = 'form-group form-group-full';
         baseGroup.innerHTML = `
             <label>API BASE</label>
-            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1" onchange="window.configManager.updateAiforgeCustomProvider(${index}, 'api_base', this.value)">
+            <input type="text" value="${api.api_base || ''}" placeholder="例如: https://api.openai.com/v1 (末尾加#强制使用原始地址)" onchange="window.configManager.updateAiforgeCustomProvider(${index}, 'api_base', this.value)">
+            <small style="color:#888;font-size:11px;">💡 提示：系统会自动补全/v1路径，如需强制使用原始地址请在末尾添加#</small>
         `;
 
         // API Key

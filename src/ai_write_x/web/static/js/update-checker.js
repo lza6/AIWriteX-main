@@ -10,7 +10,20 @@ class UpdateChecker {
     }
 
     async checkForUpdatesOnce() {
-        // 本地开发版，不检查更新
+        try {
+            const response = await fetch('/api/config/check-updates');
+            if (response.ok) {
+                const data = await response.json();
+                window.app?.showNotification(
+                    `当前版本: ${data.current_version}。${data.release_notes || '已是最新版本'}`,
+                    'info'
+                );
+            } else {
+                throw new Error('更新服务器连接失败');
+            }
+        } catch (error) {
+            window.app?.showNotification('检查更新失败: ' + error.message, 'error');
+        }
     }
 }
 

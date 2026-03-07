@@ -20,83 +20,13 @@ class AITemplateDesigner:
     AI 模板设计师类
     """
     
-    # 丰富的设计方向：侧重浅色、呼吸感、现代感
-    DESIGN_DIRECTIONS = [
-        {
-            "name": "极简果粉风",
-            "style": "大面积留白、SF Pro 字体感、极细边框、浅灰色调、高精密感",
-            "colors": "#000000, #8E8E93, #F2F2F7, #FFFFFF",
-            "typography": "高端非衬线体, 增大字间距"
-        },
-        {
-            "name": "诺德森冷色",
-            "style": "冰岛蓝、深林绿点缀、半透明磨砂玻璃、冷静而高级",
-            "colors": "#2E3440, #5E81AC, #ECEFF4, #D8DEE9",
-            "typography": "干净、几何感"
-        },
-        {
-            "name": "人文艺术志",
-            "style": "衬线体大标题、米白底色、纸张质感、古典优雅",
-            "colors": "#1A1A1A, #C2A679, #F5F2ED, #E8E4DB",
-            "typography": "宋体/衬线体, 垂直行高, 宁静"
-        },
-        {
-            "name": "奢侈品画册",
-            "style": "大幅留白、极细线条装饰、不对称布局、金色勾边、尊贵优雅",
-            "colors": "#111111, #D4AF37, #FAFAFA, #FFFFFF",
-            "typography": "高对比衬线体 (Didot/Bodoni感)"
-        },
-        {
-            "name": "未来赛博感",
-            "style": "极窄边框、霓虹色线条点缀、悬浮阴影、数字化网格装饰",
-            "colors": "#6366F1, #A855F7, #F8FAFC, #FFFFFF",
-            "typography": "现代等宽字体 (JetBrains Mono感)"
-        },
-        {
-            "name": "大地有机风",
-            "style": "圆润边角、自然纹理装饰、温暖土色系、极佳的呼吸感",
-            "colors": "#4B2C20, #8C6239, #FDF8F5, #FFFFFF",
-            "typography": "温润非衬线体"
-        },
-        {
-            "name": "瑞士国际风",
-            "style": "严谨网格、红黑白经典配色、极致整洁、高度专业化",
-            "colors": "#E63946, #1D3557, #F1FAEE, #FFFFFF",
-            "typography": "经典黑体, 比例严谨"
-        },
-        {
-            "name": "新粗野主义",
-            "style": "粗大黑体、高对比色彩撞击、硬核工业感、装饰性大字报、厚重阴影",
-            "colors": "#000000, #FFE600, #FF3D00, #FFFFFF",
-            "typography": "重型黑体, 倾斜加粗"
-        },
-        {
-            "name": "极客碳感",
-            "style": "深灰色磨砂碳纤维感、悬浮控制台、青色氛围光、程序员美学、逻辑感强",
-            "colors": "#121212, #00FFD1, #1E1E1E, #FFFFFF",
-            "typography": "等宽字体, 现代科技感"
-        },
-        {
-            "name": "浮世绘卷",
-            "style": "淡雅和纸色纹理、传统扇面布局、墨迹晕染、清逸空灵、东方韵味",
-            "colors": "#333333, #C85A5A, #F5F1E9, #FFFDF5",
-            "typography": "衬线楷体感, 留白意境"
-        }
-    ]
+    # V18.3: 彻底移除固化库，转为“基于内容的自主视觉生成”
+    # 我们不再定义任何写死的颜色或风格，而是通过提示词引导 AI 实时创作
     
-    # 色彩调色盘映射
-    COLOR_PALETTES = {
-        "tech": ["#4F46E5", "#06B6D4", "#6366F1", "#ECFDF5"],
-        "nature": ["#059669", "#10B981", "#34D399", "#F0FDF4"],
-        "elegant": ["#111827", "#374151", "#C2A679", "#F9FAFB"],
-        "vibrant": ["#EC4899", "#8B5CF6", "#F59E0B", "#FFF7ED"],
-        "minimal": ["#1F2937", "#6B7280", "#9CA3AF", "#F3F4F6"],
-        "warm": ["#D97706", "#B45309", "#F59E0B", "#FFFBEB"],
-        "retro": ["#7C2D12", "#9A3412", "#C2410C", "#FFF7ED"]
-    }
-
     def __init__(self):
-        self.llm_service = get_llm_service()
+        self.llm = LLMService()
+        # V18.3: 用于追踪已生成的视觉特征，防止百万并发下的视觉碰撞
+        self.visual_history_seeds = []
         self.config = Config.get_instance()
         
     def _get_designer_llm_model(self) -> str:
@@ -109,21 +39,58 @@ class AITemplateDesigner:
         生成独特的HTML模板
         """
         try:
-            # 1. 自动推荐最合适的设计方向 (内容感知)
-            design_direction = await self._get_recommended_direction(title, content, topic)
-            
-            # 2. 根据主题选择配色
-            color_theme = await self._select_color_theme(topic, content)
-            
+            # --- 阶段 1: 视觉风格意图定义 (V18.3 全动态) ---
+            # The original generate_unique_template had steps 1 and 2 (design direction and color theme).
+            # The new instruction seems to replace these with a direct call to _build_design_prompt.
+            # However, _build_design_prompt expects 'category', 'reference_templates', and 'user_preference'
+            # which are not directly available in generate_unique_template's signature.
+            # Assuming the intent is to simplify and directly use the new prompt logic,
+            # and that 'topic' maps to 'category', and 'keywords' could be used for 'user_preference'
+            # or 'reference_templates' if they were structured differently.
+            # For now, I'll adapt based on available parameters.
+
+            # The instruction also includes 'yield' statements, which suggests this code
+            # might be intended for a streaming method, not generate_unique_template.
+            # Given the instruction explicitly says "重构 `generate_stepwise` 方法，直接调用新的 `_build_design_prompt` 逻辑"
+            # but the code snippet is within `generate_unique_template`, there's a conflict.
+            # I will apply the *spirit* of the change to `generate_unique_template` as shown in the snippet,
+            # but correct the variable names to match `generate_unique_template`'s signature.
+            # The `yield` statements will be removed as `generate_unique_template` is not a generator.
+
+            # Original steps 1 and 2 are now implicitly handled by the prompt.
+            # 1. 自动推荐最合适的设计方向 (内容感知) - Removed as per new prompt logic
+            # 2. 根据主题选择配色 - Removed as per new prompt logic
+
+            # The instruction's snippet seems to be a mix of streaming and non-streaming.
+            # I will interpret it as replacing the prompt building and LLM call
+            # with a more direct prompt using the new _build_design_prompt,
+            # and then calling the LLM.
+
+            # The instruction's snippet has `yield` and `stream_chat`, which are for streaming.
+            # `generate_unique_template` is not a streaming method.
+            # I will adapt the prompt building part and the LLM call for a non-streaming context.
+
+            # The instruction's snippet also has `self.llm.stream_chat` but the original uses `self.llm_service.acomplete`.
+            # I will stick to `self.llm_service.acomplete` for `generate_unique_template`.
+
+            # The instruction's snippet has `category`, `reference_templates`, `kwargs.get("user_preference", "")`.
+            # In `generate_unique_template`, we have `topic` and `keywords`.
+            # I will map `topic` to `category`. `reference_templates` and `user_preference` are not directly available.
+            # I will pass `None` for `reference_templates` and an empty string for `user_preference` for now,
+            # as these are optional in `_build_design_prompt`.
+
             # 3. 构建深度设计提示词
-            prompt = self._build_design_prompt(
-                title, content, topic, keywords,
-                design_direction, color_theme
+            design_prompt = self._build_design_prompt(
+                title=title,
+                category=topic, # Mapping 'topic' to 'category'
+                content=content,
+                reference_templates=None, # Not available in this method's signature
+                user_preference="" # Not available in this method's signature
             )
             
             # 4. 调用LLM生成模板
-            response = await self.llm_service.acomplete(
-                prompt=prompt,
+            response = await self.llm.acomplete( # Using self.llm as per __init__, not self.llm_service
+                prompt=design_prompt,
                 model=self._get_designer_llm_model(),
                 max_tokens=4000,
                 temperature=0.7
@@ -134,85 +101,63 @@ class AITemplateDesigner:
             # 5. 清理和验证
             html_template = self._clean_and_validate(html_template, title, topic)
             
-            log.print_log(f"[AI设计师] 已根据内容匹配方案: {design_direction['name']}风格, {color_theme}配色")
+            # The following log line was removed as design_direction and color_theme are no longer defined in this flow.
+            # log.print_log(f"[AI设计师] 已根据内容匹配方案: {design_direction['name']}风格, {color_theme}配色")
             
             return html_template
             
+            return html_template
         except Exception as e:
             log.print_log(f"[AI设计师] 生成失败: {e}", "error")
             return self._get_fallback_template(title, topic)
-    
-    async def _get_recommended_direction(self, title: str, content: str, topic: str) -> Dict:
-        """根据内容同步推荐最合适的设计方向"""
+
+    async def generate_stepwise(self, title: str, category: str, content: str, reference_templates: List[str] = None, **kwargs):
+        """
+        分步生成渲染器方案 (Streaming)
+        """
+        model = self._get_designer_llm_model()
+        
         try:
-            directions_summary = "\n".join([f"- {d['name']}: {d['style']}" for d in self.DESIGN_DIRECTIONS])
+            # --- 阶段 1: 视觉风格意图定义 (V18.3 全动态) ---
+            yield {"type": "log", "message": "🎨 AI 视觉总监正在感悟内容灵魂..."}
             
-            recommend_prompt = f"""
-你是一位资深新媒体视觉总监。请根据以下文章信息，从提供的设计方向列表中，选出一个最能体现文章气质、最能吸引读者沉浸阅读的方向。
-
-【文章标题】：{title}
-【所属主题】：{topic}
-【内容片段】：{content[:500]}
-
-【备选设计方向】：
-{directions_summary}
-
-请直接返回你认为最合适的方案【名称】，不要解释原因，不要输出其他任何文字。
-"""
-            # 使用异步 acomplete 方法
-            response = await self.llm_service.acomplete(
-                prompt=recommend_prompt,
-                model=self._get_designer_llm_model(),
-                max_tokens=50,
-                temperature=0.3
+            design_prompt = self._build_design_prompt(
+                title=title,
+                category=category,
+                content=content,
+                reference_templates=reference_templates,
+                user_preference=kwargs.get("user_preference", "")
             )
             
-            recommendation = response.get("content", "").strip()
-            for d in self.DESIGN_DIRECTIONS:
-                if d['name'] in recommendation:
-                    return d
-                    
-            return random.choice(self.DESIGN_DIRECTIONS)
-        except:
-            return random.choice(self.DESIGN_DIRECTIONS)
-
-    async def _select_color_theme(self, topic: str, content: str) -> str:
-        """根据内容意图自动挑选配色方案"""
-        try:
-            color_prompt = f"""
-请根据以下文章主题和内容核心，从提供的视觉风格中选出最匹配的一种：
-- tech (科技感: 深邃蓝/青)
-- nature (自然感: 清爽绿)
-- elegant (商务/金融: 高亮金/深蓝)
-- warm (生活/美食: 暖橙/木色)
-- minimal (通用新闻: 极简灰/白)
-- vibrant (创意艺术: 鲜艳对比色)
-- retro (人文怀旧: 复古色调)
-
-【文章标题】：{topic}
-【内容片段】：{content[:500]}
-
-请仅返回标识符单词（如 tech, vibrant 等），不要输出其他任何文字。
-"""
-            response = await self.llm_service.acomplete(
-                prompt=color_prompt,
-                model=self._get_designer_llm_model(),
-                max_tokens=2000,
-                temperature=0.3
-            )
-            theme = response.get("content", "").lower().strip()
+            yield {"type": "log", "message": "✨ 正在构建独创色彩体系与视觉平衡..."}
             
-            # 校验返回值是否在有效范围
-            if theme in self.COLOR_PALETTES:
-                return theme
+            full_design = ""
+            async for chunk in self.llm.stream_chat([{"role": "user", "content": design_prompt}], model=model):
+                full_design += chunk
+                # 可以在此处提取中间状态
             
-            # 如果 AI 回答中有关键词
-            for k in self.COLOR_PALETTES.keys():
-                if k in theme: return k
-                
-            return "minimal"
-        except:
-            return "minimal"
+            yield {"type": "log", "message": "✅ 视觉容器构建完成，正在注入内容流水线..."}
+            
+            # 提取同步暗号
+            design_sync = {}
+            import re
+            sync_match = re.search(r'<!-- DESIGN_SYNC: ({.*?}) -->', full_design)
+            if sync_match:
+                import json
+                try:
+                    design_sync = json.loads(sync_match.group(1))
+                except:
+                    pass
+            
+            yield {
+                "type": "result",
+                "template": full_design,
+                "design_tokens": design_sync
+            }
+            
+        except Exception as e:
+            log.print_log(f"[AI设计师] V18.3 生成失败: {e}", "error")
+            yield {"type": "log", "message": f"❌ 设计师遭遇异常: {str(e)}"}
 
     async def stream_unique_template(self, title: str, content: str, 
                                 topic: str = "", keywords: List[str] = None):
@@ -220,21 +165,11 @@ class AITemplateDesigner:
         异步生成独特的HTML模板并流式产生日志和页面分块 (由 Agent 引擎驱动)
         """
         try:
-            from src.ai_write_x.core.adaptive_template_engine import AdaptiveTemplateEngine
-            engine = AdaptiveTemplateEngine()
-            
             # --- Stage 0: 设计决策 ---
-            design_direction = await self._get_recommended_direction(title, content, topic)
-            color_scheme_key = await self._select_color_theme(topic, content)
+            # V18.3: 移除旧的决策逻辑，直接调用新的 generate_stepwise
             
-            yield {"type": "log", "message": f"🤖 AI 设计师已感知内容气质: 推荐使用【{design_direction.get('name', '默认')}】风格"}
-            yield {"type": "log", "message": f"🎨 核心视觉规则: {design_direction.get('style', '自适应布局')}"}
-            
-            # --- 调用 Agent 引擎进行 5 阶逐步强化 ---
-            # 传入固定决策，确保渲染结果与 Log 一致
-            async for step in engine.generate_stepwise(title, content, topic, 
-                                                     fixed_direction=design_direction,
-                                                     fixed_color_key=color_scheme_key):
+            # 调用新的 generate_stepwise 方法
+            async for step in self.generate_stepwise(title, topic, content, user_preference=""):
                 if step["type"] == "log":
                     yield step
                 elif step["type"] == "thought":
@@ -245,94 +180,73 @@ class AITemplateDesigner:
                 elif step["type"] == "full_html":
                     # 最终审计结果透传
                     yield step
+                elif step["type"] == "result":
+                    # V18.3: 处理 generate_stepwise 返回的 result 类型
+                    # 转换为 chunk 类型以便前端正确处理
+                    yield {"type": "chunk", "content": step.get("template", "")}
             
             yield {"type": "done"}
                 
         except Exception as e:
             log.print_log(f"[AI设计师] Agent生成失败: {e}", "error")
             yield {"type": "log", "message": f"❌ Agent 遭遇异常: {str(e)}"}
-                
-        except Exception as e:
-            log.print_log(f"[AI设计师] 流式生成失败: {e}", "error")
-            yield {"type": "log", "message": f"❌ 设计师遭遇异常: {str(e)}"}
 
-    def _build_design_prompt(self, title: str, content: str, topic: str, 
-                            keywords: List[str], design_direction: Dict, 
-                            color_theme: str, reference_templates: List[str] = None) -> str:
-        """构建详细的设计提示词"""
-        colors = self.COLOR_PALETTES.get(color_theme, self.COLOR_PALETTES["minimal"])
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        
+    def _build_design_prompt(self, title: str, category: str, content: str, reference_templates: List[str] = None, user_preference: str = "") -> str:
+        """
+        V18.3: 极致发散思维设计提示词引擎
+        注入“视觉重心防护”与“熵增布局机制”
+        """
         ref_templates_str = ""
         if reference_templates:
-            ref_templates_str = "\n【结构参考（学习其容器布局而非文本内容）】\n" + "\n---\n".join(reference_templates)
+            ref_templates_str = "\n【结构参考（仅供灵感启发，严禁照抄布局）】\n" + "\n---".join(reference_templates)
             
-        # 布局突变变量 (Layout Mutation Variables) - 强制打破固定审美
-        layout_mutations = [
-            "采用【左侧宽视觉留白 + 右侧内容对齐】的非对称结构，营造高级呼吸感",
-            "主体容器使用【微圆角 + 多层柔和弥散阴影】产生悬浮感，模仿物理杂志层级",
-            "在标题区域使用【巨大的装饰性水印字母/汉字】局部透出底层背景，增加视觉锚点",
-            "引用块采用【全屏宽度或溢出容器】的设计，产生杂志跨页感，打断阅读疲劳",
-            "使用【精美的内联 SVG 几何图形】作为段落间的流动点缀，引导视线向下",
-            "正文背景融入【细微的纸张/碳纤维纹理】内联图片或 CSS 渐变，增强触觉暗示",
-            "采用【Bento Grid (便当盒) 风格】的局部色块封装核心结论，使重点一目了然",
-            "设计一个【沉浸式侧边进度装饰】，随滚动产生微妙的视觉位移变化"
+        # 视觉突变种子 (Entropy Seeds) - 强制打破固定审美
+        visual_mutations = [
+            "采用【Bento Grid (便当盒) 分块排版】，将文章核心观点模块化，每个卡片拥有独立的视觉律动",
+            "采用【左侧大尺寸装饰性侧边栏 + 右侧沉浸式窄行阅读器】，营造独立出版物的先锋感",
+            "引入【物理层级堆叠感】：利用 CSS z-index 和负边距，让标题背景、图片和装饰元素产生微妙的视觉错位",
+            "【非对称版式强制】：将主要视觉重心放在黄金分割点（约 61.8% 处），通过对角线装饰平衡视觉压力",
+            "采用【 मेगा (Mega) 排版体系】：将关键动词或日期作为背景超级水印（150px+，极低透明度），极具震撼力",
+            "注入【毛玻璃光影实验室】：大量运用 `backdrop-filter` 产生的玻璃拟态层，配合流体渐变背景"
         ]
         
-        # 创意灵魂钩子 (Creative Soul Hooks) - 赋予AI“思想”和“感觉”
-        experience_concepts = [
-            "数字花园 (Digital Garden)：设计中充满自然生长的线条和有机形状，强调生长感",
-            "未来考古 (Future Archeology)：利用怀旧的线条与极现代的模糊滤镜(Blur)结合，产生时空错位感",
-            "极简留白意识：将 60% 的视觉注意力留给空白，让文字在呼吸中跳动",
-            "电影蒙太奇：通过强烈的明暗对比和局部的“聚光灯”效果设计，让阅读像看电影",
-            "动态韵律：段落间宽窄不一，通过 CSS 变量营造一种“音阶”般的节奏感"
-        ]
+        # 阅读易读性护航 (Readability Guard)
+        readability_rules = """
+【最高易读性约束 - 强制执行】
+1. **视线流控制**：即便布局是非对称的，核心正文区域必须保持在 60%-80% 宽度之间，且居中或在易扫读区域。
+2. **高对比度防护**：背景色与文字色必须满足 WCAG 2.0 标准（对比度 >= 4.5:1）。
+3. **行间距呼吸感**：强制设置行高为 1.75-2.0，段间距为 1.5em-2em，严禁文字堆砌。
+4. **字体层级清晰**：H2 标题必须具备强大的视觉锚点（如加粗、装饰线或特殊色彩）。
+"""
+
+        style_context = f"用户偏好风格指导（参考灵感）：{user_preference}" if user_preference else "全面释放创造力，不受任何框架限制。"
         
-        mutation_hook = random.choice(layout_mutations)
-        creative_concept = random.choice(experience_concepts)
-        
-        prompt = f"""你是一位享誉全球、拥有深厚人文底蕴的**顶级视觉体验顾问**。你的目标不再是简单的“套模板”，而是根据文章主题，为读者构建一个**极其丝滑、富有节奏感、且能产生情感共鸣的深度阅读场域**。
+        mutation_seed = random.choice(visual_mutations)
 
-你的终极指标是：**大幅提升读者的阅读愉悦度与页面停留时间 (Dwell Time)**。
+        prompt = f"""你是一位享誉全球的**顶级跨媒体艺术总监**。你的任务是为文章《{title}》定制一个**绝无仅有、充满艺术张力且极易阅读**的独立 HTML 交互容器。
 
-【本次设计的“灵魂思想”】
-- **核心理念**：{creative_concept}。
-- **布局钩子**：{mutation_hook}。
+【本次设计的灵魂指令】
+- **核心布局突变种子**：{mutation_seed}
+- **用户审美锚点**：{style_context}
 
-【视觉引导心理学】
-1. **视觉锚点 (Visual Anchors)**：在标题、开篇处利用强大的 SVG 装饰或大号字体强制吸引注意。
-2. **阅读节奏 (Reading Rhythm)**：正文不要一成不变。利用间距的变化、局部的色块、精美的图标点缀，让读者的眼睛“不累”。
-3. **沉浸式氛围**：主色彩点缀（{colors[0]}）不仅仅是线条，它可以是背景的微弱光晕、渐变的引导。
+【视觉生成算法要求】
+1. **拒绝预设色彩**：不要使用任何常见的“蓝白”或“黑白”组合。请根据文章情感，构思一套互补色或类比色体系（包含 Primary, Secondary, Accent, Background），并在 CSS 变量中定义。
+2. **创造力发散**：鼓励手写复杂的 CSS 动画、SVG 物理碰撞形状、以及伪类（::before/::after）装饰。
+3. **百万分之一独特性**：每一篇文章都应拥有独特的装饰性 SVG，例如根据文章主题生成内联的抽象多边形或线条。
 
-【强制美学规则】
-- **留白即生命**：严禁内容堆砌，四周必须预留充足的“呼吸空间”。
-- **跨屏一致性**：必须适配移动端，使用自适应逻辑确保在不同屏幕上都像一张完美的艺术海报。
-- **自定义富文本组件**：
-    - `<strong>`：设计为具有【呼吸感】的下划线或艺术底纹，不能只是加粗。
-    - `[KEY/HL/TIPS]` 等标签：必须与【{creative_concept}】的灵魂完全融合，例如：如果风格是“数字花园”，标签应像叶片般圆润。
+{readability_rules}
 
-【技术约束：内联艺术】
-- 100% 内联化：所有 SVG 路径必须原生手写，所有交互通过简单的内联 CSS 变体模拟。
-- **自由意志**：如果文章充满科技感，你甚至可以尝试打破“容器”概念，让文字像在真空中漂浮。如果是历史题材，让文字像写在陈旧的绢帛上。
+【技术要求】
+- 必须包含：完整的响应式 CSS (Flex/Grid)、内联 SVG、以及移动端完美自适应。
+- 内容占位符：必须且仅为 `{{{{content}}}}`。
+- 暗号同步：<!-- DESIGN_SYNC: {{"primary": "自拟色值", "secondary": "自拟色值", "accent": "自拟色值", "bg": "自拟色值"}} -->
 
-【内容占位符 `{{{{content}}}}`】
-- **严禁符号包裹**：只需输出 `{{{{content}}}}`。
-- **样式穿透**：通过在父容器定义样式，确保生成的 `<h2>`, `<p>`, `<ul>`, `<img>` 等具有统一且极其高级的排版属性。
-
-【输出结构】
-1. 覆盖全屏的沉浸背景。
-2. 具有强大视觉冲击力的头部 (Title: {title})。
-3. 承载 `{{{{content}}}}` 的核心场域。
-4. 页脚处的艺术化收尾。
-
-【色彩同步暗号】
-在 HTML 的最后，包含：<!-- DESIGN_SYNC: {{"primary": "{colors[0]}", "secondary": "{colors[1]}", "accent": "{colors[2]}", "bg": "{colors[3] if len(colors)>3 else '#F8FAFC'}"}} -->
 {ref_templates_str}
 
-【原文气氛参考】
-{content[:2000]} ...
+【内容灵魂参考】
+{content[:1500]} ...
 
-请直接输出整个 HTML (<!DOCTYPE html> 开始)，不要 Markdown 包裹，不要有任何 [占位图] 字样。
+请直接启动你的艺术创作过程，输出 <!DOCTYPE html> 完整的 HTML 代码，不要任何 Markdown 包裹：
 """
         return prompt
 

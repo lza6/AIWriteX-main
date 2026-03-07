@@ -68,6 +68,8 @@ class ContentAnalyzer:
             if line.startswith('#'):
                 level = len(line) - len(line.lstrip('#'))
                 text = line.lstrip('#').strip()
+                # 清理Markdown粗体符号
+                text = text.replace('**', '').replace('*', '').replace('_', '').strip()
                 blocks.append(ContentBlock(
                     type='heading',
                     content=text,
@@ -470,13 +472,21 @@ class ModularTemplateBuilder:
         cleaned_content = block.content
         
         if block.type == 'heading':
-            icon_name = self._get_icon_for_heading(block.content)
+            # 清理标题中的 Markdown 和 HTML 标记
+            clean_title = block.content
+            clean_title = re.sub(r'</?strong>', '', clean_title)
+            clean_title = re.sub(r'</?em>', '', clean_title)
+            # 强制移除所有 ** 和 * 符号（无论是否成对）
+            clean_title = clean_title.replace('**', '').replace('*', '').replace('_', '').strip()
+            # 移除可能残留的HTML实体
+            clean_title = re.sub(r'&[a-z]+;', '', clean_title)
+            icon_name = self._get_icon_for_heading(clean_title)
             icon_svg = self._get_svg_icon(icon_name, 24, self.design_tokens["primary"])
             return f'''
         <!-- 章节标题 -->
         <div class="section-title" style="position: relative; margin: 50px 0 25px 0; display: flex; align-items: center; color: {self.design_tokens["secondary"]};">
             <div class="section-icon" style="background: white; padding: 8px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: {self.design_tokens["primary"]}; z-index: 2; margin-right: 15px; border: 3px solid {self.design_tokens["bg"]}; display: flex; align-items: center; justify-content: center;">{icon_svg}</div>
-            <h2 style="font-size: 1.5em; font-weight: 700;">{block.content}</h2>
+            <h2 style="font-size: 1.5em; font-weight: 700;">{clean_title}</h2>
         </div>'''
         else:
             date_str = self._extract_date_from_text(block.content)
@@ -593,19 +603,28 @@ class ModularTemplateBuilder:
         
         # 阶段 1: 基础格式化 (Markdown 转 HTML)
         if stage >= 1:
+            # 强化预处理：清理标题残留 (如 ## 或 ###)
+            text = re.sub(r'(?m)^#{1,6}\s*', '', text)
+            
             # 图片转换
             text = re.sub(r'\!\[(.*?)\]\((.*?)\)', 
                          lambda m: f'<img src="{m.group(2)}" alt="{m.group(1)}" style="max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; display: block; box-shadow: 0 6px 20px rgba(0,0,0,0.07);">', 
                          text)
-            # 基础加粗
+            # 基础加粗 (处理多种变体)
             text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+            text = re.sub(r'__(.+?)__', r'<strong>\1</strong>', text)
+            
             # 基础斜体
             text = re.sub(r'(?<!\*)\*([^\*]+?)\*(?!\*)', r'<em>\1</em>', text)
+            text = re.sub(r'(?<!_)_([^_]+?)_(?!_)', r'<em>\1</em>', text)
             
             # 兼容性高亮处理 (阻止 [KEY:] [HL:] 在 Stage 1/2 以源码形式露脸)
             text = re.sub(r'\[(HL|KEY):\s*(.+?)\s*\]', 
                          lambda m: f'<mark style="background: rgba(255, 230, 0, 0.2); border-radius: 2px; padding: 0 2px;">{m.group(2)}</mark>', 
                          text)
+
+            # 兜底清理：移除任何成对或不成对的 Markdown 符号残留
+            text = text.replace('**', '').replace('__', '')
 
         # 阶段 2: AI 驱动的元素智能注入 Agent
         if stage >= 2:
@@ -637,20 +656,30 @@ class ModularTemplateBuilder:
             accent = self.design_tokens["accent"]
             bg = self.design_tokens["bg"]
             
-            # 使用“荧光笔”效果的高级标注 (带有微妙的旋转和阴影，但保持专业)
-            text = re.sub(r'<strong>(.+?)</strong>', 
-                         lambda m: f'<strong style="color: {secondary}; font-weight: 800; background: linear-gradient(120deg, {primary}22 0%, {primary}44 100%); padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">{m.group(1)}</strong>', 
-                         text)
+            # V19.4 多色语义高亮系统 - 直接映射到 CSS 变量
+            # hl-data (数据), hl-warn (警告), hl-gold (金句), hl-info (信息)
+            semantic_hl_types = ["data", "warn", "gold", "info"]
             
-            # 高级高亮标记 [HL: text] -> 丝滑弥散阴影高亮 (覆盖 Stage 1 的简易处理)
+            # 使用更智能的正则替换
+            def replace_with_semantic_hl(m, hl_type):
+                return f'<strong style="color: var(--hl-{hl_type}-text); background: var(--hl-{hl_type}-bg); padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">{m.group(1)}</strong>'
+
+            # 启发式语义识别 - 映射到颜色
+            if "has_data" in getattr(self, 'current_block_metadata', {}):
+                text = re.sub(r'<strong>(.+?)</strong>', lambda m: replace_with_semantic_hl(m, "data"), text)
+            elif any(w in text for w in ["警告", "风险", "注意", "震惊", "但是", "然而"]):
+                text = re.sub(r'<strong>(.+?)</strong>', lambda m: replace_with_semantic_hl(m, "warn"), text)
+            elif any(w in text for w in ["总之", "核心", "总之", "绝对", "金句"]):
+                text = re.sub(r'<strong>(.+?)</strong>', lambda m: replace_with_semantic_hl(m, "gold"), text)
+            else:
+                # 轮换逻辑
+                idx = random.randint(0, len(semantic_hl_types) - 1)
+                text = re.sub(r'<strong>(.+?)</strong>', lambda m: replace_with_semantic_hl(m, semantic_hl_types[idx]), text)
+
+            # 高级高亮标记 [HL: text] -> 丝滑弥散阴影高亮
             text = re.sub(r'\[(HL|KEY):\s*(.+?)\s*\]', 
-                         lambda m: f'<mark style="background: {accent}22; border: 1px solid {accent}44; color: {secondary}; padding: 2px 6px; border-radius: 6px; font-weight: bold; box-shadow: 0 2px 10px {accent}11;">{m.group(2)}</mark>', 
+                         lambda m: f'<mark style="background: var(--hl-gold-bg); border: 1px solid rgba(0,0,0,0.05); color: var(--hl-gold-text); padding: 2px 6px; border-radius: 6px; font-weight: bold;">{m.group(2)}</mark>', 
                          text)
-            
-            # 自动识别核心短语并增强 (启发式)
-            phrases = ["核心底层", "关键路径", "绝对原则", "深度解构"]
-            for p in phrases:
-                text = text.replace(p, f'<span style="font-weight: 600; color: {primary};">{p}</span>')
 
         return text
     

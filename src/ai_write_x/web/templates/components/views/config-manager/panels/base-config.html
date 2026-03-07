@@ -150,6 +150,15 @@
                     </label>
                     <small class="form-help">启用后，AI将严格过滤已抓取过或已生成的旧热点，确保每一篇都是最新的。</small>
                 </div>
+
+                <div class="form-group form-group-half">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="serial-mode-forced" checked>
+                        <span class="checkbox-custom"></span>
+                        串行任务模式 (API 并发=1)
+                    </label>
+                    <small class="form-help">默认开启。勾选时一次仅执行一个任务；取消勾选则激活 V18.0 Swarm 蜂群高效并发模式。</small>
+                </div>
             </div>
         </div>
     </div>

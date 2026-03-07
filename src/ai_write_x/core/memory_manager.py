@@ -33,7 +33,7 @@ class MemoryManager:
             return
             
         try:
-            from src.ai_write_x.database.manager import get_session
+            from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             
             with open(self.memory_file, 'r', encoding='utf-8') as f:
@@ -96,7 +96,7 @@ class MemoryManager:
     def add_topic(self, topic: str, content: Optional[str] = None, quality_score: Optional[float] = None):
         """V13.0: 将话题写入 SQLite 神经记忆引擎，并同步生成语义哈希"""
         try:
-            from src.ai_write_x.database.manager import get_session
+            from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             from sqlmodel import select
             import hashlib
@@ -168,7 +168,7 @@ class MemoryManager:
     def get_stats(self) -> dict:
         """V13.0: 从 SQLite 获取神经记忆统计摘要"""
         try:
-            from src.ai_write_x.database.manager import get_session
+            from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             from sqlmodel import select, func
             
@@ -275,7 +275,7 @@ class MemoryManager:
     def get_similarity_context(self, topic: str) -> str:
         """V13.0: 神经记忆检索 - 从 SQLite 获取语义相似历史"""
         try:
-            from src.ai_write_x.database.manager import get_session
+            from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             from sqlmodel import select, desc
             
@@ -329,7 +329,7 @@ class MemoryManager:
     def get_resonance_context(self, topic: str) -> str:
         """V13.0: 神经共振映射 (Neural Resonance) - 从 SQLite 挖掘高维对撞素材"""
         try:
-            from src.ai_write_x.database.manager import get_session
+            from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             from sqlmodel import select, desc
             import random

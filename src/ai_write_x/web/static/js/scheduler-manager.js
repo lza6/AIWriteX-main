@@ -35,7 +35,9 @@ class SchedulerManager {
     async fetchTasks() {
         try {
             const response = await fetch('/api/scheduler/tasks', {
-                headers: { 'X-App-Client-Token': window.appConfig?.token || '' }
+                headers: {
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
+                }
             });
             if (response.ok) {
                 this.tasks = await response.json();
@@ -48,7 +50,9 @@ class SchedulerManager {
     async fetchLogs() {
         try {
             const response = await fetch('/api/scheduler/logs?limit=50', {
-                headers: { 'X-App-Client-Token': window.appConfig?.token || '' }
+                headers: {
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
+                }
             });
             if (response.ok) {
                 this.logs = await response.json();
@@ -189,7 +193,9 @@ class SchedulerManager {
 
         try {
             const response = await fetch(`/api/scheduler/verify-platform?platform=${platform}`, {
-                headers: { 'X-App-Client-Token': window.appConfig?.token || '' }
+                headers: {
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
+                }
             });
             const data = await response.json();
             if (data.success) {
@@ -226,7 +232,7 @@ class SchedulerManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-App-Client-Token': window.appConfig?.token || ''
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
                 },
                 body: JSON.stringify({
                     topic,
@@ -259,7 +265,7 @@ class SchedulerManager {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-App-Client-Token': window.appConfig?.token || ''
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
                 },
                 body: JSON.stringify({ status: newStatus })
             });
@@ -278,7 +284,9 @@ class SchedulerManager {
         try {
             const response = await fetch(`/api/scheduler/tasks/${id}`, {
                 method: 'DELETE',
-                headers: { 'X-App-Client-Token': window.appConfig?.token || '' }
+                headers: {
+                    'X-App-Client-Token': window.APP_CLIENT_TOKEN || window.appConfig?.token || localStorage.getItem('app_client_token') || ''
+                }
             });
 
             if (response.ok) {

@@ -60,19 +60,21 @@ class NewsHubManager:
     async def aggregate_once(self, 
                            categories: Optional[List[DataSourceCategory]] = None,
                            min_score: float = 6.0,
-                           enable_ai_processing: bool = True) -> AggregationResult:
+                           enable_ai_processing: bool = True,
+                           target_count: int = 100) -> AggregationResult:
         """
-        执行一次聚合
+        执行一次聚合 (V17大规模抓取优化)
         
         Args:
             categories: 指定分类（None表示全部）
             min_score: 最小分数阈值
             enable_ai_processing: 是否启用AI处理
+            target_count: 目标获取数量，默认100条
             
         Returns:
             聚合结果
         """
-        log.print_log("[NewsHub] 开始新闻聚合...")
+        log.print_log(f"[NewsHub V17] 开始新闻聚合，目标: {target_count}条...")
         
         result = AggregationResult()
         start_time = datetime.now()
@@ -86,11 +88,14 @@ class NewsHubManager:
             else:
                 sources = self.source_registry.get_enabled_sources()
             
+            # V17: 按优先级排序，优先高质量源
+            sources.sort(key=lambda s: s.priority, reverse=True)
+            
             log.print_log(f"[NewsHub] 激活数据源: {len(sources)} 个")
             
-            # 2. 采集数据（异步）
-            raw_contents = await self._fetch_from_sources(sources)
-            log.print_log(f"[NewsHub] 原始内容: {len(raw_contents)} 条")
+            # 2. 采集数据（异步，V17支持大规模抓取）
+            raw_contents = await self._fetch_from_sources(sources, target_count)
+            log.print_log(f"[NewsHub] 原始内容: {len(raw_contents)} 条 (目标: {target_count})")
             
             # 3. 转换为新闻项
             news_items = self._convert_to_news_items(raw_contents)
@@ -196,28 +201,53 @@ class NewsHubManager:
         self.running = False
         log.print_log("[NewsHub] 已停止")
     
-    async def _fetch_from_sources(self, sources: List[DataSource]) -> List[Dict[str, Any]]:
-        """从多个数据源获取数据"""
+    async def _fetch_from_sources(self, sources: List[DataSource], target_count: int = 100) -> List[Dict[str, Any]]:
+        """
+        从多个数据源获取数据 (V17大规模抓取优化)
+        
+        Args:
+            sources: 数据源列表
+            target_count: 目标获取数量，用于动态调整策略
+        """
         all_contents = []
         
-        # 限制并发数
-        semaphore = asyncio.Semaphore(10)
+        # V17: 提升并发数以支持大规模抓取 (20->50)
+        concurrency_limit = min(50, max(20, target_count // 5))
+        semaphore = asyncio.Semaphore(concurrency_limit)
+        
+        log.print_log(f"[NewsHub V17] 从 {len(sources)} 个数据源获取，目标: {target_count}条，并发: {concurrency_limit}")
         
         async def fetch_with_limit(source: DataSource):
             async with semaphore:
                 try:
-                    contents = await self._fetch_single_source(source)
+                    # V17: 延长超时以支持大规模抓取
+                    contents = await asyncio.wait_for(
+                        self._fetch_single_source(source),
+                        timeout=30.0
+                    )
+                    log.print_log(f"[NewsHub] ✓ {source.name}: {len(contents)}条")
                     return contents
+                except asyncio.TimeoutError:
+                    log.print_log(f"[NewsHub] ✗ {source.name}: 超时", "warning")
+                    return []
                 except Exception as e:
-                    log.print_log(f"[NewsHub] 获取 {source.name} 失败: {e}", "warning")
+                    log.print_log(f"[NewsHub] ✗ {source.name}: {e}", "warning")
                     return []
         
-        # 并行获取
-        tasks = [fetch_with_limit(source) for source in sources]
-        results = await asyncio.gather(*tasks)
-        
-        for contents in results:
-            all_contents.extend(contents)
+        # 分批并行获取，避免一次性创建过多任务
+        batch_size = 20
+        for i in range(0, len(sources), batch_size):
+            batch = sources[i:i+batch_size]
+            tasks = [fetch_with_limit(source) for source in batch]
+            results = await asyncio.gather(*tasks)
+            
+            for contents in results:
+                all_contents.extend(contents)
+            
+            # 如果已经达到目标数量，提前结束
+            if len(all_contents) >= target_count:
+                log.print_log(f"[NewsHub] 已达成目标数量: {len(all_contents)}条")
+                break
         
         return all_contents
     
@@ -249,9 +279,14 @@ class NewsHubManager:
             if source.id == "hackernews":
                 return await self._fetch_hackernews(source)
             
+            # 获取全局代理
+            from src.ai_write_x.config.config import Config
+            proxy = Config.get_instance().proxy or None
+            
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     source.api_endpoint or source.url,
+                    proxy=proxy,
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -284,10 +319,15 @@ class NewsHubManager:
         item_endpoint = source.config.get("item_endpoint", "https://hacker-news.firebaseio.com/v0/item/")
         
         try:
+            # 获取全局代理
+            from src.ai_write_x.config.config import Config
+            proxy = Config.get_instance().proxy or None
+
             async with aiohttp.ClientSession() as session:
                 # 先获取热门故事ID列表
                 async with session.get(
                     source.api_endpoint,
+                    proxy=proxy,
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -299,6 +339,7 @@ class NewsHubManager:
                                     # 获取每个故事的详情
                                     async with session.get(
                                         f"{item_endpoint}{story_id}.json",
+                                        proxy=proxy,
                                         timeout=aiohttp.ClientTimeout(total=10)
                                     ) as story_response:
                                         if story_response.status == 200:
@@ -333,9 +374,14 @@ class NewsHubManager:
         contents = []
         
         try:
+            # 获取全局代理
+            from src.ai_write_x.config.config import Config
+            proxy = Config.get_instance().proxy or None
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     source.api_endpoint or source.url,
+                    proxy=proxy,
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -370,9 +416,13 @@ class NewsHubManager:
                 "per_page": 20
             }
             
+            # 获取全局代理
+            from src.ai_write_x.config.config import Config
+            proxy = Config.get_instance().proxy or None
+
             import aiohttp
             async with aiohttp.ClientSession() as session:
-                async with session.get(trending_url, params=params) as response:
+                async with session.get(trending_url, params=params, proxy=proxy) as response:
                     if response.status == 200:
                         data = await response.json()
                         for repo in data.get("items", []):

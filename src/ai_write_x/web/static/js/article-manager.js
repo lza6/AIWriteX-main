@@ -1,5 +1,72 @@
 // 文章管理器类
 class ArticleManager {
+    // 查看文章原始热点内容
+    async showArticleSource(article) {
+        try {
+            // 从路径中提取文件名（不带扩展名）作为 article_name
+            const filename = article.path.split(/[\\/]/).pop();
+            const response = await fetch(`/api/articles/${encodeURIComponent(filename)}/source`);
+            if (!response.ok) throw new Error('获取源内容失败');
+
+            const result = await response.json();
+            const content = result.content || '无内容';
+
+            const dialogId = 'article-source-dialog';
+            const existingDialog = document.getElementById(dialogId);
+            if (existingDialog) existingDialog.remove();
+
+            const dialogHtml = `
+                <div class="modal-overlay" id="${dialogId}" style="z-index: 10000;">
+                    <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+                        <div class="modal-header">
+                            <h3 style="display: flex; align-items: center; gap: 8px;">
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                                原始热点参考内容 - ${this.escapeHtml(article.title)}
+                            </h3>
+                            <button class="modal-close" onclick="document.getElementById('${dialogId}').remove()">×</button>
+                        </div>
+                        <div class="modal-body" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding:  20px;">
+                            <div style="background: var(--bg-tertiary, #f8fafc); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; padding: 15px; flex: 1; overflow-y: auto; white-space: pre-wrap; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; line-height: 1.8; color: var(--text-primary);">
+                                ${this.escapeHtml(content)}
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                            <button class="btn btn-primary" onclick="window.articleManager.copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">一键复制内容</button>
+                            <button class="btn btn-secondary" onclick="document.getElementById('${dialogId}').remove()">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', dialogHtml);
+        } catch (error) {
+            this.showNotification('查看源内容失败: ' + error.message, 'error');
+        }
+    }
+
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.showNotification('内容已成功复制到剪贴板', 'success');
+        } catch (err) {
+            console.error('复制失败:', err);
+            // 兼容性兜底
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                this.showNotification('内容已成功复制到剪贴板', 'success');
+            } catch (e) {
+                this.showNotification('复制失败，请手动选择复制', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+    }
+
     constructor() {
         this.articles = [];
         this.filteredArticles = [];
@@ -29,6 +96,7 @@ class ArticleManager {
             if (this.initialized) {
                 await this.loadArticles();
                 this.renderStatusTree();
+                this._injectVoteStyles();
                 if (this.observer) {
                     const cards = document.querySelectorAll('.content-card');
                     cards.forEach(card => {
@@ -48,6 +116,9 @@ class ArticleManager {
             this.initIntersectionObserver();
             this.loadPlatforms().catch(err => {
                 console.error('加载平台列表失败:', err);
+            });
+            this.updateStorageStats().catch(err => {
+                console.error('更新存储统计失败:', err);
             });
             this.initialized = true;
         } catch (error) {
@@ -228,25 +299,19 @@ class ArticleManager {
                 <iframe sandbox="allow-same-origin allow-scripts"   
                         loading="lazy"   
                         data-article-path="${article.path}"  
-                        data-loaded="false"></iframe>  
+                        data-loaded="false"
+                        onload="this.parentElement.querySelector('.preview-loading').style.display='none'"
+                        onerror="this.parentElement.querySelector('.preview-loading').style.display='none'"></iframe>  
                 <div class="preview-loading">加载中...</div>  
             </div>  
-            <div class="card-content">  
-                <h4 class="card-title" title="${this.escapeHtml(article.title)}">${this.escapeHtml(article.title)}</h4>  
-                <div class="card-meta">  
-                    <span class="format-badge">${article.format}</span>  
-                    <span class="meta-divider">•</span>  
-                    <span class="status-badge ${statusClass}"     
-                        data-article-path="${article.path}"    
-                        title="点击查看发布记录">    
-                        ${statusText}    
-                    </span>   
-                    <span class="meta-divider">•</span>  
-                    <span class="size-info">${article.size}</span>  
-                    <span class="meta-divider">•</span>  
-                    <span class="time-info">${formatTime(article.create_time)}</span>  
-                </div> 
-            </div>  
+            <div class="card-content">
+                <h4 class="card-title" title="${this.escapeHtml(article.title)}">${this.escapeHtml(article.title)}</h4>
+                <div class="card-meta">
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                    <span class="time-info">${formatTime(article.updated_at || article.created_at)}</span>
+                    ${article.size ? `<span class="size-info">${article.size}</span>` : ''}
+                </div>
+            </div>
             <div class="card-actions">  
                 <button class="btn-icon" data-action="edit" title="编辑">  
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">  
@@ -254,9 +319,22 @@ class ArticleManager {
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>  
                     </svg>  
                 </button>  
+                <button class="btn-icon" data-action="view-source" title="查看原始热点内容">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
                 <button class="btn-icon" data-action="re-template" title="AI 换模板">  
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                </button>
+                <button class="btn-icon" data-action="optimize-title" title="AI 换标题">  
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        <path d="M9 11l3 3"/>
                     </svg>
                 </button>
                 <button class="btn-icon" data-action="generate-images" title="AI 配图">  
@@ -281,7 +359,18 @@ class ArticleManager {
                         <path d="M22 2l-7 20-4-9-9-4 20-7z"/>  
                     </svg>  
                 </button>  
-                <button class="btn-icon" data-action="delete" title="删除">  
+                <button class="btn-icon vote-btn" data-action="vote" title="审美投票">  
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" style="color: #ff4d4f;">  
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.78-8.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>  
+                    </svg>  
+                </button>
+                <button class="btn-icon" data-action="vote" title="审美投票 (影响 AI DNA)">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                </svg>
+            </button>
+            <button class="btn-icon" data-action="delete" title="删除">
+  
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">  
                         <polyline points="3 6 5 6 21 6"/>  
                         <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>  
@@ -554,6 +643,23 @@ class ArticleManager {
                 break;
             case 'delete':
                 await this.deleteArticle(article.path);
+                break;
+            case 'view-source':
+                await this.showArticleSource(article);
+                break;
+            case 'optimize-title':
+                await this.optimizeTitle(article);
+                break;
+            case 'vote':
+                if (window.aestheticVotingManager) {
+                    await window.aestheticVotingManager.open({
+                        type: 'article',
+                        path: article.path,
+                        title: article.title
+                    });
+                } else {
+                    window.app?.showNotification('投票管理器未加载', 'error');
+                }
                 break;
         }
     }
@@ -860,7 +966,16 @@ class ArticleManager {
 
         } catch (error) {
             console.error('加载预览失败:', error);
-            iframe.srcdoc = `<div style="padding:20px; color:#999; text-align:center; font-size:12px;">加载预览失败: ${error.message}</div>`;
+            const is404 = error.message.includes('404');
+            const errorMsg = is404 ? '文章文件已删除 (可能已发布并触发自动清理)' : `加载预览失败: ${error.message}`;
+            iframe.srcdoc = `<div style="padding:20px; color:#999; text-align:center; font-size:12px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span>${errorMsg}</span>
+            </div>`;
         }
     }
 
@@ -1170,16 +1285,18 @@ class ArticleManager {
 
                 // 更新预览面板
                 if (window.previewPanelManager) {
-                    window.previewPanelManager.show(htmlContent, article);
+                    window.previewPanelManager.showWithActions(htmlContent, article);
                 } else {
-                    this.showNotification('预览面板未初始化', 'error');
+                    window.app?.showNotification('预览面板未初始化', 'error');
                 }
+            } else if (response.status === 404) {
+                window.app?.showNotification('文章文件已删除（可能已发布并触发自动清理）', 'warning');
             } else {
-                this.showNotification('获取文章内容失败', 'error');
+                window.app?.showNotification(`获取文章内容失败 (HTTP ${response.status})`, 'error');
             }
         } catch (error) {
             console.error('预览异常:', error);
-            this.showNotification('预览失败: ' + error.message, 'error');
+            window.app?.showNotification('预览失败: ' + error.message, 'error');
         }
     }
 
@@ -1192,7 +1309,7 @@ class ArticleManager {
     // 批量发布  
     async batchPublish() {
         if (this.selectedArticles.size === 0) {
-            this.showNotification('请先选择要发布的文章', 'warning');
+            window.app?.showNotification('请先选择要发布的文章', 'warning');
             return;
         }
 
@@ -1228,7 +1345,7 @@ class ArticleManager {
             // 显示对话框  
             document.getElementById('publish-dialog').style.display = 'flex';
         } catch (error) {
-            this.showNotification('加载平台列表失败: ' + error.message, 'error');
+            window.app?.showNotification('加载平台列表失败: ' + error.message, 'error');
         }
     }
 
@@ -1275,7 +1392,7 @@ class ArticleManager {
 
             this.renderPlatformAccounts(platformId, accounts);
         } catch (error) {
-            this.showNotification('加载账号失败: ' + error.message, 'error');
+            window.app?.showNotification('加载账号失败: ' + error.message, 'error');
         }
     }
 
@@ -1386,7 +1503,7 @@ class ArticleManager {
         ).map(item => parseInt(item.dataset.accountIndex));
 
         if (!platformId || selectedAccounts.length === 0) {
-            this.showNotification('请选择平台和账号', 'warning');
+            window.app?.showNotification('请选择平台和账号', 'warning');
             return;
         }
 
@@ -1396,6 +1513,12 @@ class ArticleManager {
         // 显示进度对话框  
         this.showPublishProgressDialog(articlePaths.length, selectedAccounts.length, true);
 
+        // 获取文章标题列表
+        const articleTitles = articlePaths.map(path => {
+            const article = this.articles.find(a => a.path === path);
+            return article ? article.title : '';
+        });
+
         try {
             const response = await fetch('/api/articles/publish', {
                 method: 'POST',
@@ -1403,18 +1526,13 @@ class ArticleManager {
                 body: JSON.stringify({
                     article_paths: articlePaths,
                     account_indices: selectedAccounts,
-                    platform: platformId
+                    platform: platformId,
+                    article_titles: articleTitles
                 })
             });
 
             if (response.ok) {
                 const result = await response.json();
-
-                // 获取文章标题  
-                const articleTitles = articlePaths.map(path => {
-                    const article = this.articles.find(a => a.path === path);
-                    return article ? article.title : '未知文章';
-                }).filter(title => title !== '未知文章');
 
                 // 构建标题前缀  
                 let titlePrefix = '';
@@ -1441,7 +1559,7 @@ class ArticleManager {
                         notificationMessage += `失败 ${result.fail_count} `;
                     }
 
-                    this.showNotification(
+                    window.app?.showNotification(
                         notificationMessage,
                         result.fail_count === 0 ? 'success' : (result.success_count > 0 ? 'warning' : 'error')
                     );
@@ -1494,7 +1612,7 @@ class ArticleManager {
 
                 // 显示已删除文章提示
                 if (result.deleted_articles && result.deleted_articles.length > 0) {
-                    this.showNotification(
+                    window.app?.showNotification(
                         `已自动删除 ${result.deleted_articles.length} 篇成功发布的文章`,
                         'info'
                     );
@@ -1526,7 +1644,7 @@ class ArticleManager {
                 throw new Error('发布请求失败');
             }
         } catch (error) {
-            this.showNotification('发布失败: ' + error.message, 'error');
+            window.app?.showNotification('发布失败: ' + error.message, 'error');
 
             if (window.articleManager && typeof window.articleManager.updateQueueUI === 'function') {
                 window.articleManager.updateQueueUI();
@@ -2506,7 +2624,7 @@ class ArticleManager {
         }
 
         const type = fail_count === 0 ? 'success' : (success_count > 0 ? 'warning' : 'error');
-        this.showNotification(message, type);
+        window.app?.showNotification(message, type);
     }
 
     // 显示详细结果对话框  
@@ -2588,20 +2706,20 @@ class ArticleManager {
             '确认删除这篇文章吗?',
             async () => {
                 try {
-                    const response = await fetch(`/api/articles/${encodeURIComponent(path)}`, {
+                    const response = await fetch(`/api/articles/?path=${encodeURIComponent(path)}`, {
                         method: 'DELETE'
                     });
 
                     if (response.ok) {
-                        this.showNotification('文章已删除', 'success');
+                        window.app?.showNotification('文章已删除', 'success');
                         await this.loadArticles();
                         this.renderStatusTree();
                     } else {
                         const error = await response.json();
-                        window.dialogManager.showAlert('删除失败: ' + (error.detail || '未知错误'), 'error');
+                        window.app?.showNotification('删除失败: ' + (error.detail || '未知错误'), 'error');
                     }
                 } catch (error) {
-                    window.dialogManager.showAlert('删除失败: ' + error.message, 'error');
+                    window.app?.showNotification('删除失败: ' + error.message, 'error');
                 }
             }
         );
@@ -2610,7 +2728,7 @@ class ArticleManager {
     // 批量删除  
     async batchDelete() {
         if (this.selectedArticles.size === 0) {
-            this.showNotification('请先选择要删除的文章', 'warning');
+            window.app?.showNotification('请先选择要删除的文章', 'warning');
             return;
         }
 
@@ -2624,7 +2742,7 @@ class ArticleManager {
 
                 for (const path of paths) {
                     try {
-                        const response = await fetch(`/api/articles/${encodeURIComponent(path)}`, {
+                        const response = await fetch(`/api/articles/?path=${encodeURIComponent(path)}`, {
                             method: 'DELETE'
                         });
                         if (response.ok) {
@@ -2637,7 +2755,7 @@ class ArticleManager {
                     }
                 }
 
-                this.showNotification(`删除完成: ${successCount}/${count}`, 'success');
+                window.app?.showNotification(`删除完成: ${successCount}/${count}`, 'success');
 
                 // 更新数据  
                 await this.loadArticles();
@@ -2658,6 +2776,309 @@ class ArticleManager {
         return div.innerHTML;
     }
 
+    // ==================== AI一键换标题功能 ====================
+    async optimizeTitle(article) {
+        const dialogId = 'optimize-title-dialog';
+        const existingDialog = document.getElementById(dialogId);
+        if (existingDialog) existingDialog.remove();
+
+        // 创建弹窗HTML
+        const dialogHtml = `
+            <div class="modal-overlay" id="${dialogId}" style="z-index: 9999;">
+                <div class="modal-content" style="max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;">
+                    <div class="modal-header">
+                        <h3 style="display: flex; align-items: center; gap: 8px;">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            AI 智能换标题
+                        </h3>
+                        <button class="modal-close" onclick="window.articleManager.closeOptimizeTitleDialog()">×</button>
+                    </div>
+                    <div class="modal-body" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 12px;">
+                        <!-- 当前标题 -->
+                        <div style="background: var(--bg-secondary); padding: 12px 16px; border-radius: 8px; border-left: 3px solid var(--primary-color);">
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">当前标题</div>
+                            <div id="opt-title-current" style="font-weight: 600; color: var(--text-primary);">${this.escapeHtml(article.title)}</div>
+                        </div>
+                        
+                        <!-- 平台选择 -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 14px; color: var(--text-secondary);">目标平台：</label>
+                            <select id="opt-title-platform" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-primary);">
+                                <option value="">通用平台</option>
+                                <option value="微信公众号">微信公众号</option>
+                                <option value="今日头条">今日头条</option>
+                                <option value="知乎">知乎</option>
+                                <option value="抖音">抖音</option>
+                                <option value="小红书">小红书</option>
+                            </select>
+                            <button class="btn btn-primary" id="opt-title-generate-btn" onclick="window.articleManager.generateTitleOptions('${encodeURIComponent(article.path)}')">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" style="margin-right: 4px;">
+                                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                </svg>
+                                生成标题
+                            </button>
+                        </div>
+
+                        <!-- 日志区域 -->
+                        <div id="opt-title-log-container" style="display: none; background: var(--bg-tertiary); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: var(--text-secondary); max-height: 120px; overflow-y: auto;">
+                            <div style="color: var(--primary-color);">🤖 正在分析文章内容...</div>
+                        </div>
+
+                        <!-- 标题选项区域 -->
+                        <div id="opt-title-options" style="flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 10px;">
+                            <!-- 动态生成的标题选项 -->
+                        </div>
+
+                        <!-- 加载状态 -->
+                        <div id="opt-title-loading" style="display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 12px;">
+                            <svg class="spin" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                            </svg>
+                            <span style="color: var(--text-secondary);">AI正在生成爆款标题...</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            💡 点击"生成标题"开始AI分析
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="window.articleManager.closeOptimizeTitleDialog()">取消</button>
+                            <button class="btn btn-primary" id="opt-title-apply-btn" onclick="window.articleManager.applyNewTitle('${encodeURIComponent(article.path)}')" disabled>
+                                应用选中标题
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', dialogHtml);
+        this.currentOptimizeArticle = article;
+        this.selectedNewTitle = null;
+    }
+
+    closeOptimizeTitleDialog() {
+        const dialog = document.getElementById('optimize-title-dialog');
+        if (dialog) dialog.remove();
+        this.currentOptimizeArticle = null;
+        this.selectedNewTitle = null;
+    }
+
+    async generateTitleOptions(articlePathEncoded) {
+        const articlePath = decodeURIComponent(articlePathEncoded);
+        const platform = document.getElementById('opt-title-platform').value;
+        const logContainer = document.getElementById('opt-title-log-container');
+        const loading = document.getElementById('opt-title-loading');
+        const optionsContainer = document.getElementById('opt-title-options');
+        const generateBtn = document.getElementById('opt-title-generate-btn');
+
+        // 显示加载状态
+        logContainer.style.display = 'block';
+        loading.style.display = 'flex';
+        optionsContainer.style.display = 'none';
+        generateBtn.disabled = true;
+
+        this.addOptimizeTitleLog('正在调用AI标题优化引擎...');
+
+        try {
+            const response = await fetch('/api/articles/optimize-title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ article_path: articlePath, platform: platform })
+            });
+
+            if (!response.ok) {
+                throw new Error(`请求失败: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // 检查后端返回的错误状态
+            if (result.status === 'error') {
+                console.error('[optimizeTitle] 后端返回错误:', result);
+                this.addOptimizeTitleLog(`❌ ${result.message || 'AI服务暂时不可用'}`);
+
+                // 显示错误信息在选项区域
+                const optionsContainer = document.getElementById('opt-title-options');
+                optionsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: #e74c3c;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+                        <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">AI标题生成失败</div>
+                        <div style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+                            ${result.message || 'AI服务暂时不可用，请检查API配置'}
+                        </div>
+                        <div style="margin-top: 20px; font-size: 12px; color: #888;">
+                            错误类型: ${result.error_type || 'unknown'}
+                        </div>
+                    </div>
+                `;
+                optionsContainer.style.display = 'flex';
+                return;
+            }
+
+            this.addOptimizeTitleLog('✅ AI标题生成完成！');
+
+            // 显示标题选项
+            this.renderTitleOptions(result.titles, result.original_title, result.recommended);
+
+        } catch (error) {
+            console.error('生成标题失败:', error);
+            this.addOptimizeTitleLog(`❌ 错误: ${error.message}`);
+
+            // 显示错误信息在选项区域
+            const optionsContainer = document.getElementById('opt-title-options');
+            optionsContainer.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: #e74c3c;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+                    <div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;">请求失败</div>
+                    <div style="color: var(--text-secondary); font-size: 14px;">
+                        ${error.message || '网络错误，请检查连接后重试'}
+                    </div>
+                </div>
+            `;
+            optionsContainer.style.display = 'flex';
+
+            window.app?.showNotification('生成标题失败，请重试', 'error');
+        } finally {
+            loading.style.display = 'none';
+            generateBtn.disabled = false;
+        }
+    }
+
+    addOptimizeTitleLog(message) {
+        const logContainer = document.getElementById('opt-title-log-container');
+        const time = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.style.marginBottom = '4px';
+        logEntry.textContent = `[${time}] ${message}`;
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    renderTitleOptions(titles, originalTitle, recommended) {
+        const container = document.getElementById('opt-title-options');
+        container.innerHTML = '';
+        container.style.display = 'flex';
+
+        console.log('[renderTitleOptions] 收到标题数据:', titles);
+
+        if (!titles || titles.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">未能生成标题选项，请重试</div>';
+            return;
+        }
+
+        // 标题类型样式（支持多种格式）
+        const typeStyles = {
+            '标题1': { label: '悬念型', color: '#ff6b6b' },
+            '标题2': { label: '数字型', color: '#4ecdc4' },
+            '标题3': { label: '情感型', color: '#45b7d1' },
+            '标题4': { label: '热点型', color: '#f9ca24' },
+            '标题5': { label: '实用型', color: '#6c5ce7' },
+            '1': { label: '悬念型', color: '#ff6b6b' },
+            '2': { label: '数字型', color: '#4ecdc4' },
+            '3': { label: '情感型', color: '#45b7d1' },
+            '4': { label: '热点型', color: '#f9ca24' },
+            '5': { label: '实用型', color: '#6c5ce7' }
+        };
+
+        let validCount = 0;
+        titles.forEach((item, index) => {
+            // 过滤掉无效标题（太短或为空）
+            if (!item.title || item.title.length < 5) {
+                console.warn(`[renderTitleOptions] 跳过无效标题: type=${item.type}, title=${item.title}`);
+                return;
+            }
+            validCount++;
+
+            const typeInfo = typeStyles[item.type] || { label: item.type || '其他', color: '#888' };
+            const isRecommended = item.title === recommended || item.is_recommended;
+
+            const optionHtml = `
+                <div class="opt-title-item" data-title="${this.escapeHtml(item.title)}" 
+                     onclick="window.articleManager.selectTitleOption(this, '${item.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"
+                     style="cursor: pointer; padding: 14px 16px; border-radius: 10px; border: 2px solid ${isRecommended ? typeInfo.color : 'var(--border-color)'}; 
+                            background: ${isRecommended ? typeInfo.color + '10' : 'var(--bg-secondary)'}; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <span style="background: ${typeInfo.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">${typeInfo.label}</span>
+                        ${isRecommended ? '<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">⭐ 推荐</span>' : ''}
+                    </div>
+                    <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4;">${this.escapeHtml(item.title)}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">${this.escapeHtml(item.explanation || '暂无说明')}</div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', optionHtml);
+        });
+
+        if (validCount === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">生成的标题格式异常，请重试</div>';
+        } else {
+            console.log(`[renderTitleOptions] 成功渲染 ${validCount} 个有效标题`);
+        }
+
+        // 默认选中推荐项
+        const recommendedItem = container.querySelector('[data-title="' + recommended.replace(/"/g, '\\"') + '"]');
+        if (recommendedItem) {
+            this.selectTitleOption(recommendedItem, recommended);
+        }
+    }
+
+    selectTitleOption(element, title) {
+        // 从dataset获取HTML转义的标题，并解码
+        const encodedTitle = element.dataset.title;
+        // HTML解码：创建一个临时元素来解码
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = encodedTitle;
+        const decodedTitle = tempDiv.textContent || tempDiv.innerText || title;
+
+        // 移除其他选中状态
+        document.querySelectorAll('.opt-title-item').forEach(el => {
+            el.style.borderColor = el.dataset.title === encodedTitle ? '#667eea' : 'var(--border-color)';
+            el.style.background = el.dataset.title === encodedTitle ? 'rgba(102, 126, 234, 0.1)' : 'var(--bg-secondary)';
+        });
+
+        this.selectedNewTitle = decodedTitle;
+        document.getElementById('opt-title-apply-btn').disabled = false;
+    }
+
+    async applyNewTitle(articlePathEncoded) {
+        if (!this.selectedNewTitle) {
+            window.app?.showNotification('请先选择一个标题', 'warning');
+            return;
+        }
+
+        const articlePath = decodeURIComponent(articlePathEncoded);
+        const applyBtn = document.getElementById('opt-title-apply-btn');
+        applyBtn.disabled = true;
+        applyBtn.textContent = '应用中...';
+
+        try {
+            const response = await fetch('/api/articles/apply-title', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    article_path: articlePath,
+                    platform: this.selectedNewTitle  // 复用platform字段传递新标题
+                })
+            });
+
+            if (response.ok) {
+                window.app?.showNotification('标题已更新成功！', 'success');
+                this.closeOptimizeTitleDialog();
+                await this.loadArticles();  // 刷新列表
+            } else {
+                throw new Error('应用失败');
+            }
+        } catch (error) {
+            console.error('应用标题失败:', error);
+            window.app?.showNotification('应用标题失败，请重试', 'error');
+            applyBtn.disabled = false;
+            applyBtn.textContent = '应用选中标题';
+        }
+    }
+
     // 显示通知  
     showNotification(message, type = 'info') {
         if (window.app?.showNotification) {
@@ -2672,7 +3093,7 @@ class ArticleManager {
             }
             await window.contentEditorDialog.open(article.path, article.title, 'article');
         } catch (error) {
-            this.showNotification('打开编辑器失败: ' + error.message, 'error');
+            window.app?.showNotification('打开编辑器失败: ' + error.message, 'error');
         }
     }
 
@@ -2731,7 +3152,7 @@ class ArticleManager {
 
             this.renderImageGallery(images);
         } catch (error) {
-            this.showNotification('加载图片列表失败: ' + error.message, 'error');
+            window.app?.showNotification('加载图片列表失败: ' + error.message, 'error');
         }
     }
 
@@ -2774,14 +3195,14 @@ class ArticleManager {
                         method: 'DELETE'
                     });
                     if (response.ok) {
-                        this.showNotification('图片已删除', 'success');
+                        window.app?.showNotification('图片已删除', 'success');
                         await this.loadImages();
                     } else {
                         const err = await response.json();
-                        this.showNotification('删除失败: ' + (err.detail || '未知错误'), 'error');
+                        window.app?.showNotification('删除失败: ' + (err.detail || '未知错误'), 'error');
                     }
                 } catch (error) {
-                    this.showNotification('删除失败: ' + error.message, 'error');
+                    window.app?.showNotification('删除失败: ' + error.message, 'error');
                 }
             }
         );
@@ -2805,10 +3226,66 @@ class ArticleManager {
                         } catch (e) { /* skip */ }
                     }
 
-                    this.showNotification(`已清空 ${deleted}/${images.length} 张图片`, 'success');
+                    window.app?.showNotification(`已清空 ${deleted}/${images.length} 张图片`, 'success');
                     await this.loadImages();
                 } catch (error) {
-                    this.showNotification('清空失败: ' + error.message, 'error');
+                    window.app?.showNotification('清空失败: ' + error.message, 'error');
+                }
+            }
+        );
+    }
+
+    /* V19.6 & 13: 数据库智理与存储统计 */
+
+    // 更新磁盘占用与路径信息
+    async updateStorageStats() {
+        try {
+            const response = await fetch('/api/articles/system/storage-stats');
+            if (response.ok) {
+                const data = await response.json();
+
+                const stats = data.data;
+                const totalSizeEl = document.getElementById('storage-total-size');
+                const rootPathEl = document.getElementById('storage-root-path');
+
+                if (totalSizeEl) totalSizeEl.textContent = stats.total_size_formatted;
+                if (rootPathEl) {
+                    rootPathEl.textContent = stats.root_path;
+                    rootPathEl.title = stats.root_path; // 完整路径作为悬停提示
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to update storage stats:', e);
+        }
+    }
+
+    // 执行 AI 智能清理
+    async runSmartClean() {
+        if (!window.dialogManager) return;
+
+        window.dialogManager.showConfirm(
+            '🤖 AI 建议清理：\n确认启动 AI 智能清理吗？此操作将自动识别并删除 30 天前已成功发布的冗余文章文件，以释放磁盘空间。',
+            async () => {
+                const btn = document.getElementById('smart-clean-btn');
+                const originalText = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span>⏳</span> 正在 AI 智能处理...';
+
+                try {
+                    const res = await fetch('/api/articles/system/smart-clean', { method: 'POST' });
+                    if (res.ok) {
+                        const result = await res.json();
+                        this.showNotification(`✅ ${result.message}`, 'success');
+                        await this.loadArticles();
+                        await this.updateStorageStats();
+                    } else {
+                        throw new Error('清理失败');
+                    }
+                } catch (err) {
+                    this.showNotification('❌ AI 清理失败: ' + err.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
                 }
             }
         );

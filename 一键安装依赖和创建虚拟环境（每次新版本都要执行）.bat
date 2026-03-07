@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal enabledelayedexpansion
 title AIWriteX Environment Setup
 echo AIWriteX Environment Setup

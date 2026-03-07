@@ -313,10 +313,14 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         timeout: Optional[float] = None,
+        use_v15: bool = True,  # V15.0: 是否使用 V15 优化
         **kwargs
     ) -> str:
         """
-        V4: 发送聊天请求（重试抖动 + 智能模型降级 + 多提供商故障转移）
+        V4/V15: 发送聊天请求（重试抖动 + 智能模型降级 + 多提供商故障转移 + V15量子优化）
+        
+        Args:
+            use_v15: 是否启用 V15.0 量子优化（语义缓存、批处理）
         
         Args:
             messages: 消息列表
@@ -329,6 +333,28 @@ class LLMClient:
         Returns:
             助手回复文本
         """
+        # V15.0: 量子优化检查
+        if use_v15:
+            try:
+                from src.ai_write_x.config.config import Config
+                v15_config = Config.get_instance().v15_config
+                
+                if v15_config.get("enabled", True):
+                    # 检查语义缓存
+                    if v15_config.get("enable_semantic_cache", True):
+                        try:
+                            from src.ai_write_x.core.semantic_cache_v2 import get_semantic_cache
+                            cache = get_semantic_cache()
+                            threshold = v15_config.get("cache_similarity_threshold", 0.88)
+                            cached_result = cache.get(messages, similarity_threshold=threshold)
+                            if cached_result:
+                                log.print_log("[V15.0] 💾 语义缓存命中", "info")
+                                return cached_result
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+        
         client = self._get_current_client()
         model_name = model or self.current_model
         effective_timeout = timeout or 120.0
@@ -356,8 +382,8 @@ class LLMClient:
                     self._system_prompt_cache[content_hash] = msg["content"]
             optimized_messages.append(msg)
         
-        # V4: 重试逻辑 — 指数退避 + 随机抖动(Jitter)防止雷群效应
-        max_retries = 3
+        # V4/V15: 重试逻辑 — 指数退避 + 随机抖动(Jitter) + 扩展网络异常捕获
+        max_retries = 5  # 提升重试次数到 5 次，应对网络波动
         for attempt in range(max_retries + 1):
             try:
                 t0 = time.time()
@@ -373,25 +399,45 @@ class LLMClient:
                 self._track_model_performance(model_name, True, elapsed_ms)
                 result = response.choices[0].message.content
                 _response_cache.put(messages, model_name, temperature, result, max_tokens)
+                
+                # V15.0: 写入语义缓存
+                if use_v15:
+                    try:
+                        from src.ai_write_x.core.semantic_cache_v2 import get_semantic_cache
+                        cache = get_semantic_cache()
+                        prompt_tokens = getattr(response.usage, 'prompt_tokens', 0) or 0
+                        completion_tokens = getattr(response.usage, 'completion_tokens', 0) or 0
+                        cache.set(
+                            messages=messages,
+                            response=result,
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens
+                        )
+                    except Exception:
+                        pass
+                
                 # V5: 记录API响应耗时，便于性能瓶颈定位
                 log.print_log(f"[req:{req_id}] [{model_name}] 响应完成 {elapsed_ms}ms (Pass)", "info")
                 return result
             except Exception as e:
                 self._track_model_performance(model_name, False)
-                error_str = str(e)
-                # V4: 429速率限制 → 指数退避 + ±30%随机抖动
-                if ('429' in error_str or 'rate' in error_str.lower()) and attempt < max_retries:
-                    base_wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
-                    jitter = base_wait * random.uniform(-0.3, 0.3)
-                    wait_time = max(1.0, base_wait + jitter)
-                    log.print_log(f"⏳ API速率限制(429)，{wait_time:.1f}秒后自动重试 (第{attempt+1}/{max_retries}次)", "warning")
-                    time.sleep(wait_time)
-                    continue
+                error_str = str(e).lower()
                 
-                # V4: 500/502/503服务端错误也重试（最多1次）
-                if any(code in error_str for code in ['500', '502', '503']) and attempt < 1:
-                    log.print_log(f"⚠️ API服务端错误，1.5秒后自动重试...", "warning")
-                    time.sleep(1.5)
+                # 判定是否为可重试的异常 (429, 5xx, 网络波动, 超时)
+                is_retryable = any(kw in error_str for kw in [
+                    '429', 'rate', '500', '502', '503', '504', 
+                    'timeout', 'timed out', 'connection', 'connect', 'eof'
+                ])
+                
+                if is_retryable and attempt < max_retries:
+                    # 指数退避 + ±30% 随时抖动
+                    base_wait = 2 ** (attempt + 1)
+                    jitter = base_wait * random.uniform(-0.3, 0.3)
+                    wait_time = max(1.5, base_wait + jitter) # 最小等待 1.5s
+                    
+                    reason = self._humanize_error(e)
+                    log.print_log(f"⏳ {reason}，{wait_time:.1f}秒后自动重试 (第{attempt+1}/{max_retries}次)", "warning")
+                    time.sleep(wait_time)
                     continue
                 
                 human_msg = self._humanize_error(e)

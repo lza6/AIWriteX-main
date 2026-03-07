@@ -65,10 +65,11 @@ async def update_config_memory(request: ConfigUpdateRequest):
     """仅更新内存中的配置,不保存到文件"""
     try:
         config = Config.get_instance()
+        # 兼容两种格式：{"config_data": {...}} 或直接 {...}
         config_data = request.config_data.get("config_data", request.config_data)
 
-        # 深度合并配置到内存
         def deep_merge(target, source):
+            """递归合并字典，防止顶层覆盖丢失字段"""
             for key, value in source.items():
                 if key in target and isinstance(target[key], dict) and isinstance(value, dict):
                     deep_merge(target[key], value)
@@ -76,14 +77,26 @@ async def update_config_memory(request: ConfigUpdateRequest):
                     target[key] = value
 
         with config._lock:
+            # 1. 处理 aiforge_config (位于单独的文件)
             if "aiforge_config" in config_data:
-                aiforge_config_update = config_data.pop("aiforge_config")
-                deep_merge(config.aiforge_config, aiforge_config_update)
+                aiforge_update = config_data.pop("aiforge_config")
+                # 兼容 aiforge_config 本身可能也是嵌套的情况
+                if isinstance(aiforge_update, dict):
+                    deep_merge(config.aiforge_config, aiforge_update)
 
-            # 处理config.yaml的配置
+            # 2. 处理主配置 config.yaml
             deep_merge(config.config, config_data)
+            
+            # 特殊逻辑：如果是为了启用蜂群模式而关闭了串行模式，强制同步
+            if "swarm_settings" in config_data:
+                swarm = config.config.get("swarm_settings", {})
+                if swarm.get("swarm_mode_enabled"):
+                    swarm["serial_mode_forced"] = False
+                elif swarm.get("serial_mode_forced"):
+                    swarm["swarm_mode_enabled"] = False
+                    swarm["max_concurrency"] = 1
 
-        return {"status": "success", "message": "配置已更新(仅内存)"}
+        return {"status": "success", "message": "内存配置已按需合并更新"}
     except Exception as e:
         log.print_log(f"更新内存配置失败: {str(e)}", "error")
         raise HTTPException(status_code=500, detail=str(e))
@@ -91,16 +104,16 @@ async def update_config_memory(request: ConfigUpdateRequest):
 
 @router.post("/")
 async def save_config_to_file():
-    """保存当前内存配置到文件"""
+    """保存当前内存配置到物理文件"""
     try:
         config = Config.get_instance()
-
+        # 调用核心配置类的保存方法，传递当前内存中的配置
         if config.save_config(config.config, config.aiforge_config):
-            return {"status": "success", "message": "配置已保存"}
+            return {"status": "success", "message": "所有配置文件已持久化到磁盘"}
         else:
-            raise HTTPException(status_code=500, detail="配置保存失败")
+            return {"status": "error", "message": "物理保存失败，请检查文件权限"}
     except Exception as e:
-        log.print_log(f"保存配置失败: {str(e)}", "error")
+        log.print_log(f"保存配置物理文件异常: {str(e)}", "error")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -198,14 +211,12 @@ async def get_system_messages():
     # 如果配置中没有,返回默认消息
     if not system_messages:
         system_messages = [
-            {"text": "欢迎使用AIWriteX智能内容创作平台", "type": "info"},
-            {"text": "本项目禁止用于商业用途，仅限个人使用", "type": "info"},
-            {"text": "技术支持与业务合作，请联系522765228@qq.com", "type": "info"},
+            {"text": "欢迎使用 AIWriteX 智能内容创作平台", "type": "info"},
             {
-                "text": "AIWriteX重新定义AI辅助内容创作的边界，融合搜索+借鉴+AI+创意四重能力，多种超绝玩法，让内容创作充满无限可能",
+                "text": "AIWriteX 重新定义 AI 辅助内容创作的边界，融合搜索+借鉴+AI+创意四重能力，多种玩法让内容创作充满无限可能",
                 "type": "info",
             },
-            {"text": "更多AIWriteX功能开发中，敬请期待", "type": "info"},
+            {"text": "更多 AIWriteX 功能持续进化中，敬请期待", "type": "info"},
         ]
 
     return {"status": "success", "data": system_messages}
@@ -249,7 +260,7 @@ async def check_for_updates():
         "current_version": current_version,
         "latest_version": current_version,
         "download_url": "",
-        "release_notes": "本地开发版",
+        "release_notes": "AIWriteX V18.0 自主蜂群版 [开发预览]",
     }
 
 
@@ -489,17 +500,27 @@ async def list_models(config: CustomAPIConfig):
     try:
         import aiohttp
         
-        # 尝试多种端点
-        url = config.api_base.rstrip('/')
+        # 处理URL：支持#号强制使用原始地址
+        raw_url = config.api_base.strip()
+        if raw_url.endswith('#'):
+            # 强制使用原始地址
+            url = raw_url[:-1].rstrip('/')
+        else:
+            # 自动补全/v1后缀
+            url = raw_url.rstrip('/')
+            if not url.endswith('/v1') and not url.endswith('/v1/models'):
+                url = url + "/v1"
+        
         headers = {
             "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "x-api-key": config.api_key,  # 心流等API需要此header
         }
         
         # 尝试不同的模型列表端点
         endpoints = [
-            "/v1/models",
             "/models",
+            "/v1/models",
             "/api/models"
         ]
         

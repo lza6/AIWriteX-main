@@ -570,6 +570,11 @@ class TemplateManager {
                 </div>  
             </div>  
             <div class="card-actions">  
+                <button class="btn-icon" data-action="vote" title="审美投票 (影响 AI DNA)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                </button>
                 <button class="btn-icon" data-action="edit" title="编辑">  
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">  
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>  
@@ -824,6 +829,17 @@ class TemplateManager {
                 break;
             case 'delete':
                 await this.deleteTemplate(template);
+                break;
+            case 'vote':
+                if (window.aestheticVotingManager) {
+                    await window.aestheticVotingManager.open({
+                        type: 'template',
+                        path: template.path,
+                        title: template.name
+                    });
+                } else {
+                    window.app?.showNotification('投票管理器未加载', 'error');
+                }
                 break;
         }
     }

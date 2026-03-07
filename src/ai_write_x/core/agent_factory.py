@@ -1,4 +1,4 @@
-from typing import Dict, Type, Optional, Any
+from typing import Dict, Type, Optional, Any, List
 from crewai import Agent
 
 from src.ai_write_x.core.base_framework import AgentConfig
@@ -108,12 +108,24 @@ class AgentFactory:
         if hasattr(config, "response_template") and config.response_template:
             agent_kwargs["response_template"] = config.response_template
 
-        # LLM优先级：自定义LLM > 配置中的LLM > 全局LLM
-        llm = custom_llm or self._get_llm(config.llm_config)
+        # V18.0: 蜂群模式支持 - 注入能力标签和竞价元数据
+        capabilities = getattr(config, "capabilities", [])
+        if capabilities:
+            capabilities_str = " | ".join(capabilities)
+            agent_kwargs["backstory"] += f"\n[Core Capabilities: {capabilities_str}]"
+
+        # 获取 LLM 实例 (优先使用传入的 custom_llm)
+        llm = custom_llm or self._get_llm(getattr(config, "llm_config", None))
         if llm:
             agent_kwargs["llm"] = llm
 
-        return Agent(**agent_kwargs)
+        agent = Agent(**agent_kwargs)
+        
+        # V18 FIX: 使用 object.__setattr__ 绕过 Pydantic 对未知字段的拦截 (ValueError: "Agent" object has no field "swarm_metadata")
+        object.__setattr__(agent, "swarm_metadata", getattr(config, "swarm_metadata", {}))
+        object.__setattr__(agent, "capabilities", capabilities)
+        
+        return agent
 
     def create_specialized_agent(self, name: str, **kwargs) -> Agent:
         """创建专门化智能体"""

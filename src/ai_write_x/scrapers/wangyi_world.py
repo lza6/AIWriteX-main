@@ -90,7 +90,7 @@ class WangYiWorld(BaseSpider):
                 
             return {
                 "title": title,
-                "content": f"# {title}\n\n**来源**: 网易国际新闻\n**发布日期**: {item.get('date_str', '')}\n\n## 内容\n\n{article_content}\n\n---\n*本文由 AIWriteX 自动采集*",
+                "article_info": f"# {title}\n\n**来源**: 网易国际新闻\n**发布日期**: {item.get('date_str', '')}\n\n## 内容\n\n{article_content}\n\n---\n*本文由 AIWriteX 自动采集*",
                 "source": "网易国际新闻",
                 "category": category,
                 "url": url,

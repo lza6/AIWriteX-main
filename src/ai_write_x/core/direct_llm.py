@@ -15,6 +15,10 @@ from openai import OpenAI
 from crewai import LLM
 
 from src.ai_write_x.core.llm_client import VisionModelDetector
+from src.ai_write_x.core.exceptions import (
+    NetworkError, APITimeoutError, RateLimitError, 
+    InvalidAPIKeyError, ModelNotAvailableError, ContentGenerationError
+)
 from src.ai_write_x.utils import log
 
 
@@ -69,6 +73,14 @@ class OpenAIDirectLLM(LLM):
             fallback_model: 备用模型名称，主模型失败后自动切换
             **kwargs: 其他参数传递给父类
         """
+        # 自动补全模型前缀以兼容 LiteLLM 校验 (V18.1 FIX)
+        # 即使我们直连 OpenAI SDK，CrewAI 内部组件仍会校验模型格式
+        self._original_model = model
+        if "/" not in model and not any(m in model.lower() for m in ["gpt-", "o1-", "text-embedding-"]):
+            # 如果没有前缀且不是原生 OpenAI 模型，强制补全 openai/ 前缀
+            # 这告诉 LiteLLM 使用 openai 兼容格式解析参数
+            model = f"openai/{model}"
+            
         # 调用父类初始化
         super().__init__(
             model=model,
@@ -80,15 +92,34 @@ class OpenAIDirectLLM(LLM):
             **kwargs
         )
         
-        # 保存原始模型名（用户配置的）
-        self._original_model = model
+        # 再次确保原始模型名用于内部 SDK 调用（不含 LiteLLM 前缀）
         self._stream = stream
         self._fallback_model = fallback_model  # 备用模型
         
+        # 创建 API Key 列表并初始化指针
+        from src.ai_write_x.config.config import Config
+        self._api_keys = Config.get_instance().get_api_keys()
+        if not self._api_keys:
+            self._api_keys = [api_key]
+        
+        self._current_key_index = 0
+        
+        # 自动补全 /v1 后缀（如果用户没加完整路径）
+        # 如果URL以#结尾，强制使用原始地址不添加后缀
+        processed_base_url = base_url.rstrip()
+        if processed_base_url.endswith('#'):
+            # 强制使用原始地址，去掉#号
+            processed_base_url = processed_base_url[:-1].rstrip('/')
+            log.print_log(f"[DEBUG] 检测到#后缀，强制使用原始地址: {processed_base_url}", "debug")
+        else:
+            # 正常补全逻辑
+            if not processed_base_url.endswith('/v1') and not processed_base_url.endswith('/v1/chat/completions'):
+                processed_base_url = processed_base_url.rstrip('/') + "/v1"
+        
         # 创建 OpenAI 客户端
         self._openai_client = OpenAI(
-            api_key=api_key,
-            base_url=base_url,
+            api_key=self._api_keys[self._current_key_index],
+            base_url=processed_base_url,
             timeout=timeout if timeout else 120.0
         )
         
@@ -97,7 +128,7 @@ class OpenAIDirectLLM(LLM):
         
         fallback_info = f", fallback={fallback_model}" if fallback_model else ""
         log.print_log(
-            f"OpenAIDirectLLM 初始化: model={model}, base_url={base_url}, vision={self._is_vision}{fallback_info}",
+            f"OpenAIDirectLLM 初始化: model={model}, base_url={processed_base_url}, vision={self._is_vision}{fallback_info}",
             "info"
         )
     
@@ -122,6 +153,7 @@ class OpenAIDirectLLM(LLM):
             "model": self._original_model,
             "messages": messages,
             "temperature": self.temperature,
+            "max_tokens": self.max_tokens,  # 添加 max_tokens 参数
             "stream": True,  # 启用流式输出
         }
         
@@ -140,18 +172,29 @@ class OpenAIDirectLLM(LLM):
         
         try:
             log.print_log("AI正在生成内容...", "status")
-            log.print_log(f"[DEBUG] 调用参数: model={self._original_model}, max_tokens=auto (server default)", "debug")
+            log.print_log(f"[DEBUG] 调用参数: model={self._original_model}, max_tokens={self.max_tokens}", "debug")
+            
+            # 拼接完整的API URL并显示
+            base_url_str = str(self._openai_client.base_url)
+            # 自动补全 /v1/chat/completions 后缀（如果用户没加）
+            if "/chat/completions" not in base_url_str:
+                full_api_url = base_url_str.rstrip('/') + "/chat/completions"
+            else:
+                full_api_url = base_url_str
             
             # 流式获取响应
+            log.print_log(f"[DEBUG] 发送请求到: {full_api_url}", "debug")
+            log.print_log(f"[DEBUG] 请求体: {json.dumps(params, ensure_ascii=False, indent=2)[:500]}", "debug")
+            
             stream = self._openai_client.chat.completions.create(**params)
             log.print_log("[DEBUG] API 连接成功，开始接收流式数据...", "debug")
             
             chunk_index = 0
             for chunk in stream:
                 chunk_index += 1
-                # 调试：打印每个 chunk 的结构
+                # 调试：打印每个 chunk 的完整结构
                 if chunk_index <= 3:
-                    log.print_log(f"[DEBUG] Chunk {chunk_index}: {chunk}", "debug")
+                    log.print_log(f"[DEBUG] Chunk {chunk_index} 完整结构: {chunk.model_dump_json()[:500]}", "debug")
                 
                 # 检查是否有内容
                 if chunk.choices and len(chunk.choices) > 0:
@@ -206,7 +249,7 @@ class OpenAIDirectLLM(LLM):
             # 检查是否返回空内容 - 抛出异常以便重试
             if not full_content or not full_content.strip():
                 log.print_log("错误: LLM 返回空内容，将触发重试", "error")
-                raise ValueError(
+                raise ModelNotAvailableError(
                     f"模型 '{self._original_model}' 返回空内容。"
                     "这可能是因为:\n"
                     "1. 该模型在当前 API 上不可用\n"
@@ -216,15 +259,28 @@ class OpenAIDirectLLM(LLM):
             
             return full_content
             
+        except ModelNotAvailableError:
+            raise
+        except RateLimitError:
+            raise
+        except InvalidAPIKeyError:
+            raise
+        except APITimeoutError:
+            raise
         except Exception as e:
             error_msg = str(e)
-            log.print_log(f"AI生成失败: {error_msg}", "error")
-            
-            # 打印更详细的错误信息
-            if hasattr(e, '__dict__'):
-                log.print_log(f"错误详情: {e.__dict__}", "error")
-            
-            raise e
+            # 根据错误类型分类抛出
+            if "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                raise APITimeoutError(f"API 请求超时: {error_msg}") from e
+            elif "rate limit" in error_msg.lower():
+                raise RateLimitError(f"API 限流: {error_msg}") from e
+            elif "api key" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                raise InvalidAPIKeyError(f"API 密钥无效: {error_msg}") from e
+            else:
+                log.print_log(f"AI生成失败: {error_msg}", "error")
+                if hasattr(e, '__dict__'):
+                    log.print_log(f"错误详情: {e.__dict__}", "error")
+                raise ContentGenerationError(f"内容生成失败: {error_msg}") from e
     
     def _non_stream_call(
         self,
@@ -250,6 +306,11 @@ class OpenAIDirectLLM(LLM):
                     params[key] = value
         
         log.print_log("AI正在生成内容...", "status")
+        
+        # 显示完整API URL
+        base_url_str = str(self._openai_client.base_url)
+        full_api_url = base_url_str.rstrip('/') + "/chat/completions"
+        log.print_log(f"[DEBUG] 发送请求到: {full_api_url}", "debug")
         
         response = self._openai_client.chat.completions.create(**params)
         message = response.choices[0].message
@@ -371,13 +432,38 @@ class OpenAIDirectLLM(LLM):
                             f"上下文首尾两端内容超限且无法通过截断历史恢复: {error_msg}"
                         )
                 
-                # 检查是否是 API 限流 -> 触发全抖动指数退避(Exponential Backoff with Jitter)
-                if "rate" in error_msg.lower() or "limit" in error_msg.lower():
+                # 检查是否是 API 限流或鉴权失败 -> 触发多 Key 负载均衡切换
+                is_auth_error = "auth" in error_msg.lower() or "key" in error_msg.lower() or "401" in error_msg
+                is_rate_limit = "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg
+                
+                if (is_auth_error or is_rate_limit) and len(self._api_keys) > 1:
+                    import time
+                    # 轮转到下一个 Key
+                    self._current_key_index = (self._current_key_index + 1) % len(self._api_keys)
+                    new_key = self._api_keys[self._current_key_index]
+                    
+                    log.print_log(
+                        f"[Failover] 触发自动切换 Key (当前索引: {self._current_key_index}). 原因: {error_msg[:50]}...", 
+                        "warning"
+                    )
+                    
+                    # 重新创建客户端以应用新 Key
+                    self._openai_client = OpenAI(
+                        api_key=new_key,
+                        base_url=self.base_url,
+                        timeout=self.timeout if self.timeout else 120.0
+                    )
+                    
+                    # 稍微等待以避免立即碰撞
+                    time.sleep(0.5)
+                    continue
+                
+                # 检查是否是 API 限流 (单 Key 模式下的指数退避)
+                if is_rate_limit:
                     import time
                     import random
-                    # 计算基础退避时间，加入随机 Jitter 以打散重试风暴
                     wait_time = (2 ** attempt) + random.uniform(0.5, 2.5)
-                    log.print_log(f"API 限流，将在 {wait_time:.2f} 秒后带有 Jitter 机制自动重试...", "warning")
+                    log.print_log(f"API 限流且无备用 Key，将在 {wait_time:.2f} 秒后重试...", "warning")
                     time.sleep(wait_time)
                     continue
                 
@@ -398,7 +484,8 @@ class OpenAIDirectLLM(LLM):
                         saved_model = self._original_model
                         self._original_model = self._fallback_model
                         try:
-                            fallback_retries = 2
+                            # 备用模型也应尝试多 Key 轮询
+                            fallback_retries = max(2, len(self._api_keys))
                             for fb_attempt in range(fallback_retries):
                                 try:
                                     if self._stream:
@@ -409,33 +496,28 @@ class OpenAIDirectLLM(LLM):
                                     if result is None or (isinstance(result, str) and not result.strip()):
                                         raise ValueError("备用模型返回空响应")
                                     
-                                    if isinstance(result, dict) and "tool_calls" in result:
-                                        tool_calls = result["tool_calls"]
-                                        if available_functions:
-                                            for tool_call in tool_calls:
-                                                func_name = tool_call.function.name if hasattr(tool_call, 'function') else tool_call["function"]["name"]
-                                                if func_name in available_functions:
-                                                    func_args_str = tool_call.function.arguments if hasattr(tool_call, 'function') else tool_call["function"]["arguments"]
-                                                    func_args = json.loads(func_args_str)
-                                                    return available_functions[func_name](**func_args)
-                                        return tool_calls
-                                    
-                                    log.print_log(
-                                        f"✅ 备用模型 [{self._fallback_model}] 调用成功！",
-                                        "success"
-                                    )
+                                    log.print_log(f"✅ 备用模型 [{self._fallback_model}] 调用成功！", "success")
                                     return result
                                 except Exception as fb_e:
-                                    log.print_log(
-                                        f"备用模型重试 ({fb_attempt + 1}/{fallback_retries}): {fb_e}",
-                                        "error"
-                                    )
+                                    fb_err_msg = str(fb_e)
+                                    # 备用模式下的 Key 切换
+                                    is_fb_failover = "auth" in fb_err_msg.lower() or "limit" in fb_err_msg.lower()
+                                    if is_fb_failover and len(self._api_keys) > 1:
+                                        self._current_key_index = (self._current_key_index + 1) % len(self._api_keys)
+                                        self._openai_client = OpenAI(
+                                            api_key=self._api_keys[self._current_key_index],
+                                            base_url=self.base_url,
+                                            timeout=self.timeout if self.timeout else 120.0
+                                        )
+                                        log.print_log(f"[Fallback-Failover] 切换备用 Key {self._current_key_index}", "warning")
+                                        continue
+                                    
+                                    log.print_log(f"备用模型重试 ({fb_attempt + 1}/{fallback_retries}): {fb_e}", "error")
                                     if fb_attempt < fallback_retries - 1:
                                         import time
-                                        import random
-                                        time.sleep(1 + random.uniform(0, 1))
+                                        time.sleep(1)
                                         continue
-                            log.print_log("备用模型重试也全部失败", "error")
+                            log.print_log("备用模型及其 Key 池重试也全部失败", "error")
                         finally:
                             self._original_model = saved_model  # 恢复主模型
                     raise

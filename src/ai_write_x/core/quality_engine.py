@@ -1143,7 +1143,7 @@ class ContentQualityEngine:
         
         # 2. 调用AI生成个性化建议
         try:
-            from src.ai_write_x.llm import LiteLLMClient
+            from src.ai_write_x.core.llm_client import LLMClient
             
             # 构建分析数据
             analysis_data = {
@@ -1187,11 +1187,17 @@ class ContentQualityEngine:
 
 ## 个性化优化建议："""
 
-            llm = LiteLLMClient()
-            ai_response = await llm.acomplete(
-                prompt=ai_prompt,
+            llm = LLMClient()
+            messages = [
+                {"role": "system", "content": "你是一位资深的内容编辑和写作专家。"},
+                {"role": "user", "content": ai_prompt}
+            ]
+            # 禁用语义缓存
+            ai_response = llm.chat(
+                messages=messages,
                 temperature=0.7,
-                max_tokens=800
+                max_tokens=800,
+                use_v15=False  # 禁用语义缓存
             )
             
             # 解析AI返回的建议
@@ -1330,7 +1336,7 @@ class TitleOptimizer:
             包含优化后标题和变体的字典
         """
         try:
-            from src.ai_write_x.llm import LiteLLMClient
+            from src.ai_write_x.core.llm_client import LLMClient
             
             # 准备内容摘要（前800字）
             content_summary = content[:800] if len(content) > 800 else content
@@ -1341,7 +1347,7 @@ class TitleOptimizer:
                 "今日头条": "强调新闻性和热点，标题要直接、有冲击力，适合算法推荐",
                 "知乎": "要有知识性和深度，引发好奇心和讨论欲",
                 "抖音": "简短有力，口语化，适合短视频时代的快速阅读",
-                "小红书": "亲和力强，使用emoji，注重实用性和分享感",
+                "小红书": "亲和力强，注重实用性和分享感，语气活泼但不使用表情符号",
                 "": "通用平台，平衡传播性和专业性"
             }
             
@@ -1358,75 +1364,222 @@ class TitleOptimizer:
 ## 平台要求
 {platform_hint}
 
+## 爆款标题公式（必须遵循）
+标题必须包含以下元素中的至少2个：
+- 问号？（制造悬念）
+- 感叹号！（情绪强烈）
+- 引号""（引用或强调）
+- 数字（具体可信）
+- 省略号...（意犹未尽）
+
+**注意：标题中禁止使用Emoji表情符号，确保在所有平台都能正常显示**
+
+## 爆款标题类型（5种必须全生成）
+1. **悬念型**：用"为什么""竟然""真相是""揭秘"等词制造悬念
+   示例：《为什么90%的人都在错误理财？真相让人震惊！》
+
+2. **数字型**：用具体数据增强可信度
+   示例：《月入3000到3万，我只做了这3件事》
+
+3. **冲突型**：制造强烈反差或对立
+   示例：《年薪百万的他，却在凌晨3点捡垃圾》
+
+4. **情绪型**：激发恐惧、愤怒、好奇或共鸣
+   示例：《小心！你家的这种电器正在偷走你的寿命》
+
+5. **实用型**：突出价值和利益点
+   示例：《3分钟学会这个技巧，让你效率提升10倍》
+
+**重要：所有标题禁止包含Emoji表情，只使用纯文字和标点符号**
+
 ## 要求
-1. 生成5个不同风格的标题供选择：
-   - 标题1：悬念型（引发好奇心）
-   - 标题2：数字型（使用具体数据）
-   - 标题3：情感型（引发共鸣）
-   - 标题4：热点型（结合时事）
-   - 标题5：实用型（突出价值）
+1. 生成5个不同风格的标题（严格按上述5种类型）
+2. 每个标题长度在15-30字之间
+3. 每个标题必须包含至少2个爆款元素（问号、感叹号、数字、省略号等）
+4. **严禁使用Emoji表情符号**，确保标题在所有平台都能正常显示
+5. 符合平台调性，避免低俗标题党
+6. 突出文章核心卖点
 
-2. 每个标题都要：
-   - 长度在15-30字之间
-   - 符合平台调性
-   - 避免标题党，但要有吸引力
-   - 突出文章核心卖点
+## 输出格式（严格遵循）
+标题1：[悬念型标题]
+说明：[为什么这个标题能吸引点击，包含哪些爆款元素]
 
-3. 对每个标题给出简短说明（为什么这个标题有效）
+标题2：[数字型标题]
+说明：[为什么这个标题能吸引点击，包含哪些爆款元素]
 
-## 输出格式
-标题1：[标题内容]
-说明：[为什么有效]
+标题3：[冲突型标题]
+说明：[为什么这个标题能吸引点击，包含哪些爆款元素]
 
-标题2：[标题内容]
-说明：[为什么有效]
+标题4：[情绪型标题]
+说明：[为什么这个标题能吸引点击，包含哪些爆款元素]
 
-...以此类推"""
+标题5：[实用型标题]
+说明：[为什么这个标题能吸引点击，包含哪些爆款元素]
 
-            llm = LiteLLMClient()
-            response = await llm.acomplete(
-                prompt=prompt,
-                temperature=0.8,
-                max_tokens=1000
+## 推荐标记
+在最有吸引力的标题后面加上 [⭐推荐]
+
+## 开始生成"""
+
+            llm = LLMClient()
+            messages = [
+                {"role": "system", "content": "你是一位资深的新媒体标题优化专家，擅长创作爆款标题。"},
+                {"role": "user", "content": prompt}
+            ]
+            # 禁用语义缓存，确保每次生成不同的标题
+            response = llm.chat(
+                messages=messages,
+                temperature=0.9,  # 提高温度增加多样性
+                max_tokens=1000,
+                use_v15=False  # 禁用V15语义缓存，确保每次生成不同结果
             )
+            
+            # ===== 调试日志：打印完整AI响应到控制台 =====
+            print("=" * 80)
+            print("[TitleOptimizer] AI原始响应内容:")
+            print("=" * 80)
+            print(response)
+            print("=" * 80)
+            print(f"[TitleOptimizer] 响应长度: {len(response)} 字符")
+            print("=" * 80)
+            
+            # 辅助函数：移除Emoji表情符号
+            def remove_emoji(text):
+                import re
+                # 匹配Emoji的正则表达式
+                emoji_pattern = re.compile("["
+                    u"\U0001F600-\U0001F64F"  # emoticons
+                    u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                    u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                    u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                    u"\U00002702-\U000027B0"
+                    u"\U000024C2-\U0001F251"
+                    u"\U0001F900-\U0001F9FF"  # supplemental symbols
+                    u"\U0001FA00-\U0001FA6F"  # chess symbols
+                    u"\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-a
+                    u"\U00002600-\U000026FF"  # misc symbols
+                    u"\U00002700-\U000027BF"  # dingbats
+                    "]+", flags=re.UNICODE)
+                return emoji_pattern.sub(r'', text).strip()
             
             # 解析响应
             lines = response.strip().split('\n')
             titles = []
             current_title = {}
+            recommended_index = 0
             
-            for line in lines:
+            # 打印原始响应用于调试
+            print(f"[TitleOptimizer] AI原始响应:\n{response[:500]}...")
+            
+            for i, line in enumerate(lines):
                 line = line.strip()
-                if line.startswith('标题') and '：' in line:
+                if not line:
+                    continue
+                    
+                # 匹配标题行（支持多种格式）
+                # 格式1: 标题1：《标题内容》
+                # 格式2: 标题1：标题内容
+                # 格式3: 1. 《标题内容》
+                # 格式4: 1、标题内容
+                title_match = None
+                
+                # 优先匹配 "标题X：" 格式（最可靠）
+                if line.startswith('标题') and ('：' in line or ':' in line):
+                    sep = '：' if '：' in line else ':'
+                    parts = line.split(sep, 1)
+                    if len(parts) == 2:
+                        # 验证标题编号（必须是1-5）
+                        title_num_match = re.match(r'^标题(\d+)$', parts[0].strip())
+                        if title_num_match and 1 <= int(title_num_match.group(1)) <= 5:
+                            title_match = parts
+                
+                # 备选：匹配 "X. 标题" 或 "X、标题" 格式，但只匹配1-5
+                elif title_match is None:
+                    # 只匹配标题编号1-5，且后面要有实际内容（至少5个字符）
+                    num_title_match = re.match(r'^(\d+)[\.、\s]+(.{5,})$', line)
+                    if num_title_match:
+                        num = int(num_title_match.group(1))
+                        if 1 <= num <= 5:
+                            title_match = [f"标题{num}", num_title_match.group(2)]
+                
+                if title_match and len(title_match) == 2:
                     if current_title:
                         titles.append(current_title)
+                    
+                    title_type = title_match[0].strip()
+                    title_text = title_match[1].strip()
+                    
+                    # ===== 调试：显示每一步处理前后的内容 =====
+                    print(f"[TitleOptimizer] 【DEBUG】分割结果: type='{title_type}', raw_text='{title_text[:50]}'")
+                    
+                    # 移除书名号《》
+                    title_text = re.sub(r'[《》]', '', title_text)
+                    print(f"[TitleOptimizer] 【DEBUG】移除书名号后: '{title_text[:50]}'")
+                    
+                    # 检查是否有推荐标记（直接在原始文本上处理，不移除emoji）
+                    is_recommended = False
+                    if '[⭐推荐]' in title_text or '⭐推荐' in title_text:
+                        title_text = title_text.replace('[⭐推荐]', '').replace('⭐推荐', '').strip()
+                        is_recommended = True
+                        recommended_index = len(titles)
+                        print(f"[TitleOptimizer] 【DEBUG】移除推荐标记后: '{title_text[:50]}'")
+                    
+                    print(f"[TitleOptimizer] 解析到标题: type={title_type}, title={title_text[:30]}...")
+                    
                     current_title = {
-                        'type': line.split('：')[0],
-                        'title': line.split('：', 1)[1].strip(),
-                        'explanation': ''
+                        'type': title_type,
+                        'title': title_text,
+                        'explanation': '',
+                        'is_recommended': is_recommended
                     }
-                elif line.startswith('说明') and '：' in line and current_title:
-                    current_title['explanation'] = line.split('：', 1)[1].strip()
+                
+                # 匹配说明行
+                elif line.startswith('说明') and ('：' in line or ':' in line) and current_title:
+                    explanation = line.split('：' if '：' in line else ':', 1)[1].strip()
+                    current_title['explanation'] = explanation
+                # 如果没有说明行，但有其他描述文字，也作为说明
+                elif current_title and not current_title['explanation'] and len(line) > 10 and not line.startswith('标题'):
+                    # 可能是说明文字，但不是下一行的标题
+                    if not re.match(r'^\d+[\.、\s]', line) and not line.startswith('标题'):
+                        current_title['explanation'] = line
             
             if current_title:
                 titles.append(current_title)
             
+            # ===== 调试日志：打印解析结果 =====
+            print("\n" + "=" * 80)
+            print(f"[TitleOptimizer] 解析完成，共 {len(titles)} 个标题:")
+            print("=" * 80)
+            for idx, t in enumerate(titles):
+                print(f"  [{idx+1}] {t['type']}: {t['title']}")
+                if t.get('explanation'):
+                    print(f"      说明: {t['explanation'][:50]}...")
+                if t.get('is_recommended'):
+                    print(f"      ⭐ 推荐")
+            print("=" * 80 + "\n")
+            
             # 如果解析失败，返回原标题
             if not titles:
+                print("[TitleOptimizer] 警告: 未能解析到任何标题，返回原标题")
                 return {
                     "original_title": title,
                     "optimized_titles": [],
                     "recommended": title
                 }
             
-            # 返回第一个作为推荐
+            # 返回推荐的标题（默认第一个）
+            recommended = titles[recommended_index]['title'] if recommended_index < len(titles) else titles[0]['title']
+            print(f"[TitleOptimizer] 推荐标题: {recommended}")
+            
             return {
                 "original_title": title,
                 "optimized_titles": titles,
-                "recommended": titles[0]['title'] if titles else title
+                "recommended": recommended
             }
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             # 出错时返回原标题
             return {
                 "original_title": title,

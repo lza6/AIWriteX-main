@@ -40,7 +40,7 @@ class Article(SQLModel, table=True):
     ai_probability: Optional[float] = Field(default=None) # 越低越好
     continuity_score: Optional[float] = Field(default=None) # 越高越好
     
-    human_rating: Optional[int] = Field(default=None)
+    human_rating: Optional[int] = Field(default=None, nullable=True)
     created_at: datetime = Field(default_factory=datetime.now)
     
     topic: Topic = Relationship(back_populates="articles")
@@ -80,6 +80,24 @@ class ScheduledTask(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
+    @staticmethod
+    def get_by_id(task_id: str) -> Optional["ScheduledTask"]:
+        from src.ai_write_x.database.db_manager import get_session
+        from uuid import UUID
+        try:
+            tid = UUID(task_id) if isinstance(task_id, str) else task_id
+            with get_session() as session:
+                return session.get(ScheduledTask, tid)
+        except Exception:
+            return None
+
+    def save(self):
+        from src.ai_write_x.database.db_manager import get_session
+        with get_session() as session:
+            session.add(self)
+            session.commit()
+            session.refresh(self)
+
 class TaskLog(SQLModel, table=True):
     __tablename__ = "task_logs"
     
@@ -89,6 +107,17 @@ class TaskLog(SQLModel, table=True):
     message: str
     run_time: datetime = Field(default_factory=datetime.now)
     article_id: Optional[str] = Field(default=None)
+
+    @staticmethod
+    def get_by_id(log_id: str) -> Optional["TaskLog"]:
+        from src.ai_write_x.database.db_manager import get_session
+        from uuid import UUID
+        try:
+            lid = UUID(log_id) if isinstance(log_id, str) else log_id
+            with get_session() as session:
+                return session.get(TaskLog, lid)
+        except Exception:
+            return None
 
 class VisualAsset(SQLModel, table=True):
     __tablename__ = "visual_assets"
@@ -109,3 +138,26 @@ class SystemEntropy(SQLModel, table=True):
     reasoning_load: float
     active_agents: int
     timestamp: datetime = Field(default_factory=datetime.now)
+
+class ArticleAesthetic(SQLModel, table=True):
+    """V19.6: 审美评价表 - 记录用户对文章或模板的视觉反馈"""
+    __tablename__ = "article_aesthetics"
+    
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    article_id: Optional[UUID] = Field(default=None, foreign_key="articles.id", index=True)
+    article_path: Optional[str] = Field(default=None, index=True)  # 文章路径，用于检查重复投票
+    template_id: Optional[str] = Field(default=None, index=True) # 也可以针对模板投票
+    
+    # 评价维度 (存储为 JSON 字符串)
+    # 正面标签: 布局精美, 配色合理, UI/CSS 高级, 叙事流畅, 视觉呼吸感强
+    # 负面标签: 结构单薄, 副标题缺失, 颜色单调, 插图畸变, 样式错乱
+    positive_tags: str = Field(default="[]") 
+    negative_tags: str = Field(default="[]")
+    
+    rating: int = Field(default=5) # 1-5 分
+    comment: Optional[str] = Field(default=None)
+    
+    # 审美特征快照 (存储当时生成的 design_data JSON)
+    design_dna: Optional[str] = Field(default=None)
+    
+    created_at: datetime = Field(default_factory=datetime.now)

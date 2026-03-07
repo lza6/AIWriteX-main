@@ -81,6 +81,16 @@ class BaseSpider:
             # 使用自适应的 connector
             connector = aiohttp.TCPConnector(ssl=verify_ssl)
             try:
+                # 获取全局代理 (带容错处理)
+                proxy = None
+                try:
+                    from src.ai_write_x.config.config import Config
+                    cfg = Config.get_instance()
+                    if cfg and hasattr(cfg, 'config') and cfg.config:
+                        proxy = cfg.proxy or None
+                except Exception:
+                    proxy = None
+                
                 async with aiohttp.ClientSession(connector=connector) as session:
                     # 合并 headers并且使用动态UA池 (V3: Spider Resilience)
                     request_headers = self.dynamic_headers
@@ -94,6 +104,7 @@ class BaseSpider:
                         params=params,
                         json=json,
                         data=data,
+                        proxy=proxy,
                         timeout=aiohttp.ClientTimeout(total=timeout),
                     ) as response:
                         # V3: 死链快速熔断预检
@@ -152,6 +163,16 @@ class BaseSpider:
         for attempt in range(max_retries):
             connector = aiohttp.TCPConnector(ssl=verify_ssl)
             try:
+                # 获取全局代理 (带容错处理)
+                proxy = None
+                try:
+                    from src.ai_write_x.config.config import Config
+                    cfg = Config.get_instance()
+                    if cfg and hasattr(cfg, 'config') and cfg.config:
+                        proxy = cfg.proxy or None
+                except Exception:
+                    proxy = None
+                
                 async with aiohttp.ClientSession(connector=connector) as session:
                     request_headers = self.dynamic_headers
                     if headers:
@@ -163,6 +184,7 @@ class BaseSpider:
                         params=params,
                         json=json,
                         data=data,
+                        proxy=proxy,
                         timeout=aiohttp.ClientTimeout(total=timeout),
                     ) as response:
                         if response.status == 404:

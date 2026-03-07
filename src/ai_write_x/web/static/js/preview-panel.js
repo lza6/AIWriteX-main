@@ -195,29 +195,6 @@ class PreviewPanelManager {
         this.updateTriggerState();
     }
 
-    reset() {
-        // 清空预览内容,恢复初始占位符  
-        const previewArea = document.getElementById('preview-area');
-        if (previewArea) {
-            previewArea.innerHTML = '<p class="preview-placeholder">内容预览将在这里显示</p>';
-        }
-
-        // 重置尺寸为默认(mobile)  
-        this.setSize('mobile');
-
-        // 清空文章信息  
-        this.currentArticleInfo = null;
-        this.showActions = false;
-
-        // 隐藏操作按钮组(如果存在)  
-        const actionsDiv = document.getElementById('preview-actions');
-        if (actionsDiv) {
-            actionsDiv.style.display = 'none';
-        }
-
-        // 关闭面板  
-        this.hide();
-    }
 
     toggle(content = null) {
         if (this.isVisible) {
@@ -434,13 +411,13 @@ class PreviewPanelManager {
                 if (window.previewPanelManager) {
                     window.previewPanelManager.show(html);
                 } else {
-                    this.showNotification('预览面板未初始化', 'error');
+                    window.app?.showNotification('预览面板未初始化', 'error');
                 }
             } else {
-                throw new Error('加载失败');
+                window.app?.showNotification(`加载失败 (HTTP ${response.status})`, 'error');
             }
         } catch (error) {
-            this.showNotification('预览失败: ' + error.message, 'error');
+            window.app?.showNotification('预览失败: ' + error.message, 'error');
         }
     }
 

@@ -19,6 +19,7 @@ from src.ai_write_x.crew_main import ai_write_x_main
 from src.ai_write_x.tools import hotnews
 from src.ai_write_x.utils import utils, log
 from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+from src.ai_write_x.core.task_distributor import TaskDistributor
 
 router = APIRouter(prefix="/api", tags=["generate"])
 
@@ -153,166 +154,251 @@ async def generate_content(request: GenerateRequest):
             # lg.set_process_queue(log_q)
             
             try:
+                lg.print_log(f"🚀 batch_thread_worker 开始执行", "success")
+                lg.print_log(f"🔍 参数检查: article_count={article_count}, req_platform={req_platform}, is_reference={is_reference}", "info")
+                
+                from datetime import datetime
+                d_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
                 from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
                 deduplicator = TopicDeduplicator(dedup_days=3)
                 used_session_topics = []
+                topics_to_generate = []
                 
-                for i in range(article_count):
+                # V12 Optimization: 预先确定所有文章的话题，显著减少重复抓取和 AI 思考耗时
+                if req_topic:
+                    topics_to_generate.append(req_topic)
+                    if article_count > 1:
+                        lg.print_log(f"🧠 正在让 AI 基于原话题发散 {article_count-1} 个全新视角...", "info")
+                        try:
+                            from src.ai_write_x.core.llm_client import LLMClient
+                            llm = LLMClient()
+                            prompt = f"以“{req_topic}”为核心，请发散提供 {article_count-1} 个互不相同、切入点独特的相关新闻话题。每行输出一个标题，不要包含序号、前缀或任何多余文字。"
+                            res = llm.chat([{"role": "user", "content": prompt}]).strip()
+                            lines = [l.strip().strip('-*0123456789. \n"\'') for l in res.split('\n') if l.strip()]
+                            for line in lines:
+                                if line and line not in topics_to_generate:
+                                    topics_to_generate.append(line)
+                        except Exception:
+                            for idx in range(1, article_count):
+                                topics_to_generate.append(f"{req_topic} 深度追踪 {idx+1}")
+                elif not is_reference:
+                    from src.ai_write_x.core.llm_client import LLMClient
+                    from src.ai_write_x.tools.spider_runner import SpiderRunner
+                    from src.ai_write_x.tools.spider_manager import spider_data_manager
+                    import asyncio
+                    import random
+                    
+                    try:
+                        # V18 Fix: 使用同步加载，确保爬虫在调用前已加载完成
+                        runner = SpiderRunner(sync_load=True)
+                        enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
+                        
+                        # V17大规模抓取: 根据文章生成数量动态计算抓取策略
+                        fetch_target = runner.calculate_fetch_limit(article_count)
+                        per_spider_limit = runner.calculate_spider_limit(article_count, len(enabled_spiders))
+                        
+                        lg.print_log(f"🌍 [V17大规模抓取] 目标: {fetch_target}篇候选 | 启用{len(enabled_spiders)}个爬虫 | 每爬虫抓{per_spider_limit}篇", "info")
+                        
+                        # V17: 大规模并发抓取
+                        if enabled_spiders:
+                            loop_spider = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop_spider)
+                            tasks = []
+                            
+                            # V17: 权威源优先级 + 大规模并行
+                            authority_spiders = {"bbc", "xinhua", "nytimes", "wsj", "zaobao", "voa", "8world", "zhongguoribao", "zhongguoribao"}
+                            available_authority = [s for s in enabled_spiders if s in authority_spiders]
+                            available_normal = [s for s in enabled_spiders if s not in authority_spiders]
+                            
+                            # V17: 全部启用爬虫都参与抓取(而不是只选6个)
+                            selected_spiders = []
+                            # 优先权威源
+                            if available_authority:
+                                selected_spiders.extend(available_authority)
+                            # 补充其他源
+                            if available_normal:
+                                selected_spiders.extend(available_normal)
+                            
+                            lg.print_log(f"[V17大规模抓取] 选中的爬虫: {len(selected_spiders)}个 | 权威源:{len(available_authority)}个 | 其他源:{len(available_normal)}个", "info")
+                            
+                            # 所有选中爬虫都参与大规模抓取
+                            for spider_name in selected_spiders:
+                                tasks.append(asyncio.wait_for(
+                                    runner.run_spider(spider_name, limit=per_spider_limit), 
+                                    timeout=10  # 爬虫超时10秒
+                                ))
+                                
+                            if tasks:
+                                results = loop_spider.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+                                # V17: 统计抓取结果
+                                total_saved = sum(r.get("saved", 0) for r in results if isinstance(r, dict))
+                                lg.print_log(f"[V17大规模抓取] 本轮抓取完成: {total_saved}篇成功", "success")
+                            loop_spider.close()
+                        
+                        # 获取候选话题 - V18优化：实时抓取 + 数据库热点补充
+                        # 1. 先获取本轮实时抓取的文章
+                        fresh_articles = spider_data_manager.get_articles(limit=100)
+                        
+                        candidate_titles = []
+                        seen_titles = set()
+                        
+                        # 添加实时抓取的文章（带[R]标记表示实时）
+                        for a in fresh_articles:
+                            a_title = a.get("title", "")
+                            if a_title and not deduplicator.is_duplicate(a_title) and a_title not in seen_titles:
+                                candidate_titles.append(f"[R]{a.get('spider', '资讯')}]{a_title}")
+                                seen_titles.add(a_title)
+                        
+                        lg.print_log(f"📡 本轮实时抓取: {len(candidate_titles)} 个话题", "info")
+                        
+                        # 2. 如果候选不足30个，从数据库补充今天的热点（带[H]标记表示历史热点）
+                        if len(candidate_titles) < 30:
+                            from datetime import datetime, timedelta
+                            today = datetime.now().strftime('%Y-%m-%d')
+                            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                            
+                            # 获取今天和昨天的文章
+                            all_articles = spider_data_manager._load_articles()
+                            for a in all_articles:
+                                a_title = a.get("title", "")
+                                a_date = a.get("save_date", "")
+                                # 只补充今天或昨天的，且不在已有列表中的
+                                if (a_date == today or a_date == yesterday) and a_title and a_title not in seen_titles:
+                                    if not deduplicator.is_duplicate(a_title):
+                                        candidate_titles.append(f"[H]{a.get('spider', '资讯')}]{a_title}")
+                                        seen_titles.add(a_title)
+                            
+                            lg.print_log(f"📚 数据库补充后: {len(candidate_titles)} 个话题", "info")
+                        
+                        candidate_titles = [ct for ct in candidate_titles if ct.strip()]
+                        
+                        if candidate_titles:
+                            lg.print_log(f"📡 抓取完成，共获得 {len(candidate_titles)} 个候选话题，正在请 AI 总编挑选 {article_count} 个精华热点...", "info")
+                            llm = LLMClient()
+                            prompt = f"""以下是从全球权威媒体抓取的热点候选列表。请作为首席主编，从中挑选出【{article_count}】个最具价值、互不重复的话题。
+
+标记说明：
+- [R]开头 = 本轮实时抓取的新鲜热点（优先选择）
+- [H]开头 = 数据库中的历史热点（补充备用）
+
+选择要求：
+1. 【最高优先级】优先选择[R]标记的实时热点，确保内容新鲜度
+2. 【内容质量】优先选择国际要闻、前沿科技、深度财经、重大社会事件
+3. 【排除项】绝不要选择八卦娱乐、标题党、低质量营销内容
+4. 【输出格式】每行仅输出一个话题标题，不要带[R]/[H]标记、前缀或任何多余说明
+
+候选列表：
+{chr(10).join(candidate_titles[:80])}
+"""
+                            res = llm.chat([{"role": "user", "content": prompt}]).strip()
+                            import re
+                            picked = [l.strip().strip('-*0123456789. \n"\'') for l in res.split('\n') if l.strip()]
+                            for pt in picked:
+                                # 移除 [R]xxx] 或 [H]xxx] 标记和任何其他前缀
+                                pt = re.sub(r'^\[[RH]\][^\]]*\]', '', pt)
+                                # 再移除可能残留的 [xxx] 标记
+                                pt = re.sub(r'^\[.*?\]\s*', '', pt)
+                                if pt.strip():
+                                    clean_topic = pt.strip()
+                                    
+                                    # V18: 检测并翻译英文标题为中文
+                                    lg.print_log(f"检查话题语言: {clean_topic[:50]}...", "debug")
+                                    try:
+                                        # 检测是否为英文（超过40%字符是ASCII字母，降低阈值）
+                                        ascii_chars = sum(1 for c in clean_topic if c.isascii() and c.isalpha())
+                                        total_chars = len([c for c in clean_topic if c.isalpha()])
+                                        is_english = total_chars > 0 and ascii_chars / total_chars > 0.4
+                                        
+                                        lg.print_log(f"语言检测: ASCII字符{ascii_chars}/{total_chars}, 英文={is_english}", "debug")
+                                        
+                                        if is_english:
+                                            lg.print_log(f"🌐 检测到英文话题，准备翻译: {clean_topic[:50]}...", "info")
+                                            # 调用LLM翻译标题
+                                            translate_prompt = f"将以下英文新闻标题翻译成地道简洁的中文标题（15字以内），只输出翻译结果，不要解释：\n{clean_topic}"
+                                            translated = llm.chat([{"role": "user", "content": translate_prompt}], temperature=0.3).strip()
+                                            # 清理翻译结果 - 移除可能的引号
+                                            translated = translated.replace('"', '').replace("'", "").strip()
+                                            lg.print_log(f"翻译结果: {translated}", "debug")
+                                            if translated and len(translated) > 5:
+                                                lg.print_log(f"✅ 翻译完成: {translated}", "success")
+                                                clean_topic = translated
+                                            else:
+                                                lg.print_log(f"⚠️ 翻译结果无效，使用原标题", "warning")
+                                        else:
+                                            lg.print_log(f"✅ 话题已是中文，无需翻译", "info")
+                                    except Exception as trans_e:
+                                        lg.print_log(f"⚠️ 话题翻译异常: {trans_e}", "warning")
+                                    
+                                    topics_to_generate.append(clean_topic)
+                    except Exception as e:
+                        lg.print_log(f"预选话题异常: {e}", "warning")
+                
+                # 再次兜底
+                if not topics_to_generate:
+                    for idx in range(article_count):
+                        topics_to_generate.append(f"全球前沿资讯深度追踪 {idx+1}")
+                
+                # 确保数量准确
+                topics_to_generate = topics_to_generate[:article_count]
+                while len(topics_to_generate) < article_count:
+                    topics_to_generate.append(f"前沿趋势聚合分析 {len(topics_to_generate)+1}")
+
+                lg.print_log(f"=" * 60, "internal")
+                lg.print_log(f"🚀 准备开始批量生成，话题列表: {topics_to_generate}", "success")
+                
+                if not topics_to_generate:
+                    lg.print_log(f"❌ 话题列表为空，无法生成文章！", "error")
+                    # 创建默认话题
+                    topics_to_generate = [f"全球前沿资讯深度追踪 {idx+1}" for idx in range(article_count)]
+                    lg.print_log(f"📝 使用默认话题: {topics_to_generate}", "warning")
+                
+                lg.print_log(f"🚀 开始批量生成流程，共 {len(topics_to_generate)} 个话题", "success")
+                lg.print_log(f"=" * 60, "internal")
+                
+                # 确保ref_config_dict不为None
+                if ref_config_dict is None:
+                    ref_config_dict = {}
+                    lg.print_log(f"⚠️ ref_config_dict为None，已初始化为空字典", "warning")
+                
+                for i, t in enumerate(topics_to_generate):
                     lg.print_log(f"=====================================", "internal")
                     lg.print_log(f"🔜 [批量进度] 正在生成第 {i+1}/{article_count} 篇文章", "success")
+                    lg.print_log(f"🔍 变量状态: req_platform={req_platform}, d_str={d_str}, ref_config_dict={ref_config_dict}", "debug")
                     
-                    # V12 Enhancement: 记录本次生成的起始时间，用于隔离旧数据
-                    # 如果开启了严格模式，则每次循环都重置时间戳，确保只取“刚刚生成的”
-                    strict_mode = getattr(cfg, "strict_freshness", True)
-                    session_start_time = time.time() if strict_mode else (time.time() - 3 * 3600)
-                    
-                    # 50% 概率回退逻辑（仅在关闭严格模式时生效）
-                    if not strict_mode and random.random() < 0.5:
-                        lg.print_log("🎲 按照用户偏好（非严格模式）：本次 50% 概率允许采用 3 小时内的历史优质话题", "info")
-                        # 已经是 -3h 了，不做额外处理
-                    elif not strict_mode:
-                        session_start_time = time.time() # 另外 50% 还是强制实时
-                    
-                    t = ""
-                    p = req_platform or "全网发现"
-                    d_str = "最新"
-                    
-                    # 1. 前台指定了明确的话题
-                    if req_topic:
-                        if i == 0:
-                            t = req_topic
-                        else:
-                            lg.print_log("🧠 正在让 AI 基于原话题发散全新视角...", "info")
-                            from src.ai_write_x.core.llm_client import LLMClient
-                            try:
-                                llm = LLMClient()
-                                prompt = f"以“{req_topic}”为核心，请发散提供一个互不相同、切入点独特的相关新闻话题。只需输出一句话标题。必须避开以下这几个相似标题: {', '.join(used_session_topics)}"
-                                t = llm.chat([{"role": "user", "content": prompt}]).strip().strip('-*0123456789. \n')
-                            except Exception:
-                                t = f"{req_topic} 独家深度追踪 {i+1}"
-                    # 2. 空白话题，需要搜刮全网+AI人工严选
-                    elif not is_reference:
-                        lg.print_log("🌍 正在重新抓取全网实时数据，准备搜寻下一个热点...", "info")
-                        from src.ai_write_x.core.llm_client import LLMClient
-                        from src.ai_write_x.tools.spider_runner import SpiderRunner
-                        from src.ai_write_x.tools.spider_manager import spider_data_manager
-                        import asyncio
-                        import random
-                        
+                    # V18.0 Swarm 模式集成检查
+                    swarm_cfg = cfg.config.get("swarm_settings", {})
+                    if swarm_cfg.get("swarm_mode_enabled"):
+                        lg.print_log(f"🐝 [Swarm] 检测到蜂群模式开启，正在进行去中心化派发...", "info")
                         try:
-                            runner = SpiderRunner()
-                            enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
-                            
-                            # 定义权威源集合
-                            authority_spiders = {"bbc", "xinhua", "nytimes", "wsj", "zaobao", "voa", "8world", "zhongguoribao"}
-                            
-                            if enabled_spiders:
-                                loop_spider = asyncio.new_event_loop()
-                                asyncio.set_event_loop(loop_spider)
-                                tasks = []
-                                
-                                # 将已启用的爬虫分为权威和普通两组
-                                available_authority = [s for s in enabled_spiders if s in authority_spiders]
-                                available_normal = [s for s in enabled_spiders if s not in authority_spiders]
-                                
-                                # 优先选取权威源 (最多2-3个)
-                                selected_spiders = []
-                                if available_authority:
-                                    selected_spiders.extend(random.sample(available_authority, min(2, len(available_authority))))
-                                
-                                # 再补充一些普通源保证多样性 (补齐到3-4个)
-                                remaining_slots = max(1, 4 - len(selected_spiders))
-                                if available_normal:
-                                    selected_spiders.extend(random.sample(available_normal, min(remaining_slots, len(available_normal))))
-                                    
-                                for spider_name in selected_spiders:
-                                    tasks.append(asyncio.wait_for(runner.run_spider(spider_name, limit=15), timeout=20.0))
-                                    
-                                if tasks:
-                                    loop_spider.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-                                loop_spider.close()
-                                
-                            # V12: 传入 min_time 以实现话题隔离
-                            articles = spider_data_manager.get_articles(limit=100, min_time=session_start_time)
-                            candidate_titles = []
-                            for a in articles:
-                                a_title = a.get("title", "")
-                                if a_title and not deduplicator.is_duplicate(a_title) and a_title not in used_session_topics:
-                                    candidate_titles.append(f"[{a.get('spider', '资讯')}] {a_title}")
-                            
-                            # 后备手段: 如果不够用，上权威榜单
-                            if len(candidate_titles) < 5:
-                                from src.ai_write_x.tools import hotnews
-                                # V12: 同时支持权威源的时间过滤
-                                cand_hot = hotnews.select_platform_topic(
-                                    "全网热点", 
-                                    cnt=100, 
-                                    exclude_topics=used_session_topics, 
-                                    authority_priority=True,
-                                    min_time=session_start_time
-                                )
-                                if isinstance(cand_hot, str) and cand_hot:
-                                    candidate_titles.append(f"[全网热搜] {cand_hot}")
-                                elif isinstance(cand_hot, list):
-                                    candidate_titles.extend([f"[全网热搜] {x}" for x in cand_hot if isinstance(x, str)])
-                            
-                            # 过滤掉空的
-                            candidate_titles = [ct for ct in candidate_titles if ct.strip()]
-                            
-                            lg.print_log(f"📡 抓取完成，共获得 {len(candidate_titles)} 个全新独立候选话题（已启用权威源优先机制）", "info")
-                            lg.print_log("🧠 AI总编正在执行严苛审查，挑选本期最具爆炸力与深度的唯一热点...", "info")
-                            
-                            llm = LLMClient()
-                            if candidate_titles:
-                                prompt = f"""以下是从全网各大平台及海外权威媒体（如BBC、纽时、新华社）抓取的最新热点候选列表。
-请作为首席国际新闻主编，从中挑选出【唯一一个】最具有社会价值、爆款潜质、深度讨论空间和国际视野的权威级话题。
-
-要求：
-- 必须优先考虑那些带有国际地缘、重大科技、宏观经济或深远社会影响的硬核新闻（如源自bbc、xinhua、nytimes等标签的内容）。
-- 坚决过滤掉无意义的娱乐剥削或低俗八卦。
-- 绝不要选择纯粹为博眼球但毫无信息量的标题党。
-- 我们的系统已经写过以下话题（必须严格避开）：
-{', '.join(used_session_topics) if used_session_topics else "无"}
-
-候选列表（最多看前50个）：
-{chr(10).join(candidate_titles[:50])}
-
-最终输出要求：
-1. 请直接返回最终选定的一句话标题。
-2. 绝对不要包含任何前缀（如[BBC]）、标签、理由或多余符号。"""
-                                picked_title = llm.chat([{"role": "user", "content": prompt}]).strip().strip('-*0123456789. \n"\'')
-                                import re
-                                picked_title = re.sub(r'^\[.*?\]\s*', '', picked_title)
-                                t = picked_title
-                            else:
-                                prompt_empty = f"请提供一个当下的热门互联网资讯或科技社会热点话题，确保独特且具有国际新闻价值。只需输出标题。避开: {', '.join(used_session_topics)}"
-                                t = llm.chat([{"role": "user", "content": prompt_empty}]).strip().strip('-*0123456789. \n"\'')
-                        except Exception as e:
-                            lg.print_log(f"AI严选及抓取过程出现异常: {e}，将采用备用方案", "warning")
-                            t = f"全球最新前沿资讯与独家深度追踪 {i+1}"
+                            distributor = TaskDistributor()
+                            # V18 FIX: 在同步线程中使用 asyncio.run 驱动异步蜂群分发
+                            import asyncio as async_executor
+                            task_ids = async_executor.run(distributor.distribute_article_task(t))
+                            lg.print_log(f"🐝 [Swarm] 任务已成功拆解并进入蜂群执行流 (IDs: {len(task_ids)})", "success")
+                            success_count += 1
+                            # 蜂群模式下，顶层任务仅负责派发
+                            continue
+                        except Exception as se:
+                            lg.print_log(f"❌ [Swarm] 蜂群派发异常: {se}，尝试回退到单机执行", "warning")
                     
-                    if not t:
-                        t = "全球热点聚合与最新行业动态追踪"
-
-                    # 记录并标记使用状态
-                    import re
-                    t = re.sub(r'^\[.*?\]\s*', '', t) # Double check strip
-                    used_session_topics.append(t)
-                    deduplicator.add_topic(t)
-                    
-                    lg.print_log(f"🎯 正式确定话题: 【{t}】", "success")
-                    lg.print_log(f"=====================================", "internal")
-                    
-                    config_data = {
-                        "custom_topic": t,
-                        "urls": [],
-                        "reference_ratio": 0.0,
-                        "custom_template_category": ref_config_dict.get("template_category", ""),
-                        "custom_template": ref_config_dict.get("template_name", ""),
-                        "platform": p,
-                        "reference_content": "",
-                        "date_str": d_str
-                    }
+                    try:
+                        config_data = {
+                            "custom_topic": t,
+                            "urls": [],
+                            "reference_ratio": 0.0,
+                            "custom_template_category": ref_config_dict.get("template_category", ""),
+                            "custom_template": ref_config_dict.get("template_name", ""),
+                            "platform": req_platform,
+                            "reference_content": "",
+                            "date_str": d_str
+                        }
+                        lg.print_log(f"✅ config_data创建成功", "debug")
+                    except Exception as config_e:
+                        lg.print_log(f"❌ config_data创建失败: {config_e}", "error")
+                        import traceback
+                        lg.print_log(f"错误详情: {traceback.format_exc()}", "error")
+                        continue
                     
                     if ref_config_dict and ref_config_dict.get("is_reference"):
                         if ref_config_dict.get("reference_article_id"):
@@ -322,7 +408,24 @@ async def generate_content(request: GenerateRequest):
                             if art:
                                 content_text = art.get('content') or art.get('article_info', '')
                                 if content_text:
-                                    config_data["reference_content"] = content_text
+                                    # V18: 检测并翻译英文参考内容为中文
+                                    try:
+                                        ascii_chars = sum(1 for c in content_text if c.isascii() and c.isalpha())
+                                        total_chars = len([c for c in content_text if c.isalpha()])
+                                        if total_chars > 0 and ascii_chars / total_chars > 0.5:
+                                            lg.print_log(f"参考内容为英文，正在翻译...", "info")
+                                            trans_prompt = f"将以下英文新闻内容翻译成流畅的中文，保持原文结构和关键信息：\n\n{content_text[:2000]}"
+                                            translated_content = llm.chat([{"role": "user", "content": trans_prompt}], temperature=0.3).strip()
+                                            if translated_content and len(translated_content) > 100:
+                                                config_data["reference_content"] = translated_content
+                                                lg.print_log(f"参考内容翻译完成", "success")
+                                            else:
+                                                config_data["reference_content"] = content_text
+                                        else:
+                                            config_data["reference_content"] = content_text
+                                    except Exception as ref_trans_e:
+                                        lg.print_log(f"参考内容翻译失败: {ref_trans_e}", "warning")
+                                        config_data["reference_content"] = content_text
                                 config_data["date_str"] = art.get('date_str', '')
                         
                         if ref_config_dict.get("reference_urls"):
@@ -333,41 +436,71 @@ async def generate_content(request: GenerateRequest):
                     
                     try:
                         # 核心生成节点
-                        lg.print_log(f"[{i+1}/{article_count}] 开始执行生成线程...", "info")
+                        lg.print_log(f"=" * 60, "internal")
+                        lg.print_log(f"🚀 [{i+1}/{article_count}] 开始执行生成流程", "success")
+                        lg.print_log(f"📝 配置数据: topic={t[:50]}...", "info")
+                        lg.print_log(f"📝 完整配置: {config_data}", "debug")
+                        
                         # 确保主模块状态
+                        lg.print_log(f"⏳ 调用 ai_write_x_main...", "debug")
                         process, p_log_queue = ai_write_x_main(config_data)
+                        lg.print_log(f"✅ ai_write_x_main 返回: process={process}, p_log_queue={p_log_queue}", "debug")
+                        
                         if process and p_log_queue:
+                            lg.print_log(f"🚀 启动子进程...", "info")
                             process.start()
+                            lg.print_log(f"✅ 子进程已启动，PID={process.pid}, is_alive={process.is_alive()}", "success")
+                            
                             # V7: 注册子进程以便统一管理
                             task_manager.register_sub_process("main_generate", process)
                             final_result = None
                             
                             # 循环读取日志，同时检测子进程存活状态
+                            lg.print_log(f"⏳ 开始监听子进程日志...", "debug")
                             while process.is_alive() or not p_log_queue.empty():
                                 try:
                                     msg = p_log_queue.get(timeout=0.1)
-                                    # 将 internal 的 任务执行完成 拦截掉（如果不拦截会被前端认为是整体完成）
+                                    # 将 internal 的 任务执行完成 拦截处理
                                     if msg.get("type") == "internal" and "任务执行完成" in msg.get("message", ""):
                                         if "result" in msg:
                                             final_result = msg.get("result")
                                             
                                         if i == article_count - 1:
-                                            # 最后一条的话，直接放行，告诉前端真正完成了
+                                            # 最后一条，放行告知整体完成
+                                            lg.print_log(f"🎉 最后一篇文章完成，发送完成信号", "success")
                                             log_q.put(msg)
+                                            lg.print_log(f"📤 已发送完成消息到队列", "debug")
                                         else:
-                                            # 截断它，不发送给前端，或者转换成 info 告诉前端这一篇完成了
-                                            pass 
+                                            # 非最后一条，发送进度更新而不是拦截
+                                            progress_msg = {
+                                                "type": "info",
+                                                "message": f"✅ 第 {i+1}/{article_count} 篇文章生成完成，继续下一篇...",
+                                                "timestamp": time.time()
+                                            }
+                                            log_q.put(progress_msg)
+                                            lg.print_log(f"📤 已发送进度消息: 第 {i+1}/{article_count} 篇完成", "success")
+                                            # 短暂延时确保消息被处理
+                                            time.sleep(0.5)
                                     else:
                                         log_q.put(msg)
                                 except queue.Empty:
                                     pass
+                                except Exception as loop_e:
+                                    lg.print_log(f"⚠️ 日志处理异常: {loop_e}", "warning")
                                     
-                            process.join()
+                            lg.print_log(f"⏳ 等待子进程结束...", "debug")
+                            process.join(timeout=99999)  # 用户禁用超时限制
+                            
+                            if process.is_alive():
+                                lg.print_log(f"⚠️ 子进程超时，强制终止", "warning")
+                                process.terminate()
+                            
                             if process.exitcode != 0 and process.exitcode is not None:
-                                lg.print_log(f"⚠ 进程异常退出 (可能被手动停止)，退出码: {process.exitcode}", "warning")
+                                lg.print_log(f"⚠ 进程异常退出，退出码: {process.exitcode}", "warning")
                                 break
                             
                             success_count += 1
+                            lg.print_log(f"🎉 第 {i+1}/{article_count} 篇文章成功生成", "success")
                             
                             # 自动化动作
                             post_action = getattr(cfg, "post_action", "none")
@@ -468,9 +601,8 @@ async def generate_content(request: GenerateRequest):
                         lg.print_log(f"❌ 第 {i+1} 篇文章生成失败: {str(loop_e)}", "error")
                         traceback.print_exc()
                         
-                    if i < article_count - 1:
-                        lg.print_log("等待 10 秒后开始下一篇文章生成...", "internal")
-                        time.sleep(10)
+                    # V12: 移除强制 10 秒等待，实现极速批量生成
+                    pass
                         
                 if success_count > 0:
                     lg.print_log(f"🎉 批量生成任务全部完成！共成功生成 {success_count}/{article_count} 篇文章。", "success")
@@ -483,6 +615,8 @@ async def generate_content(request: GenerateRequest):
             except Exception as e:
                 import traceback
                 error_trace = traceback.format_exc()
+                lg.print_log(f"❌❌❌ 任务执行异常: {e}", "error")
+                lg.print_log(f"错误详情: {error_trace}", "error")
                 log_q.put({
                     "type": "internal", 
                     "message": "任务执行失败", 
@@ -495,6 +629,10 @@ async def generate_content(request: GenerateRequest):
                     "timestamp": time.time()
                 })
             finally:
+                # 确保发送完成消息给前端
+                lg.print_log(f"🏁 任务执行结束，success_count={success_count}", "info")
+                log_q.put({"type": "internal", "message": "任务执行完成", "timestamp": time.time(), "success": success_count > 0})
+                
                 # 恢复日志队列为空，防止影响后续其它请求
                 lg.set_process_queue(None)
                 
@@ -721,7 +859,8 @@ async def get_hot_topics():
 
         from src.ai_write_x.core.llm_client import LLMClient
         
-        runner = SpiderRunner()
+        # V18 Fix: 使用同步加载，确保爬虫在调用前已加载完成
+        runner = SpiderRunner(sync_load=True)
         enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
         if not enabled_spiders:
             raise ValueError("没有启用的爬虫节点")
@@ -730,20 +869,22 @@ async def get_hot_topics():
         log.print_log("UI自动拾取: 正在跨平台抓取最新前沿资讯以供AI评估...", "info")
 
         import asyncio
-        target_article_count = 15  # 期望至少收集15个候选话题供AI甄选
+        # V17大规模抓取: 从默认15提升到50个候选话题
+        target_article_count = 50
         all_candidate_articles = []
 
         # 权威媒体列表（高公信力、国际视野）
-        high_authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua", "voa"]
+        high_authority_spiders = ["bbc", "nytimes", "wsj", "zaobao", "xinhua", "voa", "8world", "zhongguoribao"]
 
-        # ========== 第1优先级：强制并发运行权威媒体爬虫 ==========
+        # ========== 第1优先级：强制并发运行权威媒体爬虫（V17增强）==========
         priority_spiders = [s for s in enabled_spiders if s in high_authority_spiders]
         if priority_spiders:
-            log.print_log(f"🚀 第1优先级：正在并发抓取权威媒体（{', '.join(priority_spiders)}）...", "info")
+            log.print_log(f"🚀 [V17大规模抓取] 第1优先级：并发抓取权威媒体（{', '.join(priority_spiders)}）...", "info")
             
             tasks = []
             for spider_name in priority_spiders:
-                task = asyncio.wait_for(runner.run_spider(spider_name, limit=10), timeout=20.0)
+                # 爬虫超时10秒，并发执行
+                task = asyncio.wait_for(runner.run_spider(spider_name, limit=25), timeout=10)
                 tasks.append(task)
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -754,7 +895,8 @@ async def get_hot_topics():
                     continue
                     
                 if result and result.get("success") and result.get("saved", 0) > 0:
-                    articles = spider_data_manager.get_articles(limit=50)
+                    # V17: 从50提升到100,获取更多候选
+                    articles = spider_data_manager.get_articles(limit=100)
                     spider_articles = [a for a in articles if a.get("spider") == spider_name]
                     spider_articles.sort(key=lambda x: x.get("fetch_time", ""), reverse=True)
                     
@@ -768,22 +910,24 @@ async def get_hot_topics():
                         article['_platform_name'] = spider_info.get("source", spider_name)
                         all_candidate_articles.append(article)
             
-            log.print_log(f"权威媒体抓取完成，已获取 {len(all_candidate_articles)} 个候选话题", "info")
+            log.print_log(f"[V17大规模抓取] 权威媒体完成，已获取 {len(all_candidate_articles)} 个候选", "info")
 
-        # ========== 第2优先级：运行其他普通爬虫 ==========
+        # ========== 第2优先级：运行其他普通爬虫（V17增强）==========
         normal_spiders = [s for s in enabled_spiders if s not in high_authority_spiders]
         if len(all_candidate_articles) < target_article_count and normal_spiders:
-            log.print_log(f"📰 第2优先级：正在抓取其他平台...", "info")
+            log.print_log(f"📰 [V17大规模抓取] 第2优先级：正在抓取其他平台...", "info")
             
             random.shuffle(normal_spiders)
-            batch_size = 5
+            # V17: 从5提升到10,更大批量并发
+            batch_size = 10
             
             for i in range(0, len(normal_spiders), batch_size):
                 batch_spiders = normal_spiders[i:i+batch_size]
                 
                 tasks = []
                 for spider_name in batch_spiders:
-                    task = asyncio.wait_for(runner.run_spider(spider_name, limit=10), timeout=15.0)
+                    # 爬虫超时10秒，并发执行
+                    task = asyncio.wait_for(runner.run_spider(spider_name, limit=20), timeout=10)
                     tasks.append(task)
                 
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -837,10 +981,38 @@ async def get_hot_topics():
         if not all_candidate_articles:
             raise ValueError("未能获取到全新热门内容，所有抓取话题均已写过或为空，请稍后再试或手动输入")
             
+        # ========== 内容丰富度预检查（V18新增）==========
+        # 过滤掉内容太少的话题，确保选择的话题有足够的内容可写
+        MIN_CONTENT_LENGTH = 500  # 内容至少500字才算丰富
+        enriched_articles = []
+        
+        log.print_log(f"🔍 [V18内容检查] 正在检查 {len(all_candidate_articles)} 个候选话题的内容丰富度...", "info")
+        
+        for art in all_candidate_articles:
+            content = art.get('content', '')
+            article_info = art.get('article_info', '')
+            # 合并检查内容
+            full_content = content + article_info
+            content_len = len(full_content.strip())
+            
+            # 检查内容是否足够丰富
+            if content_len >= MIN_CONTENT_LENGTH:
+                art['_content_length'] = content_len
+                enriched_articles.append(art)
+            else:
+                log.print_log(f"⚠️ 话题内容不足跳过: {art.get('title')[:30]}... (仅{content_len}字)", "warn")
+        
+        # 如果过滤后没有足够的话题，使用原始列表但标记
+        if not enriched_articles:
+            log.print_log("⚠️ 所有候选话题内容均不足，将使用原始列表继续", "warn")
+            enriched_articles = all_candidate_articles
+        else:
+            log.print_log(f"✅ [V18内容检查] 筛选后剩余 {len(enriched_articles)} 个内容丰富的话题", "success")
+            
         # ========== AI主编甄选 ==========
         llm = LLMClient()
         prompt = "你是一位资深国际新闻主编，具有极高的新闻敏感度和专业判断力。\n\n"
-        prompt += "以下是我们从各大权威媒体和平台抓取的最新话题列表。\n\n"
+        prompt += "以下是我们筛选过的最新话题列表（已过滤掉内容太少的话题）。\n\n"
         prompt += "【核心甄选标准 - 按权重排序】：\n"
         prompt += "1. 【最高权重】优先选择来自 BBC、纽约时报、华尔街日报、联合早报、新华社 等权威国际媒体的话题\n"
         prompt += "2. 【高权重】话题应具备国际视野和深度，能引发读者深度思考\n"
@@ -849,14 +1021,16 @@ async def get_hot_topics():
         prompt += "请你从以下列表中，挑选出一个【最符合上述标准】的话题。\n"
         prompt += "你只能返回你选中的那个话题的数字序号(ID)，不要回复任何解释、思考或其他文字。必须且只能输出数字！\n\n"
         
-        for idx, art in enumerate(all_candidate_articles):
+        for idx, art in enumerate(enriched_articles):
             p_name = art.get('_platform_name')
             # 为权威平台添加特殊标记，引导AI选择
             is_authority = art.get('spider') in high_authority_spiders
             authority_tag = "⭐⭐⭐【权威国际媒体】" if is_authority else ""
-            prompt += f"[{idx}] 平台: {p_name} {authority_tag} | 标题: {art.get('title')}\n"
+            content_len = art.get('_content_length', 0)
+            content_tag = f"📄{content_len}字" if content_len else ""
+            prompt += f"[{idx}] 平台: {p_name} {authority_tag} {content_tag} | 标题: {art.get('title')}\n"
             
-        log.print_log(f"已收集到 {len(all_candidate_articles)} 个新鲜候选话题，正在请AI主编进行智能甄选...", "info")
+        log.print_log(f"已收集到 {len(enriched_articles)} 个内容丰富的新鲜候选话题，正在请AI主编进行智能甄选...", "info")
         
         choice_idx = 0
         try:
@@ -873,13 +1047,13 @@ async def get_hot_topics():
             match = re.search(r'\d+', choice_str)
             if match:
                 choice_idx = int(match.group(0))
-            if choice_idx < 0 or choice_idx >= len(all_candidate_articles):
+            if choice_idx < 0 or choice_idx >= len(enriched_articles):
                 choice_idx = 0
         except Exception as e:
             log.print_log(f"AI甄选环节出错，将默认随机选取: {e}", "warning")
-            choice_idx = random.randint(0, len(all_candidate_articles) - 1)
+            choice_idx = random.randint(0, len(enriched_articles) - 1)
             
-        selected_article = all_candidate_articles[choice_idx]
+        selected_article = enriched_articles[choice_idx]
         topic = selected_article.get("title", "")
         platform_name = selected_article.get("_platform_name", "")
         
@@ -975,4 +1149,87 @@ async def optimize_content(request: OptimizeContentRequest):
         
     except Exception as e:
         log.print_log(f"内容优化失败: {str(e)}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== V17大规模抓取API ==========
+
+class MassFetchRequest(BaseModel):
+    """V17大规模抓取请求"""
+    target_count: int = 100  # 目标抓取数量
+    article_count: int = 1   # 计划生成的文章数量（用于动态计算）
+    categories: list = []    # 指定分类列表
+    timeout: int = 99999     # 超时时间（秒）- 用户禁用超时限制
+
+
+@router.post("/mass-fetch")
+async def mass_fetch_news(request: MassFetchRequest):
+    """
+    V17大规模新闻抓取API
+    
+    根据目标数量或计划生成的文章数量，动态计算需要抓取的新闻数量。
+    
+    抓取策略:
+    - 生成1篇 → 抓取100篇候选
+    - 生成5篇 → 抓取150篇候选
+    - 生成10篇 → 抓取200篇候选
+    - 超过10篇 → 每篇额外10篇候选，上限300
+    """
+    try:
+        from src.ai_write_x.tools.spider_runner import SpiderRunner, spider_runner
+        
+        runner = spider_runner
+        
+        # 计算目标数量
+        if request.article_count > 0:
+            target = runner.calculate_fetch_limit(request.article_count)
+        else:
+            target = request.target_count
+            
+        log.print_log(f"[V17大规模抓取API] 启动 | 目标: {target}篇 | 生成计划: {request.article_count}篇", "info")
+        
+        enabled_spiders = [name for name, info in runner.spiders.items() if info.get("enabled", True)]
+        if not enabled_spiders:
+            raise HTTPException(status_code=500, detail="没有启用的爬虫")
+        
+        # 执行大规模抓取
+        try:
+            result = await asyncio.wait_for(
+                runner.run_all_spiders(article_count=request.article_count),
+                timeout=request.timeout
+            )
+        except asyncio.TimeoutError:
+            log.print_log(f"[V17大规模抓取] 超时，返回已抓取结果", "warning")
+            result = {"success": True, "total_saved": 0, "timeout": True}
+        
+        actual_saved = result.get("total_saved", 0)
+        achievement_rate = actual_saved / max(1, target) * 100
+        
+        log.print_log(f"[V17大规模抓取API] 完成 | 实际: {actual_saved}篇 | 达成率: {achievement_rate:.1f}%", "success")
+        
+        return {
+            "status": "success",
+            "target": target,
+            "actual": actual_saved,
+            "achievement_rate": f"{achievement_rate:.1f}%",
+            "spiders_used": len(enabled_spiders),
+            "result": result
+        }
+        
+    except Exception as e:
+        log.print_log(f"[V17大规模抓取API] 失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/mass-fetch/status")
+async def get_mass_fetch_status():
+    """获取V17大规模抓取任务状态"""
+    try:
+        from src.ai_write_x.tools.spider_runner import get_task_status
+        status = get_task_status()
+        return {
+            "status": "success",
+            "data": status
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

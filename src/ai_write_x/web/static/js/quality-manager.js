@@ -20,7 +20,10 @@ class QualityManager {
             vocabulary: { name: '词汇丰富度', icon: '📚', weight: 0.10 },
             sentence_variety: { name: '句式多样性', icon: '📝', weight: 0.10 },
             ai_likelihood: { name: 'AI检测概率', icon: '🤖', weight: 0.20, inverse: true },
-            semantic_depth: { name: '语义深度', icon: '💡', weight: 0.10 }
+            semantic_depth: { name: '语义深度', icon: '💡', weight: 0.10 },
+            emotional_polarity: { name: '情感共鸣', icon: '🎭', weight: 0.05 },
+            hook_cta: { name: '黄金开头', icon: '🪝', weight: 0.05 },
+            topic_transition: { name: '内容衔接', icon: '🛤️', weight: 0.05 }
         };
 
         this.init();
@@ -204,16 +207,23 @@ class QualityManager {
             const score = (data && typeof data.score === 'number') ? data.score : 0;
             const isInverse = info.inverse;
 
+            // 特殊处理情感极性显示
+            let displayValue = score;
+            let displaySuffix = '';
+            if (key === 'emotional_polarity') {
+                displaySuffix = ' / 100';
+            }
+
             // 对于AI检测概率，分数越低越好
-            const displayScore = isInverse ? (100 - score) : score;
-            const barColor = this.getScoreColor(displayScore, isInverse);
+            const displayPercentage = isInverse ? (100 - score) : score;
+            const barColor = this.getScoreColor(isInverse ? score : displayPercentage, isInverse);
 
             const item = document.createElement('div');
             item.className = 'metric-item';
             item.innerHTML = `
                 <div class="metric-item-header">
                     <span class="metric-item-name">${info.icon} ${info.name}</span>
-                    <span class="metric-item-value">${score.toFixed(1)}</span>
+                    <span class="metric-item-value">${score.toFixed(1)}${displaySuffix}</span>
                 </div>
                 <div class="metric-item-bar">
                     <div class="metric-item-bar-fill" style="width: ${score}%; background: ${barColor}"></div>

@@ -96,6 +96,13 @@ class AIWriteXApp {
         this.setupResizeListener();
         this._setupKeyboardShortcuts();  // V3: 初始化键盘快捷键
         new UpdateChecker();
+
+        // V13.0: 初始加载时确保基础数据准备就绪 (各 Manager 会在 showView 时按需初始化)
+        setTimeout(() => {
+            if (window.databaseManager) {
+                window.databaseManager.refreshAll();
+            }
+        }, 1000);
     }
 
     setupResizeListener() {
@@ -266,6 +273,19 @@ class AIWriteXApp {
             case 'dashboard':
                 if (window.dashboardManager && typeof window.dashboardManager.init === 'function') {
                     window.dashboardManager.init();
+                }
+                break;
+            case 'database-manager':
+                if (window.databaseManager && typeof window.databaseManager.init === 'function') {
+                    window.databaseManager.init();
+                    window.databaseManager.refreshAll();
+                }
+                break;
+            case 'swarm-monitor':
+                if (window.swarmMonitor && typeof window.swarmMonitor.init === 'function') {
+                    // SwarmMonitor 默认在 DOMContentLoaded 时已经实例化并初始化
+                    // 这里预留 case 以保持 main.js 的结构一致性，并支持按需激活数据抓取
+                    window.swarmMonitor.fetchData();
                 }
                 break;
         }

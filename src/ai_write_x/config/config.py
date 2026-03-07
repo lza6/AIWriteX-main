@@ -226,6 +226,7 @@ class Config:
                 "comfyui": {"api_key": "", "model": "", "api_base": ""},
                 "custom": [],
             },
+            "proxy": "",  # 全局代理 (e.g., http://127.0.0.1:7890)
             "use_template": True,
             "use_dynamic_template": True,  # 使用AI动态生成模板
             "strict_freshness": True,      # 强制话题新鲜度过滤
@@ -239,6 +240,22 @@ class Config:
             "aiforge_search_min_results": 1,
             "min_article_len": 1000,
             "max_article_len": 2000,
+            # V15.0: 量子优化配置
+            "v15_quantum_optimization": {
+                "enabled": True,                           # 启用 V15 优化
+                "enable_smart_batching": True,             # 智能批处理
+                "enable_semantic_cache": True,             # 语义缓存 V2
+                "enable_adaptive_routing": True,           # 自适应模型路由
+                "cache_similarity_threshold": 0.88,        # 缓存相似度阈值
+                "batch_window_ms": 50,                     # 批处理窗口 (毫秒)
+                "max_batch_size": 20,                      # 最大批处理数
+            },
+            # V18.0: 自主 Agent 蜂群并发配置
+            "swarm_settings": {
+                "swarm_mode_enabled": False,               # 默认不开启蜂群模式
+                "serial_mode_forced": True,                # 默认强制串行模式(并发=1)
+                "max_concurrency": 1                       # 当强制串行为 True 时，锁定为 1
+            },
             "auto_publish": False,
             "auto_delete_published": False,
             "article_format": "html",
@@ -1548,11 +1565,11 @@ class Config:
 
             # 1. 确定索引键映射
             index_key = f"{config_key}_index" if config_key != "model" else "model_index"
-            model_index = provider_config.get(index_key, -1)
+            model_index = int(provider_config.get(index_key, -1) or -1)
 
             # 如果是主模型请求，且没有 index，默认为 0
             if config_key == "model" and model_index == -1:
-                model_index = provider_config.get("model_index", 0)
+                model_index = int(provider_config.get("model_index", 0) or 0)
 
             # 2. 解析目标模型名称
             target_model = None
@@ -1601,12 +1618,56 @@ class Config:
 
     @property
     def api_key(self):
+        """获取当前选中的 API Key (如果是多 Key 字符串，则解析为列表后取索引)"""
         with self._lock:
             if not self.config:
                 raise ValueError("配置未加载")
-            api_key = self.config["api"][self.config["api"]["api_type"]]["api_key"]
-            key_index = self.config["api"][self.config["api"]["api_type"]]["key_index"]
-            return api_key[key_index]
+            
+            api_type = self.config["api"]["api_type"]
+            provider_config = self.config["api"][api_type]
+            
+            # 获取原始 key 数据
+            raw_key = provider_config.get("api_key", [])
+            
+            # 如果是列表且不为空，取索引
+            if isinstance(raw_key, list):
+                if not raw_key: return ""
+                key_index = int(provider_config.get("key_index", 0) or 0)
+                if 0 <= key_index < len(raw_key):
+                    return str(raw_key[key_index])
+                return str(raw_key[0])
+            
+            # 如果是字符串，尝试按换行符分割（多 Key 支持）
+            if isinstance(raw_key, str):
+                keys = [k.strip() for k in raw_key.split('\n') if k.strip()]
+                if not keys: return raw_key
+                key_index = int(provider_config.get("key_index", 0) or 0)
+                if 0 <= key_index < len(keys):
+                    return keys[key_index]
+                return keys[0]
+                
+            return str(raw_key)
+
+    def get_api_keys(self, provider_type: str = None) -> list:
+        """获取指定提供商的所有 API Keys 列表"""
+        with self._lock:
+            if not self.config:
+                return []
+            
+            target_type = provider_type or self.config["api"].get("api_type")
+            if not target_type:
+                return []
+                
+            provider_config = self.config["api"].get(target_type, {})
+            raw_key = provider_config.get("api_key", [])
+            
+            if isinstance(raw_key, list):
+                return [str(k) for k in raw_key if str(k).strip()]
+            
+            if isinstance(raw_key, str):
+                return [k.strip() for k in raw_key.split('\n') if k.strip()]
+                
+            return [str(raw_key)] if raw_key else []
 
     @property
     def api_model(self):
@@ -1614,7 +1675,7 @@ class Config:
             if not self.config:
                 raise ValueError("配置未加载")
             model = self.config["api"][self.config["api"]["api_type"]]["model"]
-            model_index = self.config["api"][self.config["api"]["api_type"]]["model_index"]
+            model_index = int(self.config["api"][self.config["api"]["api_type"]].get("model_index", 0) or 0)
             return model[model_index]
 
     @property
@@ -1627,7 +1688,7 @@ class Config:
             if not api_type:
                 return None
             provider_config = self.config["api"].get(api_type, {})
-            fallback_index = provider_config.get("fallback_model_index", -1)
+            fallback_index = int(provider_config.get("fallback_model_index", -1) or -1)
             if fallback_index < 0:
                 return None
             models = provider_config.get("model", [])
@@ -1648,8 +1709,8 @@ class Config:
                 
             provider_config = self.config["api"].get(api_type, {})
             vision_models = provider_config.get("vision_model", [])
-            vision_index = provider_config.get("vision_model_index", 0)
-            
+            vision_index = int(provider_config.get("vision_model_index", 0) or 0)
+
             if vision_models and 0 <= vision_index < len(vision_models):
                 return vision_models[vision_index]
             return ""
@@ -1677,6 +1738,7 @@ class Config:
 
     @property
     def img_api_key(self):
+        """获取当前图片 API Key (支持多 Key 轮询)"""
         with self._lock:
             if not self.config:
                 raise ValueError("配置未加载")
@@ -1688,43 +1750,76 @@ class Config:
             api_type = img_api.get("api_type", "picsum")
             provider_config = img_api.get(api_type, {})
             
-            # 特殊处理 custom 类型（可能是列表或字典）
+            # 特殊处理 custom 类型
             if api_type == "custom":
                 if isinstance(provider_config, list):
-                    custom_index = img_api.get("custom_index", 0)
+                    custom_index = int(img_api.get("custom_index", 0) or 0)
                     if 0 <= custom_index < len(provider_config):
                         target = provider_config[custom_index]
-                        return target.get("api_key", "") if isinstance(target, dict) else str(target)
+                        raw_key = target.get("api_key", "") if isinstance(target, dict) else str(target)
+                        return self._parse_first_key(raw_key)
                     return ""
                 elif isinstance(provider_config, dict):
-                    return provider_config.get("api_key", "")
+                    return self._parse_first_key(provider_config.get("api_key", ""))
                 return ""
 
-            # 处理其他类型（通常是字典）
+            # 处理其他类型
+            raw_key = ""
             if isinstance(provider_config, dict):
-                return provider_config.get("api_key", "")
+                raw_key = provider_config.get("api_key", "")
             elif isinstance(provider_config, list) and len(provider_config) > 0:
                 first = provider_config[0]
-                return first.get("api_key", "") if isinstance(first, dict) else str(first)
-                
-            return ""
+                raw_key = first.get("api_key", "") if isinstance(first, dict) else str(first)
+            
+            return self._parse_first_key(raw_key)
+
+    def get_img_api_keys(self, provider_type: str = None) -> list:
+        """获取图片生成 API 的所有 Keys 列表"""
+        with self._lock:
+            img_api = self.config.get("img_api", {})
+            target_type = provider_type or img_api.get("api_type", "picsum")
+            provider_config = img_api.get(target_type, {})
+            
+            raw_key = ""
+            if target_type == "custom" and isinstance(provider_config, list):
+                custom_index = int(img_api.get("custom_index", 0) or 0)
+                if 0 <= custom_index < len(provider_config):
+                    target = provider_config[custom_index]
+                    raw_key = target.get("api_key", "") if isinstance(target, dict) else str(target)
+            elif isinstance(provider_config, dict):
+                raw_key = provider_config.get("api_key", "")
+            
+            if isinstance(raw_key, list):
+                return [str(k) for k in raw_key if str(k).strip()]
+            if isinstance(raw_key, str):
+                return [k.strip() for k in raw_key.split('\n') if k.strip()]
+            return [str(raw_key)] if raw_key else []
+
+    def _parse_first_key(self, raw_key: Any) -> str:
+        """解析多 Key 字符串中的第一个可用 Key"""
+        if isinstance(raw_key, list):
+            return str(raw_key[0]) if raw_key else ""
+        if isinstance(raw_key, str):
+            keys = [k.strip() for k in raw_key.split('\n') if k.strip()]
+            return keys[0] if keys else raw_key
+        return str(raw_key) if raw_key else ""
 
     @property
     def img_api_model(self):
         with self._lock:
             if not self.config:
                 raise ValueError("配置未加载")
-            
+
             img_api = self.config.get("img_api", {})
             if not isinstance(img_api, dict):
                 return ""
-                
+
             api_type = img_api.get("api_type", "picsum")
             provider_config = img_api.get(api_type, {})
-            
+
             if api_type == "custom":
                 if isinstance(provider_config, list):
-                    custom_index = img_api.get("custom_index", 0)
+                    custom_index = int(img_api.get("custom_index", 0) or 0)
                     if 0 <= custom_index < len(provider_config):
                         target = provider_config[custom_index]
                         return target.get("model", "") if isinstance(target, dict) else str(target)
@@ -1791,18 +1886,63 @@ class Config:
             return self.config["max_article_len"]
 
     @property
+    def v15_config(self):
+        """V15.0 量子优化配置"""
+        with self._lock:
+            if not self.config:
+                raise ValueError("配置未加载")
+            return self.config.get("v15_quantum_optimization", {
+                "enabled": True,
+                "enable_smart_batching": True,
+                "enable_semantic_cache": True,
+                "enable_adaptive_routing": True,
+                "cache_similarity_threshold": 0.88,
+                "batch_window_ms": 50,
+                "max_batch_size": 20,
+            })
+
+    @property
     def article_format(self):
         with self._lock:
             if not self.config:
                 raise ValueError("配置未加载")
-            return self.config["article_format"]
+            return self.config.get("article_format", "MARKDOWN")
 
     @property
-    def auto_publish(self):
+    def auto_delete_published(self):
         with self._lock:
             if not self.config:
                 raise ValueError("配置未加载")
-            return self.config["auto_publish"]
+            return self.config.get("auto_delete_published", False)
+
+    @property
+    def auto_publish(self):
+        """是否启用自动发布功能 (V18 Fix)"""
+        with self._lock:
+            if not self.config:
+                raise ValueError("配置未加载")
+            # 兼容处理：优先从根读取，无则默认为 False
+            return self.config.get("auto_publish", False)
+
+    @property
+    def swarm_mode_enabled(self) -> bool:
+        """是否启用 Agent 蜂群并发模式"""
+        with self._lock:
+            return self.config.get("swarm_settings", {}).get("swarm_mode_enabled", False)
+
+    @property
+    def serial_mode_forced(self) -> bool:
+        """是否强制串行模式(并发=1)"""
+        with self._lock:
+            return self.config.get("swarm_settings", {}).get("serial_mode_forced", True)
+
+    @property
+    def api_concurrency(self) -> int:
+        """获取实际 API 并发数"""
+        with self._lock:
+            if self.serial_mode_forced:
+                return 1
+            return self.config.get("swarm_settings", {}).get("max_concurrency", 5)
 
     @property
     def format_publish(self):
@@ -1810,6 +1950,14 @@ class Config:
             if not self.config:
                 raise ValueError("配置未加载")
             return self.config["format_publish"]
+
+    @property
+    def proxy(self):
+        """获取全局代理设置"""
+        with self._lock:
+            if not self.config:
+                raise ValueError("配置未加载")
+            return self.config.get("proxy", "")
 
     @property
     def publish_platform(self):
@@ -1957,10 +2105,63 @@ class Config:
                     ret = False
             else:
                 self.aiforge_config = self.default_aiforge_config
+            # ── 🔐 环境变量加载 (优先级最高) ──
+            self._load_env_variables()
             # ── 🔐 自动加载 secrets/api_keys.yaml 密钥覆盖 ──
             self._load_secrets()
 
             return ret
+
+    def _load_env_variables(self):
+        """从环境变量加载 API 密钥（优先级最高）"""
+        import os
+        
+        # 映射环境变量名到配置路径
+        env_mappings = {
+            # LLM API Keys
+            "OPENAI_API_KEY": ("api", "OpenAI", "api_key"),
+            "DEEPSEEK_API_KEY": ("api", "Deepseek", "api_key"),
+            "QWEN_API_KEY": ("api", "Qwen", "api_key"),
+            "GEMINI_API_KEY": ("api", "Gemini", "api_key"),
+            "OPENROUTER_API_KEY": ("api", "OpenRouter", "api_key"),
+            "SILICONFLOW_API_KEY": ("api", "SiliconFlow", "api_key"),
+            "XAI_API_KEY": ("api", "XAI", "api_key"),
+            "IFLOW_API_KEY": ("api", "心流", "api_key"),
+            # Image API Keys
+            "ALI_API_KEY": ("img_api", "ali", "api_key"),
+            "MODELSCOPE_API_KEY": ("img_api", "modelscope", "api_key"),
+            # WeChat
+            "WECHAT_APPID": ("wechat", "credentials", 0, "appid"),
+            "WECHAT_APPSECRET": ("wechat", "credentials", 0, "appsecret"),
+        }
+        
+        loaded = []
+        for env_var, path in env_mappings.items():
+            value = os.environ.get(env_var)
+            if value:
+                try:
+                    # 动态设置嵌套配置
+                    target = self.config
+                    for key in path[:-1]:
+                        if key not in target:
+                            target[key] = {}
+                        target = target[key]
+                    
+                    # 最后一个 key 是实际要设置的
+                    last_key = path[-1]
+                    if isinstance(last_key, int):
+                        # 处理列表索引
+                        if last_key < len(target):
+                            target[last_key]["appid" if "appid" in env_var else "appsecret"] = value
+                    else:
+                        target[last_key] = value
+                    
+                    loaded.append(env_var)
+                except Exception:
+                    pass
+        
+        if loaded:
+            log.print_log(f"[Config] 🔐 从环境变量加载了 {len(loaded)} 个密钥: {', '.join(loaded)}", "info")
 
     def _load_secrets(self):
         """从 secrets/api_keys.yaml 读取密钥并合并到运行时配置（不修改 config.yaml 原文件）"""
@@ -1977,13 +2178,27 @@ class Config:
 
             # 合并微信凭据
             if "wechat" in secrets and "credentials" in secrets["wechat"]:
-                for i, sec_cred in enumerate(secrets["wechat"]["credentials"]):
-                    if i < len(self.config.get("wechat", {}).get("credentials", [])):
-                        cred = self.config["wechat"]["credentials"][i]
-                        if sec_cred.get("appid"):
-                            cred["appid"] = sec_cred["appid"]
-                        if sec_cred.get("appsecret"):
-                            cred["appsecret"] = sec_cred["appsecret"]
+                # 确保config中有credentials列表
+                if "wechat" not in self.config:
+                    self.config["wechat"] = {}
+                if "credentials" not in self.config["wechat"]:
+                    self.config["wechat"]["credentials"] = []
+                
+                # 如果config中的credentials为空，直接使用secrets中的
+                if not self.config["wechat"]["credentials"]:
+                    self.config["wechat"]["credentials"] = secrets["wechat"]["credentials"]
+                else:
+                    # 否则合并到现有凭据
+                    for i, sec_cred in enumerate(secrets["wechat"]["credentials"]):
+                        if i < len(self.config["wechat"]["credentials"]):
+                            cred = self.config["wechat"]["credentials"][i]
+                            if sec_cred.get("appid"):
+                                cred["appid"] = sec_cred["appid"]
+                            if sec_cred.get("appsecret"):
+                                cred["appsecret"] = sec_cred["appsecret"]
+                        else:
+                            # 添加新的凭据
+                            self.config["wechat"]["credentials"].append(sec_cred)
 
             # 合并 LLM API 密钥
             if "api" in secrets:
@@ -1996,9 +2211,30 @@ class Config:
             if "img_api" in secrets:
                 for provider, provider_secrets in secrets["img_api"].items():
                     if provider in self.config.get("img_api", {}):
-                        if isinstance(provider_secrets, dict) and "api_key" in provider_secrets:
-                            if provider_secrets["api_key"]:
-                                self.config["img_api"][provider]["api_key"] = provider_secrets["api_key"]
+                        # 特殊处理 custom (可能是列表)
+                        if provider == "custom" and isinstance(self.config["img_api"][provider], list):
+                            if isinstance(provider_secrets, list):
+                                # 如果 secrets 中也是列表，按索引对齐覆盖
+                                for i, sec_item in enumerate(provider_secrets):
+                                    if i < len(self.config["img_api"][provider]):
+                                        target = self.config["img_api"][provider][i]
+                                        if isinstance(target, dict) and isinstance(sec_item, dict):
+                                            for k, v in sec_item.items():
+                                                if v: target[k] = v
+                            elif isinstance(provider_secrets, dict):
+                                # 如果 secrets 中是字典，尝试覆盖当前 custom_index 指向的项目
+                                custom_index = int(self.config.get("img_api", {}).get("custom_index", 0) or 0)
+                                if 0 <= custom_index < len(self.config["img_api"][provider]):
+                                    target = self.config["img_api"][provider][custom_index]
+                                    if isinstance(target, dict):
+                                        for k, v in provider_secrets.items():
+                                            if v: target[k] = v
+                        
+                        # 常规字典处理
+                        elif isinstance(provider_secrets, dict):
+                            if isinstance(self.config["img_api"][provider], dict):
+                                for k, v in provider_secrets.items():
+                                    if v: self.config["img_api"][provider][k] = v
 
             log.print_log("[Config] 🔐 已从 secrets/api_keys.yaml 加载密钥覆盖", "info")
         except Exception as e:
@@ -2032,13 +2268,107 @@ class Config:
         _recurse_strip(sanitized)
         return sanitized
 
+    def _save_secrets_to_file(self, config: Dict[Any, Any]) -> bool:
+        """从配置中提取敏感信息并保存到 secrets/api_keys.yaml"""
+        secrets_path = os.path.join(str(PathManager.get_app_data_dir()), "secrets", "api_keys.yaml")
+        
+        # 确保目录存在
+        secrets_dir = os.path.dirname(secrets_path)
+        if not os.path.exists(secrets_dir):
+            os.makedirs(secrets_dir, exist_ok=True)
+        
+        # 读取现有的 secrets 文件
+        existing_secrets = {}
+        if os.path.exists(secrets_path):
+            try:
+                with open(secrets_path, "r", encoding="utf-8") as f:
+                    existing_secrets = yaml.safe_load(f) or {}
+            except Exception:
+                pass
+        
+        # 构建新的 secrets 结构
+        new_secrets = {}
+        
+        # 提取微信凭据
+        if "wechat" in config and "credentials" in config["wechat"]:
+            new_secrets["wechat"] = {"credentials": []}
+            for cred in config["wechat"]["credentials"]:
+                if cred.get("appid") or cred.get("appsecret"):
+                    new_secrets["wechat"]["credentials"].append({
+                        "appid": cred.get("appid", ""),
+                        "appsecret": cred.get("appsecret", "")
+                    })
+        
+        # 提取 API 密钥
+        if "api" in config:
+            new_secrets["api"] = {}
+            for provider, provider_config in config["api"].items():
+                if isinstance(provider_config, dict) and provider_config.get("api_key"):
+                    # 跳过只有默认值的情况
+                    if provider_config["api_key"]:
+                        new_secrets["api"][provider] = {"api_key": provider_config["api_key"]}
+        
+        # 提取图片 API 密钥
+        if "img_api" in config:
+            new_secrets["img_api"] = {}
+            for provider, provider_config in config["img_api"].items():
+                if isinstance(provider_config, dict):
+                    if provider in ("ali", "modelscope") and provider_config.get("api_key"):
+                        if provider_config["api_key"]:
+                            new_secrets["img_api"][provider] = {"api_key": provider_config["api_key"]}
+                    elif provider == "custom" and isinstance(provider_config, list):
+                        # custom 是列表
+                        custom_with_keys = []
+                        for item in provider_config:
+                            if isinstance(item, dict) and item.get("api_key"):
+                                custom_with_keys.append({"api_key": item["api_key"]})
+                        if custom_with_keys:
+                            new_secrets["img_api"]["custom"] = custom_with_keys
+        
+        # 合并: 保留现有 secrets 中不在新配置中的内容
+        for key in ["wechat", "api", "img_api"]:
+            if key not in new_secrets:
+                new_secrets[key] = existing_secrets.get(key, {})
+            elif key in existing_secrets:
+                # 深度合并
+                if key == "wechat" and "credentials" in existing_secrets.get("wechat", {}):
+                    # 保留没有在新配置中出现的凭据
+                    existing_creds = existing_secrets["wechat"]["credentials"]
+                    new_creds = new_secrets.get("wechat", {}).get("credentials", [])
+                    new_appids = {c.get("appid") for c in new_creds if c.get("appid")}
+                    for ec in existing_creds:
+                        if ec.get("appid") and ec["appid"] not in new_appids:
+                            if "credentials" not in new_secrets["wechat"]:
+                                new_secrets["wechat"]["credentials"] = []
+                            new_secrets["wechat"]["credentials"].append(ec)
+        
+        try:
+            # 生成带注释的文件头
+            header = """# ============================================
+# AIWriteX 真实密钥配置
+# ⚠️ 此文件已被 .gitignore 保护，不会上传 Git
+# ============================================
+
+"""
+            with open(secrets_path, "w", encoding="utf-8") as f:
+                f.write(header)
+                yaml.dump(new_secrets, f, Dumper=IndentedDumper, allow_unicode=True, sort_keys=False, default_flow_style=False, indent=2)
+            log.print_log("[Config] 🔐 敏感信息已保存到 secrets/api_keys.yaml", "info")
+            return True
+        except Exception as e:
+            log.print_log(f"[Config] 🔐 保存 secrets 失败: {e}", "warning")
+            return False
+
     def save_config(self, config, aiforge_config=None):
         """保存配置到 config.yaml，自动剥离敏感密钥，不验证"""
         with self._lock:
             ret = True
             self.config = config
             
-            # --- 🔐 安全屏障: 剥离敏感信息 ---
+            # --- 🔐 第一步: 保存敏感信息到 secrets 文件 ---
+            self._save_secrets_to_file(config)
+            
+            # --- 🔐 第二步: 剥离敏感信息后保存到 config.yaml ---
             save_payload = self._strip_secrets(config)
             
             try:
@@ -2117,7 +2447,7 @@ class Config:
                 return False
 
             # 检查 key_index 是否有效
-            key_index = api_config.get("key_index", 0)
+            key_index = int(api_config.get("key_index", 0) or 0)
             if key_index >= len(api_keys):
                 self.error_message = f"{api_type}的key_index({key_index})超出范围，api_key列表只有{len(api_keys)}个元素"  # noqa 501
                 return False
@@ -2134,7 +2464,7 @@ class Config:
                 return False
 
             # 检查 model_index 是否有效
-            model_index = api_config.get("model_index", 0)
+            model_index = int(api_config.get("model_index", 0) or 0)
             if model_index >= len(models):
                 self.error_message = f"{api_type}的model_index({model_index})超出范围，model列表只有{len(models)}个元素"  # noqa 501
                 return False
@@ -2160,7 +2490,7 @@ class Config:
                     # 兼容处理：如果是 custom 且配置是列表，提取当前选中的项
                     if self.img_api_type == "custom" and isinstance(img_api_config, list):
                         img_api = self.config.get("img_api", {})
-                        custom_index = img_api.get("custom_index", 0)
+                        custom_index = int(img_api.get("custom_index", 0) or 0)
                         if 0 <= custom_index < len(img_api_config):
                             img_api_config = img_api_config[custom_index]
                         else:
@@ -2173,10 +2503,10 @@ class Config:
 
                     # 其他API（如ali, custom）需要api_key
                     raw_api_key = img_api_config.get("api_key", "")
-                    
+
                     # 统一处理：如果是列表，取索引；如果是字符串，直接检查
                     if isinstance(raw_api_key, list):
-                        img_key_index = img_api_config.get("key_index", 0)
+                        img_key_index = int(img_api_config.get("key_index", 0) or 0)
                         if not raw_api_key or img_key_index >= len(raw_api_key) or not raw_api_key[img_key_index]:
                             self.error_message = f"未配置图片生成模型的API KEY，请打开配置填写{self.img_api_type}的api_key"
                             return False
@@ -2186,7 +2516,7 @@ class Config:
 
                     raw_model = img_api_config.get("model", "")
                     if isinstance(raw_model, list):
-                        img_model_index = img_api_config.get("model_index", 0)
+                        img_model_index = int(img_api_config.get("model_index", 0) or 0)
                         if not raw_model or img_model_index >= len(raw_model) or not raw_model[img_model_index]:
                             self.error_message = f"未配置图片生成的模型，请打开配置填写{self.img_api_type}的model"
                             return False

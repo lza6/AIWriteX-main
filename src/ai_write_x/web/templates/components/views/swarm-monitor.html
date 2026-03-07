@@ -1,0 +1,161 @@
+<div id="swarm-monitor-view" class="view-content swarm-monitor-view">
+    <div class="view-header">
+        <div class="header-content">
+            <h2><i class="fas fa-project-diagram"></i> V18.0 Autonomous Swarm Monitor</h2>
+            <p class="subtitle">实时监控 Agent 蜂群自组织状态、任务分配与共识演化</p>
+        </div>
+        <div class="header-actions">
+            <button id="refresh-topology" class="btn btn-secondary btn-sm">
+                <i class="fas fa-sync-alt"></i> 强制同步
+            </button>
+            <div class="swarm-status-badge">
+                <span class="status-dot online"></span>
+                Swarm Online: <span id="active-node-count">0</span> Nodes
+            </div>
+        </div>
+    </div>
+
+    <div class="monitor-grid">
+        <!-- 左侧：实时拓扑图 -->
+        <div class="grid-panel topology-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-network-wired"></i> 蜂群拓扑网络 (P2P)</h3>
+            </div>
+            <div id="swarm-cy-container" class="cy-container">
+                <!-- Cytoscape.js 渲染区域 -->
+            </div>
+        </div>
+
+        <!-- 右侧：实时日志与竞价记录 -->
+        <div class="grid-panel sidebar-panel">
+            <div class="panel-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-gavel"></i> 实时竞价与撮合</h3>
+                </div>
+                <div id="swarm-bid-log" class="mini-log-viewer">
+                    <!-- 动态滚动竞价信息 -->
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-database"></i> 共识记忆节点</h3>
+                </div>
+                <div id="swarm-memory-stats" class="stats-list">
+                    <div class="stat-item">
+                        <span class="stat-label">活跃 Agent 节点</span>
+                        <span class="stat-value" id="active-node-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">共识摘要 (V18.1)</span>
+                        <span class="stat-value" id="consensus-hash">0x00...</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-sm" id="refresh-topology">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">
+                        <path d="M23 4v6h-6M1 20v-6h6" />
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                    </svg>
+                    刷新拓扑图
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .swarm-monitor-view {
+        padding: 24px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        background: var(--bg-primary);
+    }
+
+    .monitor-grid {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        gap: 20px;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .grid-panel {
+        background: var(--bg-secondary);
+        border-radius: 16px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .topology-panel {
+        position: relative;
+    }
+
+    .cy-container {
+        flex: 1;
+        width: 100%;
+        background: #0d1117;
+        /* 深色网格背景 */
+    }
+
+    .mini-log-viewer {
+        height: 200px;
+        background: #000;
+        color: #00ff00;
+        padding: 12px;
+        font-family: 'Fira Code', monospace;
+        font-size: 12px;
+        overflow-y: auto;
+    }
+
+    .stats-list {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+    }
+
+    .swarm-status-badge {
+        background: rgba(0, 255, 100, 0.1);
+        color: #00ff64;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .status-dot.online {
+        width: 8px;
+        height: 8px;
+        background: #00ff64;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #00ff64;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 0.5;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0.5;
+        }
+    }
+</style>
