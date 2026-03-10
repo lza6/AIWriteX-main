@@ -42,7 +42,3 @@ pinecone>=4.0.0
 qdrant-client>=1.7.0
 weaviate-client>=4.0.0
 chromadb>=0.4.0
-
-# PyO3/Rust 性能优化
-#maturin>=1.0.0
-#pyo3>=0.22.0

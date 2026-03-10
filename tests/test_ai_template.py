@@ -9,7 +9,7 @@ from ai_write_x.config.config import Config
 config = Config.get_instance()
 config.load_config()  # 显式加载配置
 
-from ai_write_x.agents.ai_template_designer import AITemplateDesigner
+from ai_write_x.core.ai_template_designer import AITemplateDesigner
 
 # 测试内容
 title = '测试AI动态模板生成'

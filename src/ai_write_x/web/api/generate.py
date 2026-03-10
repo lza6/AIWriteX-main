@@ -46,6 +46,7 @@ class GenerateRequest(BaseModel):
     article_count: Optional[int] = 1
     post_action: Optional[str] = "none"
     ai_beautify: Optional[bool] = False
+    filter_processed: Optional[bool] = False
 
 
 @router.get("/config/validate")
@@ -129,7 +130,7 @@ async def generate_content(request: GenerateRequest):
         import threading
         import queue
         
-        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, ai_beautify):
+        def batch_thread_worker(global_config_dict, req_topic, req_platform, is_reference, ref_config_dict, ai_beautify, filter_processed=False):
             # V11 Hotfix: 通过 log.get_process_queue() 动态获取当前线程绑定的日志队列
             # 兼容 task_manager.py 的 _worker_wrapper 注入逻辑
             import src.ai_write_x.utils.log as lg
@@ -246,7 +247,10 @@ async def generate_content(request: GenerateRequest):
                         # 添加实时抓取的文章（带[R]标记表示实时）
                         for a in fresh_articles:
                             a_title = a.get("title", "")
-                            if a_title and not deduplicator.is_duplicate(a_title) and a_title not in seen_titles:
+                            if a_title and a_title not in seen_titles:
+                                # V15.2: 如果开启了过滤，且是由于处理过的，则跳过
+                                if filter_processed and deduplicator.is_duplicate(a_title):
+                                    continue
                                 candidate_titles.append(f"[R]{a.get('spider', '资讯')}]{a_title}")
                                 seen_titles.add(a_title)
                         
@@ -265,9 +269,10 @@ async def generate_content(request: GenerateRequest):
                                 a_date = a.get("save_date", "")
                                 # 只补充今天或昨天的，且不在已有列表中的
                                 if (a_date == today or a_date == yesterday) and a_title and a_title not in seen_titles:
-                                    if not deduplicator.is_duplicate(a_title):
-                                        candidate_titles.append(f"[H]{a.get('spider', '资讯')}]{a_title}")
-                                        seen_titles.add(a_title)
+                                    if filter_processed and deduplicator.is_duplicate(a_title):
+                                        continue
+                                    candidate_titles.append(f"[H]{a.get('spider', '资讯')}]{a_title}")
+                                    seen_titles.add(a_title)
                             
                             lg.print_log(f"📚 数据库补充后: {len(candidate_titles)} 个话题", "info")
                         
@@ -684,6 +689,7 @@ async def generate_content(request: GenerateRequest):
                 ref_dict["is_reference"],
                 ref_dict,
                 request.ai_beautify,
+                request.filter_processed or False
             )
         )
         

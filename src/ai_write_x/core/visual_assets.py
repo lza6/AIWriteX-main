@@ -90,7 +90,8 @@ class VisualAssetsManager:
 - **首图强制**：必须插入 2.35:1 的封面大图。
 - **构图**：16:9 (全景), 3:4 (人物), 4:3 (标准)。
 
-直接输出文章全貌，包括正文与占位符，不要任何解释。'''
+直接输出文章全貌，包括正文与占位符，不要任何解释。
+【特别注意】：占位符格式 [[V-SCENE: ...]] 左右严禁出现 ** 或其他符号。'''
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -152,17 +153,17 @@ class VisualAssetsManager:
         # 优先级 C: 捕捉自然语言出现的圆括号描述 (prompt)
         
         # 模式 A & B
-        # 模式 A & B (V19.5 升级版：支持三段式格式)
+        # 模式 A & B (V19.5 升级版：支持三段式格式 & 鲁棒性 Markdown 兼容)
         # [[V-SCENE: positive (comment) | negative | ratio]]
-        pattern = r'\[\[V-SCENE:\s*(.+?)\s*(?:\((.*?)\))?\s*(?:\|\s*(.+?)\s*)?\|\s*([\d\.:]+)\s*\]\]'
+        # 兼容可能有 ** 包裹的情况: **[[V-SCENE: ...]]**
+        pattern = r'(?:\*\*)?\[\[V-SCENE:\s*(.+?)\s*(?:\((.*?)\))?\s*(?:\|\s*(.+?)\s*)?\|\s*([\d\.:]+)\s*\]\](?:\*\*)?'
         for m in re.finditer(pattern, text_with_prompts):
             pos_prompt = m.group(1).strip()
             comment = m.group(2).strip() if m.group(2) else ""
             neg_prompt = m.group(3).strip() if m.group(3) else "bad anatomy, text, watermark, blurry face"
             actual_ratio = m.group(4).strip() if m.group(4) else "16:9"
             
-            # 整合提示词，如果后端支持 negative prompt 字段则分开，
-            # 否则拼接到正向提示词末尾 (Midjourney/DALL-E 风格)
+            # 整合提示词
             full_prompt = f"{pos_prompt} --no {neg_prompt}" if neg_prompt else pos_prompt
             
             all_tasks.append({
@@ -212,6 +213,18 @@ class VisualAssetsManager:
                         "ratio": (ratio_match.group(1).strip() if ratio_match else "16:9"),
                         "original": block
                     })
+            
+            # 模式 E: 扫描 <img> 标签 (鲁棒性加强)
+            img_tags = re.finditer(r'<img[^>]*data-img-prompt=["\']([^"\']+)["\']([^>]*)>', text_with_prompts, re.IGNORECASE)
+            for m in img_tags:
+                prompt = m.group(1).strip()
+                tag_body = m.group(0)
+                ratio_match = re.search(r'data-aspect-ratio=["\']([^"\']+)["\']', tag_body)
+                all_tasks.append({
+                    "prompt": prompt,
+                    "ratio": (ratio_match.group(1).strip() if ratio_match else "16:9"),
+                    "original": tag_body
+                })
 
         if not all_tasks:
             return text_with_prompts
@@ -266,6 +279,7 @@ class VisualAssetsManager:
             
         result_text = text_with_prompts
         generated_count = 0
+        total_images = len(all_tasks)
         
         for idx, task in enumerate(all_tasks):
             prompt = task["prompt"]
@@ -731,12 +745,34 @@ class VisualAssetsManager:
             # 使用 formatter=None 避免转义字符（如 URL 中的 &）
             result_text = soup.decode(formatter=None)
             
-        lg.print_log(f"[VisualAssets] ✅ 生成完成：成功生成并替换了 {generated_count} 张图片")
+        # 计算失败数量
+        failed_count = total_images - generated_count
         
-        # 兜底清理：移除所有未被替换的占位符，防止残留文本出现在最终发布内容中
-        result_text = re.sub(r'\[\[V-SCENE:.*?\]\]', '', result_text)
-        result_text = re.sub(r'\[IMG_PROMPT:.*?\]', '', result_text)
-        result_text = re.sub(r'\[图片解析[:：].*?\]', '', result_text)
+        if failed_count > 0:
+            lg.print_log(f"[VisualAssets] ⚠️ 图片生成部分失败：成功 {generated_count} 张，失败 {failed_count} 张", "warning")
+            lg.print_log(f"[VisualAssets] 💡 提示：请检查 ComfyUI 是否正在运行，或图片API配置是否正确", "warning")
+            
+            # 对于失败的占位符，用占位图片替换（而不是直接删除）
+            def replace_failed_placeholder(match):
+                placeholder_text = match.group(0)
+                # 提取提示词（如果有）
+                prompt_match = re.search(r'\[\[V-SCENE:\s*(.+?)\s*\]\]', placeholder_text)
+                alt_text = prompt_match.group(1)[:50] if prompt_match else "图片生成失败"
+                # 返回一个占位图片标签
+                return f'<div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;padding:40px 20px;margin:16px 0;text-align:center;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.1);"><div style="font-size:24px;margin-bottom:10px;">🖼️</div><div style="font-size:14px;opacity:0.9;">图片待生成</div><div style="font-size:12px;opacity:0.7;margin-top:8px;max-width:80%;word-wrap:break-word;">{alt_text}</div></div>'
+            
+            # 替换 V-SCENE 占位符为占位图片
+            result_text = re.sub(r'\[\[V-SCENE:.*?\]\]', replace_failed_placeholder, result_text, flags=re.DOTALL)
+            # 移除其他类型的占位符标记（这些通常不包含重要信息）
+            result_text = re.sub(r'\[IMG_PROMPT:.*?\]', '', result_text)
+            result_text = re.sub(r'\[图片解析[:：].*?\]', '', result_text)
+        else:
+            lg.print_log(f"[VisualAssets] ✅ 生成完成：成功生成并替换了 {generated_count} 张图片")
+            # 全部成功时，清理残留标记
+            result_text = re.sub(r'\[\[V-SCENE:.*?\]\]', '', result_text)
+            result_text = re.sub(r'\[IMG_PROMPT:.*?\]', '', result_text)
+            result_text = re.sub(r'\[图片解析[:：].*?\]', '', result_text)
+        
         # 清理后可能产生的连续空行
         result_text = re.sub(r'\n{3,}', '\n\n', result_text)
         

@@ -99,13 +99,11 @@ class AgentNode(ABC):
             self.status = AgentStatus.COMPLETED
             self._notify_status_changed()
             
-            # 更新统计
             elapsed = (datetime.now() - start_time).total_seconds()
             self.tasks_completed += 1
             self.total_processing_time += elapsed
             self.success_rate = self.tasks_completed / (self.tasks_completed + self.tasks_failed + 1)
             
-            # 增强信息素
             self.pheromone_level = min(1.0, self.pheromone_level + 0.1)
             self.last_active = datetime.now()
             
@@ -135,7 +133,6 @@ class AgentNode(ABC):
             self.tasks_failed += 1
             self.success_rate = self.tasks_completed / (self.tasks_completed + self.tasks_failed + 1)
             
-            # 降低信息素
             self.pheromone_level = max(0.1, self.pheromone_level - 0.2)
             
             log.print_log(f"[{self.name}] 任务失败: {e}", "error")
@@ -149,7 +146,6 @@ class AgentNode(ABC):
     async def receive_message(self, message: SwarmMessage) -> bool:
         """接收并处理蜂群消息"""
         try:
-            # 更新记忆
             self._add_to_memory({
                 "type": "message",
                 "msg_type": message.msg_type,
@@ -158,15 +154,11 @@ class AgentNode(ABC):
                 "timestamp": datetime.now().isoformat()
             })
             
-            # 根据消息类型处理
             if message.msg_type == SwarmMessageType.TASK_BROADCAST:
-                # 新任务广播
                 await self._handle_task_broadcast(message)
             elif message.msg_type == SwarmMessageType.CAPABILITY_QUERY:
-                # 能力查询
                 await self._handle_capability_query(message)
             elif message.msg_type == SwarmMessageType.CONSENSUS_SYNC:
-                # 共识同步
                 await self._handle_consensus_sync(message)
             
             if self.on_message_received:
@@ -186,7 +178,6 @@ class AgentNode(ABC):
     
     async def _handle_capability_query(self, message: SwarmMessage):
         """处理能力查询"""
-        # 响应能力查询
         log.print_log(f"[{self.name}] 收到能力查询", "debug")
     
     async def _handle_consensus_sync(self, message: SwarmMessage):
@@ -239,7 +230,6 @@ class AgentNode(ABC):
         
         while self._running:
             try:
-                # 从队列获取任务
                 task = await asyncio.wait_for(self.task_queue.get(), timeout=1.0)
                 await self.execute(task)
             except asyncio.TimeoutError:

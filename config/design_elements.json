@@ -1,0 +1,121 @@
+{
+    "container_styles": {
+        "card_basic": {
+            "description": "基础卡片",
+            "html": "<section style=\"background-color: #fff; border-radius: 12px; margin: 16px 10px; padding: 20px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06);\">{{content}}</section>"
+        },
+        "card_accent_top": {
+            "description": "顶部强调条卡片",
+            "html": "<section style=\"background-color: #fff; border-radius: 12px; margin: 16px 10px; padding: 20px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border-top: 4px solid {{primary_color}};\">{{content}}</section>"
+        },
+        "card_gradient": {
+            "description": "渐变背景卡片",
+            "html": "<section style=\"background: linear-gradient(135deg, {{bg_start}} 0%, {{bg_end}} 100%); border-radius: 12px; margin: 16px 10px; padding: 20px 16px; color: #fff;\">{{content}}</section>"
+        },
+        "card_minimal": {
+            "description": "极简无边框卡片",
+            "html": "<section style=\"margin: 20px 10px; padding: 16px 0; border-bottom: 1px dashed {{border_color}};\">{{content}}</section>"
+        },
+        "card_full_width": {
+            "description": "全宽内容区",
+            "html": "<section style=\"margin: 24px 0; padding: 24px 16px;\">{{content}}</section>"
+        },
+        "card_glass": {
+            "description": "玻璃拟态卡片",
+            "html": "<section style=\"background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 16px; margin: 16px 10px; padding: 24px 20px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);\">{{content}}</section>"
+        },
+        "card_inset_shadow": {
+            "description": "内阴影质感卡片",
+            "html": "<section style=\"background-color: #f0f2f5; border-radius: 12px; margin: 16px 10px; padding: 20px 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);\">{{content}}</section>"
+        }
+    },
+    "quote_styles": {
+        "quote_left_bar": {
+            "description": "左侧竖条引用",
+            "html": "<section style=\"background-color: #f8f9fa; border-left: 4px solid {{primary_color}}; padding: 16px; margin: 20px 0; border-radius: 0 8px 8px 0;\"><p style=\"font-size: 1.05rem; font-style: italic; color: #555; margin: 0;\">{{content}}</p></section>"
+        },
+        "quote_centered": {
+            "description": "居中引用",
+            "html": "<section style=\"text-align: center; padding: 24px; margin: 24px 0;\"><p style=\"font-size: 1.2rem; font-style: italic; color: {{primary_color}}; margin: 0;\">\"{{content}}\"</p></section>"
+        },
+        "quote_box": {
+            "description": "框式引用",
+            "html": "<section style=\"border: 2px solid {{primary_color}}; border-radius: 12px; padding: 20px; margin: 20px 0; background: rgba({{primary_rgb}}, 0.05);\"><p style=\"font-size: 1.05rem; color: #444; margin: 0;\">{{content}}</p></section>"
+        },
+        "quote_highlight": {
+            "description": "高亮引用",
+            "html": "<section style=\"background: linear-gradient(90deg, {{primary_color}} 0%, {{accent_color}} 100%); border-radius: 12px; padding: 20px; margin: 20px 0; color: #fff;\"><p style=\"font-size: 1.1rem; font-weight: 500; margin: 0;\">{{content}}</p></section>"
+        }
+    },
+    "list_styles": {
+        "list_dot": {
+            "description": "圆点列表",
+            "html": "<section style=\"display: flex; align-items: flex-start; margin: 12px 0;\"><span style=\"min-width: 8px; height: 8px; border-radius: 50%; background: {{primary_color}}; margin: 8px 10px 0 0;\"></span><p style=\"font-size: 1rem; line-height: 1.7; color: #555; margin: 0;\">{{item}}</p></section>"
+        },
+        "list_number": {
+            "description": "数字列表",
+            "html": "<section style=\"display: flex; align-items: flex-start; margin: 12px 0;\"><span style=\"min-width: 24px; height: 24px; border-radius: 50%; background: {{primary_color}}; color: #fff; text-align: center; line-height: 24px; font-weight: 600; font-size: 0.9rem; margin: 4px 10px 0 0;\">{{num}}</span><p style=\"font-size: 1rem; line-height: 1.7; color: #555; margin: 0;\">{{item}}</p></section>"
+        },
+        "list_check": {
+            "description": "勾选列表",
+            "html": "<section style=\"display: flex; align-items: flex-start; margin: 12px 0;\"><span style=\"color: {{primary_color}}; font-weight: 600; margin: 4px 10px 0 0;\">✓</span><p style=\"font-size: 1rem; line-height: 1.7; color: #555; margin: 0;\">{{item}}</p></section>"
+        },
+        "list_arrow": {
+            "description": "箭头列表",
+            "html": "<section style=\"display: flex; align-items: flex-start; margin: 12px 0;\"><span style=\"color: {{primary_color}}; font-weight: 600; margin: 4px 10px 0 0;\">›</span><p style=\"font-size: 1rem; line-height: 1.7; color: #555; margin: 0;\">{{item}}</p></section>"
+        },
+        "list_card": {
+            "description": "卡片式列表项",
+            "html": "<section style=\"background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 12px 0;\"><p style=\"font-size: 1rem; line-height: 1.7; color: #444; margin: 0;\">{{item}}</p></section>"
+        },
+        "list_timeline": {
+            "description": "时间线列表",
+            "html": "<section style=\"display: flex; margin: 16px 0;\"><div style=\"width: 3px; background: {{primary_color}}; margin-right: 16px; border-radius: 2px;\"></div><div><p style=\"font-size: 1rem; line-height: 1.7; color: #555; margin: 0;\">{{item}}</p></div></section>"
+        }
+    },
+    "divider_styles": {
+        "divider_solid": "<section style=\"height: 2px; background: {{primary_color}}; margin: 24px 0; border: none;\"></section>",
+        "divider_dashed": "<section style=\"height: 2px; background: repeating-linear-gradient(90deg, {{primary_color}} 0, {{primary_color}} 10px, transparent 10px, transparent 20px); margin: 24px 0;\"></section>",
+        "divider_gradient": "<section style=\"height: 3px; background: linear-gradient(90deg, transparent, {{primary_color}}, transparent); margin: 24px 0; border: none;\"></section>",
+        "divider_dots": "<section style=\"text-align: center; margin: 24px 0; color: {{primary_color}}; letter-spacing: 8px;\">···</section>",
+        "divider_wave": "<svg width=\"100%\" height=\"20\" viewBox=\"0 0 400 20\" style=\"margin: 24px 0;\"><path d=\"M 0 10 Q 100 0, 200 10 Q 300 20, 400 10\" stroke=\"{{primary_color}}\" stroke-width=\"2\" fill=\"none\"/></svg>",
+        "divider_double": "<section style=\"display: flex; align-items: center; margin: 24px 0;\"><div style=\"flex: 1; height: 1px; background: {{primary_color}};\"></div><div style=\"width: 8px; height: 8px; border-radius: 50%; background: {{primary_color}}; margin: 0 12px;\"></div><div style=\"flex: 1; height: 1px; background: {{primary_color}};\"></div></section>",
+        "divider_arrow": "<section style=\"text-align: center; margin: 24px 0; color: {{primary_color}}; font-size: 1.2rem;\">⌄</section>",
+        "divider_none": ""
+    },
+    "title_decoration_styles": {
+        "title_left_bar": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; padding-left: 12px; border-left: 4px solid {{primary_color}};\">{{title}}</h2>",
+        "title_icon": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; display: flex; align-items: center;\"><svg style=\"width: 24px; height: 24px; fill: {{primary_color}}; margin-right: 10px;\" viewBox=\"0 0 24 24\"><path d=\"M12 2L2 7l10 5 10-5-10-5z\"/></svg>{{title}}</h2>",
+        "title_centered": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; text-align: center;\">{{title}}</h2>",
+        "title_underline": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid {{primary_color}};\">{{title}}</h2>",
+        "title_badge": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: #333; margin: 0 0 16px 0; display: inline-block;\"><span style=\"background: {{primary_color}}; color: #fff; padding: 4px 12px; border-radius: 4px; font-size: 0.9rem; margin-right: 8px;\">{{badge}}</span>{{title}}</h2>",
+        "title_number": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; display: flex; align-items: center;\"><span style=\"min-width: 32px; height: 32px; border-radius: 50%; background: {{primary_color}}; color: #fff; text-align: center; line-height: 32px; font-weight: 700; margin-right: 12px;\">{{num}}</span>{{title}}</h2>",
+        "title_gradient": "<h2 style=\"font-size: 1.4rem; font-weight: 700; background: linear-gradient(90deg, {{primary_color}}, {{accent_color}}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0 0 16px 0;\">{{title}}</h2>",
+        "title_minimal": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: #333; margin: 0 0 16px 0;\">{{title}}</h2>",
+        "title_shadow": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);\">{{title}}</h2>",
+        "title_box": "<h2 style=\"font-size: 1.4rem; font-weight: 700; color: {{primary_color}}; margin: 0 0 16px 0; padding: 12px 16px; background: rgba({{primary_rgb}}, 0.1); border-radius: 8px;\">{{title}}</h2>",
+        "title_sticker": "<h2 style=\"font-size: 1.3rem; font-weight: 800; color: #fff; background: {{primary_color}}; display: inline-block; padding: 4px 16px; transform: rotate(-1deg); margin: 0 0 20px 0; box-shadow: 2px 2px 0 {{accent_color}};\">{{title}}</h2>",
+        "title_modern_serif": "<h2 style=\"font-size: 1.6rem; font-family: serif; font-weight: 400; color: #1a1a1a; border-bottom: 1px solid #1a1a1a; padding-bottom: 5px; margin: 30px 0 20px 0; letter-spacing: 1px;\">{{title}}</h2>"
+    },
+    "data_display_styles": {
+        "data_card": "<section style=\"background: linear-gradient(135deg, {{primary_color}} 0%, {{accent_color}} 100%); border-radius: 12px; padding: 20px; margin: 16px 0; color: #fff; text-align: center;\"><p style=\"font-size: 2rem; font-weight: 700; margin: 0;\">{{value}}</p><p style=\"font-size: 0.9rem; opacity: 0.9; margin: 8px 0 0 0;\">{{label}}</p></section>",
+        "data_comparison": "<section style=\"display: flex; justify-content: space-between; margin: 16px 0;\"><section style=\"flex: 1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 0 8px; text-align: center;\"><p style=\"font-size: 1.5rem; font-weight: 700; color: {{primary_color}}; margin: 0;\">{{value1}}</p><p style=\"font-size: 0.85rem; color: #666; margin: 8px 0 0 0;\">{{label1}}</p></section><section style=\"flex: 1; background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 0 8px; text-align: center;\"><p style=\"font-size: 1.5rem; font-weight: 700; color: {{accent_color}}; margin: 0;\">{{value2}}</p><p style=\"font-size: 0.85rem; color: #666; margin: 8px 0 0 0;\">{{label2}}</p></section></section>",
+        "data_progress": "<section style=\"margin: 16px 0;\"><div style=\"display: flex; justify-content: space-between; margin-bottom: 8px;\"><span style=\"font-size: 0.9rem; color: #666;\">{{label}}</span><span style=\"font-size: 0.9rem; font-weight: 600; color: {{primary_color}};\">{{value}}%</span></div><div style=\"height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;\"><div style=\"height: 100%; width: {{value}}%; background: linear-gradient(90deg, {{primary_color}}, {{accent_color}}); border-radius: 4px;\"></div></div></section>",
+        "data_grid": "<section style=\"display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0;\">{{items}}</section>",
+        "data_timeline": "<section style=\"border-left: 3px solid {{primary_color}}; padding-left: 20px; margin: 16px 0;\">{{items}}</section>"
+    },
+    "structural_dna": {
+        "gold_price_v1": {
+            "description": "精英财经/先锋派排版 (Base DNA)",
+            "html": "<section style=\"max-width: 100%; color: #333; font-family: 'Noto Serif SC', serif; margin: 0; padding: 0; overflow-x: hidden; line-height: 1.6;\"><section style=\"background: linear-gradient(to right, {{primary_color}}, {{accent_color}}); padding: 25px 20px; color: #fff; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between;\"><section style=\"flex: 1; min-width: 200px;\"><h1 style=\"font-size: 28px; font-weight: 800; letter-spacing: -0.5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); margin-bottom: 5px;\">{{title}}</h1><section style=\"font-size: 24px; font-weight: 300;\">{{subtitle}}</section></section></section><section style=\"padding: 20px; margin: 20px 0; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);\"><h2 style=\"font-size: 20px; font-weight: 700; color: {{primary_color}}; margin-bottom: 15px; display: inline-block; position: relative;\">{{section_title}}<span style=\"display: block; width: 100%; height: 2px; background: linear-gradient(to right, {{primary_color}}, transparent); margin-top: 3px;\"></span></h2>{{content}}</section></section>"
+        },
+        "golden_intro_v2": {
+            "description": "微信爆款金句前置型 (强制黄金开头)",
+            "html": "<section style=\"max-width: 100%; padding: 15px; background: #fff;\"><section style=\"border-bottom: 3px solid {{primary_color}}; padding-bottom: 10px; margin-bottom: 25px;\"><h1 style=\"font-size: 24px; font-weight: bold; color: #000; line-height: 1.4;\">{{title}}</h1></section><section style=\"background: rgba({{primary_rgb}}, 0.05); padding: 20px; border-radius: 12px; border: 1px dashed {{primary_color}}; margin-bottom: 25px;\"><p style=\"font-size: 17px; font-weight: bold; color: #000; line-height: 1.8; margin: 0;\">🔥 核心摘要：{{golden_intro}}</p></section><section style=\"margin-top: 20px;\">{{content}}</section></section>"
+        },
+        "magazine_style": {
+            "description": "杂志风画报布局",
+            "html": "<section style=\"max-width: 100%; background: #fdfdfd; padding: 0;\"><section style=\"height: 200px; background: {{primary_color}}; display: flex; align-items: flex-end; padding: 30px; color: #fff;\"><h1 style=\"font-size: 32px; font-weight: 900; margin: 0; line-height: 1;\">{{title}}</h1></section><section style=\"column-count: 1; column-gap: 20px; padding: 25px; color: #444;\">{{content}}</section></section>"
+        }
+    }
+}

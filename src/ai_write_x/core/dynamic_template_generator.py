@@ -644,6 +644,54 @@ class DynamicTemplateGenerator:
         
         return "\n".join(template_parts)
     
+    def generate_simple_template(self, analysis: ContentAnalysis) -> str:
+        """生成极简手机适配模板 - 彻底去除重型渲染与动画"""
+        colors = analysis.recommended_colors.value
+        
+        template_parts = [
+            "<!DOCTYPE html>",
+            '<html lang="zh-CN">',
+            "<head>",
+            '    <meta charset="UTF-8">',
+            '    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">',
+            f"    <title>{analysis.title}</title>",
+            '    <style>',
+            '        :root {',
+            f"            --primary: {colors['primary']};",
+            f"            --text: {colors['text']};",
+            f"            --bg: #ffffff;",
+            '        }',
+            '        body { margin: 0; padding: 16px; font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: #333; line-height: 1.6; }',
+            '        header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee; }',
+            '        h1 { font-size: 22px; margin: 0 0 8px 0; color: var(--primary); line-height: 1.3; } .topic { display: inline-block; font-size: 12px; color: #999; margin-bottom: 12px; }',
+            '        article { font-size: 16px; }',
+            '        p { margin: 16px 0; word-wrap: break-word; }',
+            '        h2 { font-size: 19px; margin: 32px 0 16px 0; color: var(--primary); border-left: 4px solid var(--primary); padding-left: 10px; }',
+            '        img { max-width: 100% !important; height: auto !important; border-radius: 8px; margin: 16px 0; display: block; }',
+            '        blockquote { margin: 20px 0; padding: 12px 16px; background: #f9f9f9; border-left: 4px solid #ddd; font-style: italic; color: #666; }',
+            '        .table-container { width: 100%; overflow-x: auto; margin: 20px 0; }',
+            '        table { width: 100%; border-collapse: collapse; font-size: 14px; }',
+            '        th, td { padding: 10px; border: 1px solid #eee; text-align: left; } th { background: #fdfdfd; }',
+            '        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 12px; }',
+            '        strong { color: var(--primary); }',
+            '    </style>',
+            "</head>",
+            "<body>",
+            "    <header>",
+            f'        <div class="topic">{analysis.topic or "资讯"}</div>',
+            f"        <h1>{analysis.title}</h1>",
+            "    </header>",
+            '    <article class="content-body">',
+            "        {content}",
+            "    </article>",
+            '    <div class="footer">',
+            "        内容由 AIWriteX 智能引擎生成",
+            "    </div>",
+            "</body>",
+            "</html>"
+        ]
+        return "\n".join(template_parts)
+    
     def _generate_css_styles(self, analysis: ContentAnalysis, colors: Dict, style_config: Dict) -> str:
         """生成现代CSS样式 - 玻璃拟态、渐变、动画"""
         # 获取 AI 特效配置
@@ -1517,7 +1565,7 @@ class DynamicTemplateGenerator:
         """将字典转换为CSS样式字符串"""
         return "; ".join(f"{k.replace('_', '-')}: {v}" for k, v in style_dict.items())
     
-    def generate_template_with_content(self, title: str, content: str, topic: str = "") -> str:
+    def generate_template_with_content(self, title: str, content: str, topic: str = "", format_mode: str = "standard") -> str:
         """根据内容生成完整模板 - 优先由 AI 编排审美"""
         # 尝试通过 AI 获取设计决策
         orchestrator = AIDesignOrchestrator()
@@ -1540,7 +1588,11 @@ class DynamicTemplateGenerator:
             log.print_log(f"[模板生成] 规则引擎决策 -> 风格: {analysis.recommended_style.value}")
         
         # 生成模板
-        template = self.generate_template(analysis)
+        if format_mode == "simple":
+            log.print_log("[模板生成] 启用 Simple Mobile 极简渲染模式 (WeChat/Mobile 优化)")
+            template = self.generate_simple_template(analysis)
+        else:
+            template = self.generate_template(analysis)
         
         # 将内容填充到模板中
         formatted_content = self._format_content_for_template(content, analysis)
@@ -1759,7 +1811,7 @@ class DynamicTemplateGenerator:
 
 
 # 便捷函数
-def generate_dynamic_template(title: str, content: str, topic: str = "") -> str:
+def generate_dynamic_template(title: str, content: str, topic: str = "", format_mode: str = "standard") -> str:
     """便捷函数：根据内容生成动态模板"""
     generator = DynamicTemplateGenerator()
-    return generator.generate_template_with_content(title, content, topic)
+    return generator.generate_template_with_content(title, content, topic, format_mode)

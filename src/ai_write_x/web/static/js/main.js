@@ -288,6 +288,11 @@ class AIWriteXApp {
                     window.swarmMonitor.fetchData();
                 }
                 break;
+            case 'preview-gallery':
+                if (window.previewGallery && typeof window.previewGallery.init === 'function') {
+                    window.previewGallery.init();
+                }
+                break;
         }
     }
 

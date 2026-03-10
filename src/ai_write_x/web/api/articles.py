@@ -77,22 +77,19 @@ def html_to_markdown(html_content: str) -> str:
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
-# ==================== 后期补图日志缓冲区 ====================
 import threading
 import time as _time
 
-_img_gen_log_buffer = []  # [{type, message, timestamp}, ...]
+_img_gen_log_buffer = []
 _img_gen_log_lock = threading.Lock()
 
 
 def _clear_img_gen_logs():
-    """清空日志缓冲区"""
     with _img_gen_log_lock:
         _img_gen_log_buffer.clear()
 
 
 def _push_img_gen_log(msg_type, message):
-    """添加一条日志到缓冲区"""
     with _img_gen_log_lock:
         _img_gen_log_buffer.append({
             "type": msg_type,
@@ -154,8 +151,22 @@ async def get_storage_stats():
     try:
         articles_dir = PathManager.get_article_dir()
         images_dir = PathManager.get_image_dir()
-        # V13.0: 显式指定 DB 路径，增强准确性
-        db_file = PathManager.get_root_dir() / "db" / "ai_write_x.db"
+        
+        root_dir = PathManager.get_root_dir()
+        possible_db_paths = [
+            root_dir / "data" / "aiwritex_v6.db",
+            root_dir / "db" / "ai_write_x.db",
+            root_dir / "data.db",
+        ]
+        
+        db_file = None
+        for db_path in possible_db_paths:
+            if db_path.exists():
+                db_file = db_path
+                break
+        
+        if db_file is None:
+            db_file = possible_db_paths[0]
         
         def get_dir_size(path):
             if not path.exists(): return 0
@@ -178,7 +189,7 @@ async def get_storage_stats():
             "status": "success",
             "data": {
                 "total_size": format_size(total_bytes),
-                "total_size_formatted": format_size(total_bytes), # 保持兼容性
+                "total_size_formatted": format_size(total_bytes),
                 "articles_size": format_size(articles_size),
                 "images_size": format_size(images_size),
                 "db_size": format_size(db_size),
@@ -196,7 +207,6 @@ async def get_storage_stats():
 @router.post("/system/smart-clean")
 async def smart_clean_articles():
     """AI 智能清理建议与自动执行"""
-    # 这里先实现一个基础逻辑：清理 30 天前且已发布的文章
     try:
         articles_dir = PathManager.get_article_dir()
         from datetime import datetime, timedelta
@@ -205,8 +215,6 @@ async def smart_clean_articles():
         cleaned_count = 0
         freed_size = 0
         
-        # 简单逻辑：如果是 HTML 且在发布记录中显示成功，且超过 30 天
-        # 复杂逻辑（Phase 13 进阶）将由 AI Swarm 判断相似度
         for f in articles_dir.glob("*.html"):
             if datetime.fromtimestamp(f.stat().st_mtime) < limit_date:
                 title = f.stem.replace("_", "|")
@@ -214,7 +222,6 @@ async def smart_clean_articles():
                     freed_size += f.stat().st_size
                     f.unlink()
                     cleaned_count += 1
-                    # 同步清理设计文件
                     design = f.with_suffix(".design.json")
                     if design.exists():
                         freed_size += design.stat().st_size
@@ -234,33 +241,45 @@ async def list_articles():
     """获取文章列表"""
     try:
         articles_dir = PathManager.get_article_dir()
-        articles = []
+        articles_dict = {}
 
         patterns = ["*.html", "*.md", "*.txt"]
         article_files = []
 
         for pattern in patterns:
             article_files.extend(articles_dir.glob(pattern))
+            
+        def get_format_priority(path):
+            ext = path.suffix.lower()
+            if ext == '.html': return 0
+            if ext == '.md': return 1
+            if ext == '.txt': return 2
+            return 3
+            
+        article_files.sort(key=get_format_priority)
 
         for file_path in article_files:
+            stem = file_path.stem
+            if stem in articles_dict:
+                continue
+
             stat = file_path.stat()
-            title = file_path.stem.replace("_", "|")
+            title = stem.replace("_", "|")
             status = get_publish_status(title)
 
-            articles.append(
-                {
-                    "name": file_path.stem,
-                    "path": str(file_path),
-                    "title": title,
-                    "format": file_path.suffix[1:].upper(),
-                    "size": f"{stat.st_size / 1024:.2f} KB",
-                    "create_time": datetime.fromtimestamp(stat.st_ctime).strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
-                    "status": status,
-                }
-            )
+            articles_dict[stem] = {
+                "name": stem,
+                "path": str(file_path),
+                "title": title,
+                "format": file_path.suffix[1:].upper(),
+                "size": f"{stat.st_size / 1024:.2f} KB",
+                "create_time": datetime.fromtimestamp(stat.st_ctime).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                "status": status,
+            }
 
+        articles = list(articles_dict.values())
         articles.sort(key=lambda x: x["create_time"], reverse=True)
         return {"status": "success", "data": articles}
     except Exception as e:
@@ -349,11 +368,20 @@ async def get_article_source(path: str):
 
 @router.delete("/")
 async def delete_article(path: str):
-    """删除文章 - 使用查询参数以支持复杂路径"""
+    """删除文章 - 删除所有关联格式文件"""
     file_path = Path(path)
-    if file_path.exists():
-        file_path.unlink()
-        return {"status": "success", "message": "文章已删除"}
+    stem = file_path.stem
+    dir_path = file_path.parent
+    
+    deleted_any = False
+    for ext in ['.html', '.md', '.txt']:
+        target_file = dir_path / f"{stem}{ext}"
+        if target_file.exists():
+            target_file.unlink()
+            deleted_any = True
+            
+    if deleted_any:
+        return {"status": "success", "message": "文章及其所有格式版本已删除"}
     raise HTTPException(status_code=404, detail="文章不存在")
 
 
@@ -373,10 +401,8 @@ async def publish_articles(request: PublishRequest):
         warning_details = []
         format_publish = config.format_publish
         
-        # 记录成功发布的文章路径（用于自动删除）
         published_article_paths = set()
 
-        # 获取前端传入的标题列表
         article_titles = request.article_titles or []
 
         for idx, article_path in enumerate(request.article_paths):
@@ -390,14 +416,11 @@ async def publish_articles(request: PublishRequest):
 
             ext = file_path.suffix.lower()
 
-            # 优先使用前端传入的标题
             provided_title = article_titles[idx] if idx < len(article_titles) else None
             
             try:
                 if provided_title:
-                    # 使用前端传入的标题
                     title = provided_title
-                    # 只提取摘要
                     if ext == ".html":
                         _, digest = utils.extract_html(content)
                     elif ext == ".md":
@@ -448,9 +471,7 @@ async def publish_articles(request: PublishRequest):
 
                     if success:
                         success_count += 1
-                        # 记录成功发布的文章路径
                         published_article_paths.add(article_path)
-                        # 如果message包含权限回收提示,添加到warning_details
                         if message and "草稿箱" in message:
                             warning_details.append(f"{cred.get('author', '未命名')}: {message}")
 
@@ -495,7 +516,6 @@ async def publish_articles(request: PublishRequest):
                     )
                     error_details.append(f"{cred.get('author', '未命名')}: {error_msg}")
 
-        # 自动删除成功发布的文章 (逻辑模型闭环加固)
         deleted_articles = []
         app_cfg = Config.get_instance()
         auto_delete_enabled = app_cfg.config.get("auto_delete_published", False)
@@ -510,7 +530,6 @@ async def publish_articles(request: PublishRequest):
                         deleted_articles.append(article_path)
                         log.print_log(f"✅ [清理成功] {article_path}", "success")
                         
-                        # 同步清理相关的设计文件和封面图预览逻辑可在此处扩展
                         design_file = file_path.with_suffix(".design.json")
                         if design_file.exists():
                             design_file.unlink()
@@ -983,8 +1002,6 @@ async def get_article_source(article_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==================== AI一键换标题功能 ====================
-
 class TitleOptimizationRequest(BaseModel):
     article_path: str
     platform: str = ""
@@ -999,7 +1016,6 @@ async def optimize_article_title(request: TitleOptimizationRequest):
         from src.ai_write_x.core.quality_engine import TitleOptimizer
         from bs4 import BeautifulSoup
         
-        # 读取文章内容
         articles_dir = PathManager.get_article_dir()
         article_path = articles_dir / request.article_path
         
@@ -1008,30 +1024,24 @@ async def optimize_article_title(request: TitleOptimizationRequest):
         
         html_content = article_path.read_text(encoding="utf-8")
         
-        # 从HTML中提取标题
         soup = BeautifulSoup(html_content, "html.parser")
         title_tag = soup.find('title')
         current_title = title_tag.get_text().strip() if title_tag else ""
         
         if not current_title:
-            # 尝试从h1标签获取
             h1_tag = soup.find('h1')
             current_title = h1_tag.get_text().strip() if h1_tag else "无标题"
         
-        # 提取正文内容（用于分析）
-        # 移除script和style标签
         for script in soup(["script", "style"]):
             script.decompose()
         text_content = soup.get_text(separator='\n', strip=True)
         
-        # 调用标题优化器
         result = await TitleOptimizer.optimize_title(
             title=current_title,
-            content=text_content[:1500],  # 前1500字作为参考
+            content=text_content[:1500],
             platform=request.platform
         )
         
-        # 检查是否有错误
         if result.get("error"):
             log.print_log(f"AI换标题LLM调用失败: {result.get('error')}", "error")
             return {
@@ -1080,17 +1090,14 @@ async def apply_new_title(request: TitleOptimizationRequest):
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html_content, "html.parser")
         
-        # 更新<title>标签
         title_tag = soup.find('title')
         if title_tag:
-            title_tag.string = request.platform  # 这里platform字段复用为新标题
+            title_tag.string = request.platform
         
-        # 更新h1标签（如果有）
         h1_tag = soup.find('h1', class_='article-title')
         if h1_tag:
             h1_tag.string = request.platform
         
-        # 保存修改
         article_path.write_text(str(soup), encoding="utf-8")
         
         return {"status": "success", "message": "标题已更新"}
@@ -1116,25 +1123,20 @@ async def vote_article_aesthetic(vote: AestheticVote):
     
     try:
         article_path = Path(vote.article_path)
-        # 尝试通过路径匹配数据库中的文章
         article_name = article_path.stem
         
         with get_session() as session:
-            # 搜索匹配的文章记录
             statement = select(Article).where(Article.content.contains(article_name))
             results = session.exec(statement).all()
             article_id = results[0].id if results else None
             
-            # 检查是否已投票过（根据 article_path 或 article_id 检查）
             if vote.article_path:
-                # 主要检查：基于 article_path 检查
                 check_stmt = select(ArticleAesthetic).where(
                     ArticleAesthetic.article_path == vote.article_path
                 )
                 existing_vote = session.exec(check_stmt).first()
                 
                 if existing_vote:
-                    # 从路径提取文件名用于显示
                     import re
                     file_name = re.split(r'[/\\]', vote.article_path)[-1] if vote.article_path else "未知"
                     return {
@@ -1143,7 +1145,6 @@ async def vote_article_aesthetic(vote: AestheticVote):
                         "existing_vote_id": str(existing_vote.id)
                     }
             elif article_id:
-                # 备选检查：基于 article_id
                 check_stmt = select(ArticleAesthetic).where(
                     ArticleAesthetic.article_id == article_id
                 )
@@ -1156,7 +1157,6 @@ async def vote_article_aesthetic(vote: AestheticVote):
                         "existing_vote_id": str(existing_vote.id)
                     }
             
-            # 读取对应的 .design.json 获取 DNA
             design_dna = None
             design_path = article_path.with_suffix(".design.json")
             if design_path.exists():
@@ -1174,7 +1174,6 @@ async def vote_article_aesthetic(vote: AestheticVote):
             session.add(new_vote)
             session.commit()
             
-            # V13.0: 投完票后自动触发一次审美特征更新 (异步后台执行避免阻塞)
             try:
                 import asyncio
                 summarizer = AestheticSummarizer()
@@ -1209,7 +1208,7 @@ async def get_voted_articles():
             voted_list = []
             for v in votes:
                 voted_list.append({
-                    "id": str(v.id),  # 转换为字符串
+                    "id": str(v.id),
                     "article_path": v.article_path,
                     "rating": v.rating,
                     "positive_tags": json.loads(v.positive_tags) if v.positive_tags else [],
@@ -1239,7 +1238,6 @@ async def delete_vote(vote_id: str):
     
     try:
         with get_session() as session:
-            # vote_id 可能是 UUID 字符串
             statement = select(ArticleAesthetic).where(ArticleAesthetic.id == vote_id)
             vote = session.exec(statement).first()
             
@@ -1257,4 +1255,64 @@ async def delete_vote(vote_id: str):
         raise
     except Exception as e:
         log.print_log(f"删除投票失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/previews")
+async def list_previews():
+    """V20.1: 获取文章预览仿真截图列表 (Gallery)"""
+    try:
+        preview_root = PathManager.get_output_dir() / "previews"
+        if not preview_root.exists():
+            return {"status": "success", "data": []}
+            
+        days = []
+        for date_dir in sorted(preview_root.iterdir(), reverse=True):
+            if not date_dir.is_dir(): continue
+            
+            articles_in_day = []
+            for article_dir in date_dir.iterdir():
+                if not article_dir.is_dir(): continue
+                
+                screenshots = []
+                for f in sorted(article_dir.glob("*_Screen*.png")):
+                    screenshots.append(f"/output/previews/{date_dir.name}/{article_dir.name}/{f.name}")
+                
+                html_preview = None
+                if (article_dir / "preview.html").exists():
+                    html_preview = f"/output/previews/{date_dir.name}/{article_dir.name}/preview.html"
+                
+                if screenshots or html_preview:
+                    articles_in_day.append({
+                        "title": article_dir.name,
+                        "date": date_dir.name,
+                        "screenshots": screenshots,
+                        "html_preview": html_preview,
+                        "path": str(article_dir)
+                    })
+            
+            if articles_in_day:
+                days.append({
+                    "date": date_dir.name,
+                    "articles": articles_in_day
+                })
+                
+        return {"status": "success", "data": days}
+    except Exception as e:
+        log.print_log(f"获取预览列表失败: {e}", "error")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/previews")
+async def delete_previews(paths: List[str]):
+    """批量删除预览资源"""
+    try:
+        import shutil
+        deleted_count = 0
+        for path in paths:
+            p = Path(path)
+            if p.exists() and p.is_dir():
+                shutil.rmtree(p)
+                deleted_count += 1
+        return {"status": "success", "message": f"成功删除 {deleted_count} 个预览项目"}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

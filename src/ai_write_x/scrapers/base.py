@@ -74,8 +74,9 @@ class BaseSpider:
             raise ValueError("URL is required")
 
         import random
-        max_retries = 3
-        base_delay = 1.0
+        # V4: 性能导向控制 - 减少重试次数以提高效率
+        max_retries = 1 
+        base_delay = 0.5
 
         for attempt in range(max_retries):
             # 使用自适应的 connector
@@ -157,8 +158,9 @@ class BaseSpider:
         """异步发送 HTTP 请求并返回原始字节。"""
         request_url = url or self.url
         import random
-        max_retries = 3
-        base_delay = 1.0
+        # V4: 性能导向控制 - 减少字节抓取重试次数
+        max_retries = 1
+        base_delay = 0.5
 
         for attempt in range(max_retries):
             connector = aiohttp.TCPConnector(ssl=verify_ssl)

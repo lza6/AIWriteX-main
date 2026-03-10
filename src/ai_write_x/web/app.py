@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import os
 import time
 import asyncio
 from pathlib import Path
@@ -8,9 +9,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.exceptions import HTTPException
+from starlette.staticfiles import StaticFiles as StarletteStaticFiles
 
 import uuid
 import psutil
@@ -106,6 +109,7 @@ async def lifespan(app: FastAPI):
                 # 稍微延迟一下，确保其他核心组件已就绪，且不争抢启动瞬间的 CPU
                 await asyncio.sleep(0.5)
                 
+                # V24.0: 延迟导入 rich，减少进程启动初期的加载负担
                 from rich.console import Console
                 from rich.panel import Panel
                 from rich.table import Table
@@ -195,9 +199,42 @@ else:
 static_path = web_path / "static"
 templates_path = web_path / "templates"
 
-# 挂载静态文件
-app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
-app.mount("/images", StaticFiles(directory=PathManager.get_image_dir()), name="images")
+# 确保静态文件目录存在
+os.makedirs(static_path, exist_ok=True)
+os.makedirs(templates_path, exist_ok=True)
+
+# 确保图片目录存在
+image_dir = PathManager.get_image_dir()
+os.makedirs(image_dir, exist_ok=True)
+
+
+# 自定义 StaticFiles 类，处理文件不存在的情况
+class SafeStaticFiles(StarletteStaticFiles):
+    """安全的 StaticFiles 类，文件不存在时返回 404 而不是抛出异常"""
+    
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except (HTTPException, FileNotFoundError) as e:
+            # 文件不存在时返回 404
+            return Response(
+                content=f"File not found: {path}",
+                status_code=404,
+                media_type="text/plain"
+            )
+        except Exception as e:
+            # 其他错误也返回 404，避免抛出异常
+            return Response(
+                content=f"Error: {str(e)}",
+                status_code=404,
+                media_type="text/plain"
+            )
+
+
+# 挂载静态文件和图片（使用安全的 StaticFiles）
+app.mount("/static", SafeStaticFiles(directory=str(static_path)), name="static")
+app.mount("/images", SafeStaticFiles(directory=str(image_dir)), name="images")
+app.mount("/output", SafeStaticFiles(directory=str(PathManager.get_output_dir())), name="output")
 
 # 注入 Swarm 拓扑 API (V18.0)
 @app.get('/api/swarm/topology') # Use app.get for FastAPI
@@ -327,9 +364,13 @@ async def structured_request_logging(request: Request, call_next):
 @app.middleware("http")
 async def verify_client_token(request: Request, call_next):
     # 静态资源、健康检查和主页（带Token进入）跳过验证
-    # V18 FIX: 允许本地回环地址免密访问，以便进行系统级集成测试
+    # V14.1: 加强本地访问认证，添加环境判断，只在开发环境允许免密访问
     path = request.url.path
-    if path.startswith("/static") or path.startswith("/images") or path == "/health" or request.client.host == "127.0.0.1":
+    import os
+    is_dev_mode = os.environ.get("APP_ENV", "production") != "production"
+    is_localhost = request.client.host in ["127.0.0.1", "::1", "localhost"]
+    
+    if path.startswith("/static") or path.startswith("/images") or path == "/health" or (is_dev_mode and is_localhost):
         return await call_next(request)
     
     # 获取查询参数中的token（用于首次加载同步到allowed_tokens）

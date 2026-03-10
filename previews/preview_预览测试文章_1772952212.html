@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>预览测试文章</title>
+    <style>
+        /* 微信文章基础样式还原 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+            font-size: 17px;
+            line-height: 1.6;
+            color: #333;
+            background-color: #ededed;
+            max-width: 677px;
+            margin: 0 auto;
+            padding: 0;
+        }
+        
+        /* 微信文章容器 */
+        .wechat-article {
+            background-color: #fff;
+            padding: 20px 16px;
+            min-height: 100vh;
+        }
+        
+        /* 图片样式 */
+        img {
+            max-width: 100% !important;
+            height: auto !important;
+            display: block;
+            margin: 16px 0;
+            border-radius: 8px;
+        }
+        
+        /* 顶部状态栏模拟 */
+        .status-bar {
+            background-color: #ededed;
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 9999;
+        }
+        
+        /* 内容区域 */
+        .content-wrapper {
+            padding-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部状态栏模拟 -->
+    <div class="status-bar">
+        <span>📶 5G</span>
+        <span id="current-time">12:00</span>
+        <span>🔋 100%</span>
+    </div>
+    
+    <!-- 文章内容 -->
+    <div class="wechat-article content-wrapper">
+        <h1 style="font-size: 22px; line-height: 1.4; margin-bottom: 20px;">预览测试文章</h1>
+        
+    <section style="background-color: #f7fafc; padding: 20px; border-radius: 12px; ">
+        <h2 style="color: #4a5568; ">测试标题</h2>
+        <p>这是一段测试文字。</p>
+        <img src="test.jpg" style="" alt="图片">
+        
+    </section>
+    
+    </div>
+    
+    <script>
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('current-time').textContent = hours + ":" + minutes;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

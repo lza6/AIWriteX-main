@@ -1,0 +1,139 @@
+<div id="preview-gallery-view" class="view-content">
+    <div class="view-header">
+        <div class="header-main">
+            <h2>仿真预览图库 (V-AUDIT)</h2>
+            <p class="header-subtitle">查看 AI 自动捕获的移动端渲染效果与视觉审计报告</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="window.previewGallery?.refresh()">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor">
+                    <path
+                        d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                刷新
+            </button>
+            <button class="btn btn-danger" id="batch-delete-previews" disabled
+                onclick="window.previewGallery?.deleteSelected()">
+                批量删除
+            </button>
+        </div>
+    </div>
+
+    <div class="view-content">
+        <div id="preview-gallery-container" class="gallery-container">
+            <!-- 动态加载内容 -->
+            <div class="empty-state">
+                <div class="empty-icon">📸</div>
+                <p>暂无预览截图，生成文章时将自动捕获</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .gallery-container {
+        padding: 20px;
+    }
+
+    .gallery-day {
+        margin-bottom: 40px;
+    }
+
+    .day-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .day-title::before {
+        content: '';
+        width: 4px;
+        height: 18px;
+        background: var(--primary-color);
+        border-radius: 2px;
+    }
+
+    .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+    }
+
+    .preview-item-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .preview-item-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-screenshots-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 10px;
+        padding: 10px;
+        background: #f0f2f5;
+        scrollbar-width: thin;
+    }
+
+    .preview-screenshot-thumb {
+        height: 400px;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .preview-screenshot-thumb:hover {
+        transform: scale(1.02);
+    }
+
+    .preview-item-info {
+        padding: 15px;
+    }
+
+    .preview-item-title {
+        font-weight: 600;
+        font-size: 15px;
+        margin-bottom: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .preview-item-meta {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .preview-item-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .preview-checkbox {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+</style>

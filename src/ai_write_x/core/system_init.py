@@ -25,8 +25,17 @@ def initialize_global_tools():
     registry.register_tool("DynamicTemplateTool", DynamicTemplateTool)
     
     # 注册NewsHub MCP工具
-    for tool in NEWSHUB_TOOLS:
-        registry.register_tool(tool.name, tool)
+    for tool_cls in NEWSHUB_TOOLS:
+        try:
+            # Pydantic v2
+            tool_name = tool_cls.model_fields['name'].default
+        except Exception:
+            # Pydantic v1 or fallback
+            try:
+                tool_name = tool_cls.__fields__['name'].default
+            except Exception:
+                tool_name = tool_cls().name
+        registry.register_tool(tool_name, tool_cls)
 
     return registry
 

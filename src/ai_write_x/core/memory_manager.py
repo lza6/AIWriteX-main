@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 import math
 import os
 import re
@@ -15,6 +14,7 @@ class MemoryManager:
     V4新增: TF-IDF语义相似度、质量反馈循环、时间衰减权重。
     V7.0新增: 知识图谱联动。
     V9.0新增: 跨域知识共鸣 (Knowledge Resonance)，打破领域孤岛。
+    V13.0: 迁移至 SQLite 神经记忆引擎
     """
     
     def __init__(self, memory_file="topic_memory.json"):
@@ -23,82 +23,13 @@ class MemoryManager:
         self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
         self.memory_file = os.path.join(self.base_dir, memory_file)
         self._lock = threading.RLock()
-        
-        # V13.0: 自动迁移旧版内存到 SQLite
-        self._migrate_legacy_json()
-
-    def _migrate_legacy_json(self):
-        """将 topic_memory.json 数据无损迁移至 SQLite Neural Memory 系统"""
-        if not os.path.exists(self.memory_file):
-            return
-            
-        try:
-            from src.ai_write_x.database import get_session
-            from src.ai_write_x.database.models import Topic
-            
-            with open(self.memory_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            
-            legacy_topics = data.get("topics", [])
-            if not legacy_topics:
-                return
-
-            with get_session() as session:
-                count = 0
-                for item in legacy_topics:
-                    term = item.get("term")
-                    if not term: continue
-                    
-                    # 检查是否已存在
-                    from sqlmodel import select
-                    existing = session.exec(select(Topic).where(Topic.title == term)).first()
-                    if not existing:
-                        topic = Topic(
-                            title=term,
-                            source_platform="Legacy-JSON",
-                            created_at=datetime.fromisoformat(item["timestamp"]) if "timestamp" in item else datetime.now(),
-                            hot_score=int((item.get("quality_score", 3.0) / 5.0) * 100)
-                        )
-                        session.add(topic)
-                        count += 1
-                session.commit()
-                # 迁移完成后重命名备份
-                os.rename(self.memory_file, self.memory_file + ".bak")
-                from src.ai_write_x.utils import log
-                log.print_log(f"🧠 V13.0: 成功将 {count} 条神经元记忆从 JSON 迁移至 SQLite", "success")
-        except Exception as e:
-            from src.ai_write_x.utils import log
-            log.print_log(f"Memory migration failed: {e}", "warning")
-
-    def _load(self):
-        # V13.0 已接入 SQLite，不再依赖内存缓存整个 JSON
-        return {"topics": []}
-
-    def _save(self):
-        # 实时保存到 DB，不再需要文件同步
-        pass
-
-    def _clean_expired(self):
-        """清理 30 天前的记忆"""
-        now = datetime.now()
-        valid_topics = []
-        for item in self.memory.get("topics", []):
-            try:
-                ts = datetime.fromisoformat(item["timestamp"])
-                if now - ts <= timedelta(days=30):
-                    valid_topics.append(item)
-            except:
-                pass
-        
-        self.memory["topics"] = valid_topics[-200:]
-        self._save()
 
     def add_topic(self, topic: str, content: Optional[str] = None, quality_score: Optional[float] = None):
         """V13.0: 将话题写入 SQLite 神经记忆引擎，并同步生成语义哈希"""
         try:
             from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
-            from sqlmodel import select
+            from sqlmodel import select, or_
             import hashlib
             
             # 生成语义哈希 (基础版：清理后的标题哈希，后续可升级为向量索引哈希)
@@ -106,8 +37,9 @@ class MemoryManager:
             semantic_hash = hashlib.md5(clean_term.encode()).hexdigest()
             
             with get_session() as session:
-                # 检查语义哈希是否存在
-                existing = session.exec(select(Topic).where(Topic.semantic_hash == semantic_hash)).first()
+                # 检查语义哈希或标题是否存在
+                statement = select(Topic).where(or_(Topic.semantic_hash == semantic_hash, Topic.title == topic))
+                existing = session.exec(statement).first()
                 if existing:
                     existing.updated_at = datetime.now()
                     if quality_score is not None:
@@ -132,59 +64,29 @@ class MemoryManager:
             from src.ai_write_x.utils import log
             log.print_log(f"SQLite 记忆写入失败: {e}", "error")
 
-    def add_topics_batch(self, topics: List[str]):
-        """V3: 批量添加话题 — 减少I/O次数"""
-        with self._lock:
-            for topic in topics:
-                exists = False
-                for item in self.memory["topics"]:
-                    if item["term"] == topic:
-                        item["timestamp"] = datetime.now().isoformat()
-                        exists = True
-                        break
-                if not exists:
-                    self.memory["topics"].append({
-                        "term": topic,
-                        "timestamp": datetime.now().isoformat()
-                    })
-            self._save()
-
-    def get_embedding_ready_data(self) -> List[Dict[str, Any]]:
-        """V3: 向量相似度预留接口 — 返回标准化的(text, metadata)格式"""
-        with self._lock:
-            results = []
-            for item in self.memory.get("topics", []):
-                results.append({
-                    "text": item["term"],
-                    "metadata": {
-                        "timestamp": item.get("timestamp", ""),
-                        "quality_score": item.get("quality_score"),
-                        "source": "topic_memory",
-                        "type": "topic"
-                    }
-                })
-            return results
+    def _save_memory(self):
+        """兼容测试的桩函数"""
+        pass
 
     def get_stats(self) -> dict:
-        """V13.0: 从 SQLite 获取神经记忆统计摘要"""
         try:
             from src.ai_write_x.database import get_session
             from src.ai_write_x.database.models import Topic
             from sqlmodel import select, func
-            
+
             with get_session() as session:
                 total = session.exec(select(func.count(Topic.id))).one()
                 if total == 0:
                     return {"total_topics": 0, "avg_quality": 0.0, "recent_30d": 0, "scored_ratio": 0.0}
-                
+
                 # 最近 30 天
                 now = datetime.now()
                 thirty_days_ago = now - timedelta(days=30)
                 recent_30d = session.exec(select(func.count(Topic.id)).where(Topic.created_at >= thirty_days_ago)).one()
-                
+
                 # 平均热度 (模拟质量分)
                 avg_hot = session.exec(select(func.avg(Topic.hot_score))).one() or 0.0
-                
+
                 return {
                     "total_topics": total,
                     "recent_30d": recent_30d,

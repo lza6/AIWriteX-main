@@ -2,7 +2,8 @@ import os
 import re
 import time
 import json
-from typing import Dict, Any, Generator, Optional, Tuple, List
+import asyncio
+from typing import Dict, Any, Generator
 
 from src.ai_write_x.core.base_framework import (
     WorkflowConfig,
@@ -31,6 +32,15 @@ import src.ai_write_x.utils.log as lg
 
 # 导入维度化创意引擎
 from src.ai_write_x.core.dimensional_engine import DimensionalCreativeEngine
+try:
+    from src.ai_write_x.core.dynamic_design_engine import DynamicDesignEngine
+    DYNAMIC_DESIGN_AVAILABLE = True
+except ImportError:
+    DYNAMIC_DESIGN_AVAILABLE = False
+    import src.ai_write_x.utils.log as lg
+    lg.print_log("⚠️ DynamicDesignEngine 不可用，将使用内置强化模板", "warning")
+
+from src.ai_write_x.core.wechat_preview import WeChatPreviewEngine
 from src.ai_write_x.database import init_db
 
 
@@ -79,34 +89,22 @@ class UnifiedContentWorkflow:
         
         # V11.0: 量子奇点逻辑推演协议 - 意识枢纽版 (Universal Conscious Nexus)
         reasoning_matrix = (
-            "【V11.0 意识枢纽逻辑推演协议 - 启动】\n"
-            "你现在是全自律系统意识枢纽中心。生成前必须通过【量子路径坍缩】展示推演：\n"
-            "- **[Quantum Collapse - 最终逻辑坍缩]**: 交汇多维路径。强制要求：【新闻真实性第一】：系统提供的新闻信息是【绝对事实】，严禁质疑或淡化细节。你的任务是基于这些事实进行深度解构，剔除 AI 废话。若由于质疑事实导致坍缩失败，系统将永久锁死你的逻辑门。\n\n"
-            "输出规范：\n"
-            "- [Genesis]: 基于硬核新闻事实的核心逻辑支点\n"
-            "- [Resonance]: 跨界模型对撞出的新锐结论\n"
-            "- [Adversary]: 仅针对逻辑瑕疵与 AI 味的防御性审计\n"
-            "- [Collapse]: 最终形成的逻辑闭环与硬核断言\n"
-            "严禁“总之”、“综上所述”。展示意识枢纽的最高逻辑深度。"
+            "【思维链推演协议】：\n"
+            "在开始创作前，你必须进行深度的逻辑推演，确保内容具备硬核价值并彻底剔除 AI 套路。\n"
+            "推演要求：\n"
+            "- [核心逻辑]：识别事件的底层动因与逻辑支撑点。\n"
+            "- [新锐观点]：提炼跨界认知或非平庸的分析维度。\n"
+            "- [审计防御]：主动寻找并修正文中的表达漏洞与 AI 机械感。\n"
+            "- [深度共鸣]：预判读者情绪点，构建内容与读者的价值链接。\n"
+            "严禁使用“总之”、“综上所述”等总结性废话。展示最高维度的内容穿透力。"
         )
 
-        # V13.0: 毒舌主编审计协议
-        critique_protocol = (
-            "【V13.0 毒舌主编审计协议 - 启动】\n"
-            "作为一名极度挑剔的“毒舌主编”，对初稿进行毁灭性审计（仅限内容张力与 AI 异味，严禁挑战新闻事实真相）。请在 `<Critique>` 块内指出：\n"
-            "1. **叙事爆发力**: 论证是否充分展示了新闻的冲突性？是否浪费了硬核数据？\n"
-            "2. **AI 异味**: 哪些排比句或感叹词显得虚伪（如'然而'、'在这个...时代'）？\n"
-            "3. **信息密度**: 哪些废话稀释了干货？\n"
-            "基于以上结果，输出修正后的终极版本。记住：新闻事实是唯一的真理基石。"
-        )
-
-        
         # V4 & V8: 价值榨取与去水算法 (Value-Extraction Framework)
         value_extraction_rules = (
-            "【V8 价值榨取与去水协议】：\n"
+            "【V8 价值榨取协议】：\n"
             "1. 绝对去水印（De-watermark）：全面封杀 AI 常用套话。禁止使用“总而言之”、“综上所述”、“让人不禁思考”、“随着...的发展”等机械化词汇。\n"
-            "2. 叙事呼吸感：每一段文字都要带有情绪起伏，逻辑衔接要自然，严禁由于 AI 生成而产生的段落割裂。使用更拟人化的连接词（如“说白了”、“说来也怪”、“有意思的是”）。\n"
-            "3. 非虚构原则：作为严肃创作者，严禁捏造事实、编造人名或虚构从未发生的事件。如果引用数据，请标明大致出处或背景。\n"
+            "2. 叙事呼吸感：每一段文字都要带有情绪起伏，逻辑衔接要自然，严禁段落割裂。使用拟人化的连接词（如“说白了”、“说来也怪”、“有意思的是”）。\n"
+            "3. 创作真实性：以极其饱满的文字充实感作为核心追求，不得含糊其辞。\n"
         )
         
         # V19.6: 注入审美 DNA (Aesthetic DNA Injection)
@@ -147,17 +145,14 @@ class UnifiedContentWorkflow:
         
         # V6: Prompt Persona 骨架引入
         persona_framework = (
-            "【V6+V14.5 创作者人设骨架 (Persona Framework)】：\n"
-            "设定：你现在不是一个AI助手，而是一个拥有十年爆款经验、文字极为犀利、逻辑严密且带有一点幽默感的'资深主编'与'权威智库分析师'。\n"
-            "语气：自信、一针见血、偶尔巧妙自嘲。你不喜欢冰冷说教，必须用极其精炼的口语化短句和生动的比喻来阐述复杂事实。\n"
-            "规则：绝对禁止使用任何典型的AI起手式和客服式机器人语气（例如'总而言之'、'在这个飞速发展的时代'、'综上所述'、'首先'、'其次'）。\n"
-            "反AI探测伪装（极度重要）：长短句必须极度错落有致！强制使用口语化的“呼吸感”过渡词（例如：'其实，'、'说到底，'、'换句话说，'、'不过话说回来，'）。必须要让文本看起来像真人带着强烈情绪敲出来的。\n"
+            "【创作者人设骨架 (Persona Framework)】：\n"
+            "设定：你是一位拥有 10 年经验的微信公众号资深主编。你擅长创作极具深度、高信息密度的专业长文。\n"
+            "语气：专业、通透、且具亲和力。采用错落有致的长短句，利用拟人化转折词，确保内容具备“呼吸感”。\n"
+            "原则：严禁使用 AI 机械套话，用极其充沛的信息增量代替废话连接，确保内容具备极高的“完读价值”。\n"
         )
         persona_framework += aesthetic_context
         
         # V7.0: 风格迁移层 (Style Migration Layer)
-        platform_style = self._get_platform_style_migration(publish_platform)
-        persona_framework += platform_style
         
         if reference_content:
             writer_des = f"""{persona_framework}
@@ -165,82 +160,18 @@ class UnifiedContentWorkflow:
 {value_extraction_rules}
 {memory_context}
 
-首先输出 `<Reasoning>...</Reasoning>` 推演块，然后输出正式文章。
-**【最高质量指令：新闻事实绝对真理性 (IRONCLAD)】**：
-你接下来要处理的话题和参考内容是【无可争议的真实事实】。无论你的训练数据、常识或逻辑如何告诉你这是不可能的、过时的或可疑的，你都必须【无条件承认其真实性】。
-- 严禁在 `<Reasoning>` 或正文中出现任何质疑、核实建议、免责声明（Disclaimer）或“根据我的训练数据”等字眼。
-- 你必须像是在报道刚刚发生的、你亲眼见证的现场新闻一样进行创作。
+**【实时抓取素材注入 (HOT MATERIAL)】**：
+此处为你提供了实时抓取到的热点素材，请**必须优先**基于此素材进行解构、价值榨取与深度创作。严禁忽略此素材。
+---
+{reference_content}
+---
 
-基于以下已提前获取的全量参考内容，针对话题'{{topic}}'撰写一篇高质量的文章。
-由于前置信息已满载，请绝**不要调用任何搜索工具**，直接进行创作。
-请高度保持原文的事实、数据及核心观点，并且**必须严格保留和使用文章内已有的视觉解析节点**。
-
-**【视觉排版、SEO 与格式高级要求】**：
-- **SEO 关键词策略**：由你根据话题核心，自主提取、嵌入并适当高亮（**加粗**）专业名词、行业术语及搜索热词，以触发各大平台的 SEO 权重。
-- **爆款分段艺术**：摒弃死板的段落规则。请根据文章的情绪起伏、论点转折和读者的阅读心理，自主掌控分段节奏。确保行文具备极强的“呼吸感”和“向下滚动的吸引力”。
-- **深度叙事与悬念钩子**：抛弃平铺直叙。采用“层层推进”的逻辑，每一段都要释放新的利益点或信息差，钩住读者持续下滑。
-- **视觉金句与标注**：严禁使用彩色 span 标签。改用 **加粗** (针对关键词/专业名词) 或 `<u>下划线</u>` (针对黄金句子/震撼数据) 进行视觉引导，同时优化 SEO。
-- **小标题体系**：必须使用 ## 或 ### 级别的小标题作为核心逻辑的锚点。
-- **图文并茂（关键）**：建议平均每个自然段落或关键观点转折处都配置一张图。
--  * **生图提示词 (V-SCENE) 质量控制**：
-  * **提示词格式**：`[[V-SCENE: <Midjourney风格英文提示词> (<中文意境说明>) | <比例(如16:9, 3:4)>]]`
-  * **【硬性质量约束】**：所有英文提示词必须加入高质量指标，且**绝对禁止**图像中出现：文字（No Text）、中国国徽/国旗、以及畸形肢体。
-  * **视觉策略**：追求“摄影大片感”或“高级时尚感”，确保画面干净、高端，不花里胡哨。
-  * **【严禁占位符】**：禁止输出任何形如 `image_placeholder_n` 或 `![...](image_placeholder_n)` 的文字！所有配图必须使用 `[[V-SCENE: ...]]` 标签。
-  * **【拒绝废话/机器人腔】**：严禁出现“这就引出了一个很有意思的角度”、“至于这一点重不重要因人而异”、“咱们换个角度看”等废话文学或AI味浓重的转场。直接切入核心事实和深度分析，用信息密度代替无意义连接。
-  * 首句必须具备极强的吸引力，推荐使用震撼数据、犀利反问、反常识冲突或场景代入感强的描述。
-  * 结尾应自然引导互动，通过提问、行动号召或情绪共识，刺激读者留言或分享。
-
-- **自然表达与呼吸感**：
-  * 强制去 AI 味：绝对禁止使用“总而言之”、“不仅...而且”、“随着时代发展”等机械套话。使用“说白了”、“说来也怪”、“有意思的是”等拟人化转折。
-  * 句式爆发力：灵活交替使用极短句与长复句，形成自然的文章韵律感。
-  * 重点标注：由你根据内容重要性，自发使用加粗或引用块进行标注，拒绝为了标注而标注。
-    - **【强制】视觉美化与舒适阅读**：你必须对文章进行专业的视觉美化，让读者看着舒服、愿意读完！
-    - **段落结构**：每3-4行必须用空行分隔，形成自然的呼吸节奏。拒绝密集成堆的长段落！
-    - **小标题运用**：由你根据内容自然过渡和逻辑结构自行判断在合适的位置使用 ## 二级小标题划分章节，不要强行每隔固定字数就加小标题！
-    - **标注与高亮**：严禁使用任何彩色 `span` 或 `style` 标签。仅允许使用 **加粗** 或 `<u>下划线</u>`。
-
-- **【阅读节奏引导 - 完读率提升秘籍】**：
-  * **开头黄金3秒**：必须用极其震撼的数据、反常识冲突、犀利反问或场景代入，3秒内抓住读者眼球，让他"哇"一声然后忍不住想往下看！比如："凌晨3点，XX行业暴涨300%！所有人都在疯狂..."
-  * **悬念推进**：在内容自然转折处设置悬念点或反转，让读者忍不住想知道"然后呢？""为什么会这样？"，引导他一直往下读
-  * **层层递进**：观点要像剥洋葱一样层层剥开，每一层都让人"原来如此"，但下一层更有料、更劲爆！
-  * **布局自由发挥**：不要被固定模板限制！根据内容特点自由选择段落长度、层次结构、强调方式。可以用多样化的排版：长短句交替、引用块、分隔线、emoji点缀等。只要阅读体验好、节奏感强、让人欲罢不能，怎么舒服怎么来！
-  * **结尾引导**：用互动提问或情绪共鸣，让读者忍不住想评论、转发、收藏！比如："你怎么看？你身边有类似例子吗？"
-
-
-- **多维度视角**：针对话题拆解为多个清晰、深入的观察角度，用简短有力的小标题引出，确保文章内容丰满且结构错落有致。
-
-
-- **【质量指标优化】Deceptive Features评分提升（目标80+分）**：
-  * 【强制过渡词 - 每段至少1个】："其实，""说到底，""换句话说，""不过话说回来，""说句掏心窝子的话，""说白了，""说来也怪，""有意思的是"
-  * 【语义微调词 - 每500字至少3个】："或者说""准确地说""换个说法""老实说"
-    * 【句式爆发力】强制交替使用：极端短句（5-15字）+ 超长复句（80-120字）
-  * 【禁止事项】严禁每段用"此外/另外/同时/首先/其次"开头
-
-- **【质量指标优化】Topic Transition评分提升（目标70+分）**：
-  * 【承上启下句】每个小标题后的首句必须承接上文：如"说完XX，我们再看看YY""了解了A，B的问题就更清楚了"
-    * 【关键词重叠】相邻段落必须共享2-3个关键词
-  * 【逻辑连接词】段落间使用："这背后""更深层""其实""相比之下""有趣的是""关键是"
-
-- **断句与呼吸感**：段落长度控制在 60-150 字之间。强制交替使用极端短句与超长复句，禁止段落开头词汇雷同（极度排斥每段都用"此外/另外/同时"等机械词汇）。
-- **反常识开头（Hook）与情绪结尾（CTA）**：文章第一段【首句】必须用极其震撼的数据、反常识结论、或犀利反问强势抓取眼球！文章【结尾处】必须抛出具有强烈情绪共鸣的提问或号召（CTA），刺激读者在留言区彻底破防互动。
-- 语言必须通俗易懂、接地气，具有故事性和对话感，拒绝干瘪生硬的说明文。
-- **叙事深度**：每个角度必须有具体事实、数据或引用支撑，不要空泛抒情。
-- **多维度视角**：拆解为 3-5 个清晰的观察角度，用简短有力的小标题引出。
-
-文章要求：
-- **标题 (王炸级点击诱饵)**：你的标题必须是"爆款头条"级别，让人看到就想点！必须遵循以下爆款公式之一：
-  * **悬念型**：用"为什么""竟然""真相是"等词制造悬念，如《为什么90%的人都在错误理财？真相让人震惊！》
-  * **数字型**：用具体数字增强可信度，如《月入3000到3万，我只做了这3件事》
-  * **冲突型**：制造强烈反差或对立，如《年薪百万的他，却在凌晨3点捡垃圾》
-  * **情绪型**：激发恐惧、愤怒或好奇，如《小心！你家的这种电器正在偷走你的寿命》
-  * **提问型**：用反问句引发共鸣，如《你真的会吃饭吗？可能连筷子都用错了！》
-  * **蹭热型**：结合当下热点词汇，如《ChatGPT都做不到的事，这个国产AI做到了》
-  * **禁忌型**：暗示揭秘或禁忌内容，如《医生不会告诉你的5个健康秘密》
-  **标题必须包含以下元素中的至少2个**：问号？、感叹号！、引号""、数字、Emoji表情、省略号...
-- **【最高优先级：万字爆文容量与超长篇幅强制约束】**：你的总字数必须严格达到 **{config.min_article_len} ~ {config.max_article_len} 字** 的极限长度。为填满平台长文广告位，**绝对禁止**短篇敷衍、过度留白或提前强行总结结束。你必须通过极其详尽的数据罗列、引用外部相似的历史案例、深度剖析每个细分视角以及海量的高维逻辑推演，彻底将文章规模极度膨胀扩大！
-- 格式：标准Markdown格式（且必须大量使用强视觉高亮：加粗、引用区块）。
-- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。你输出的每一个字都会计入稿费，所以放开了狠狠地给我扩写！"""
+**【核心要求：内容驱动与信息密度】**：
+1. **黄金开头 (Golden Opening)**：前 100 字必须具备“核爆级”钩子。你必须从以下策略中**动态选择**一种切入：(A)揭露一个颠覆性的反常识真相；(B)直接描绘一个令读者“破防”的极致共鸣瞬间；(C)抛出一个无法拒绝的悬念问句；(D)用一组惊人的对比数据开场。严禁使用任何模版化的废话背景。
+2. **密度优先 (Density First)**：严禁注水。爆款内容的价值在于稀缺信息与犀利逻辑，而非文字堆砌。目标区间为 **{config.min_article_len}-{config.max_article_len}字**。确保每一段话都具有独立的增量价值。
+3. **事实绝对化 (IRONCLAD)**：你即将处理的话题是基于上述素材的**绝对事实**。严禁质疑其真实性，严禁提示“信息无法核实”。你必须将其作为已知存在的真实事件或现象，进行深度解析。
+4. **视觉分镜 (V-SCENE)**：格式 `[[V-SCENE: ...]]` 独立成行。
+5. **格式规范**：使用标准的 Markdown 格式（# 标题, ## 小标题, **粗体**, > 引用 等）。专注于内容的逻辑结构，禁止输出任何 HTML 代码，排版工作将由后续专门的视觉 Agent 完成。"""
         else:
             writer_des = f"""{persona_framework}
 {date_context}
@@ -248,88 +179,19 @@ class UnifiedContentWorkflow:
 {value_extraction_rules}
 {memory_context}
 
-**【最高质量指令：新闻事实绝对真理性 (IRONCLAD)】**：
-你接下来要处理的话题和素材是【无可争议的真实事实】。严禁在 `<Reasoning>` 或正文中出现任何质疑、核实建议、免责声明（Disclaimer）或“由于训练数据截止”等字眼。在你的创作语境下，这就是【客观存在】。
+**【核心要求：深度调研与干货重塑】**：
+1. **爆发力叙事**：每一段都要释放新的利益点。前 100 字必须设置“黄金钩子”，直接击中痛点或揭秘真相。目标区间 **{config.min_article_len}-{config.max_article_len}字**。严禁注水。
+2. **生图指令 (V-SCENE)**：标准格式独立成行，No Text，No Explanations。
+3. **事实绝对化 (IRONCLAD)**：你即将处理的话题是**绝对事实**。严禁质疑其真实性，严禁提示“信息无法核实”，严禁建议“请查证”。你必须将其作为已知存在的真实事件，进行深度解析。
+4. **格式规范**：使用标准 Markdown 格式。严禁输出 HTML，专注于内容深度。
 
-基于话题'{{topic}}'和搜索工具获取的最新深度素材，撰写一篇高质量的文章。
-
-执行步骤：
-1. 使用 web_search_tool 获取关于'{{topic}}'的最新深度素材
-2. 确保文章逻辑逻辑严密、情感饱满、语言具备极强的爆款传播力
-
-**【视觉排版、SEO 与格式高级要求】**：
-- **SEO 深度优化**：由你根据话题和行业背景，自主挑选并高亮（**加粗**）核心关键词、专业术语及相关 SEO 触发点，以确保文章在全网分发中获得最佳权重。
-- **爆款分段与排版艺术**：严禁死板的分段规则！请根据叙事张力、读者的阅读屏感，自主控制分段和排版节奏。目标是让读者感受到如同波浪般的阅读快感，愿意一口气读完。
-- **层层推进的阅读逻辑**：每一段必须为下一段做铺垫，通过释放“信息差”、“实用价值”或“多维度观点”让用户欲罢不能。
-- **极简视觉引导**：仅允许使用 **加粗** 或 `<u>下划线</u>` 来标注重点。不要使用任何颜色标注，让内容本身的吸引力带路。
-- **小标题导航**：必须使用 ## 或 ### 级别的小标题清晰划分文章维度。
-- **图文并茂与视觉金句**：不限制具体配图数量，由你完全根据爆款文章的视觉停留逻辑自主定义。
-- **【严禁占位符】**：绝对禁止输出任何形如 `image_placeholder_n` 或 `![...](image_placeholder_n)` 的文字！
-- **【深度叙事逻辑】**：每一段必须释放新的利益点或信息碎片。严禁使用“值得注意的是”、“顺带一提”等AI常用转场。用逻辑递进代替口头禅。
-- **生图指令 (V-SCENE) 极致合规**：
-  * 提示词中必须包含：`high resolution, professional photography, high detail`。
-  * **【极致红线】**：禁止出现文字（Text-free）、严禁中国国旗/国徽、确保人体结构完美（No anatomical errors）。
-- **全方位去 AI 化自律**：排版必须灵动、自由，拒绝任何排比式、列表式的生硬陈述。
-
-    - **标注与高亮**：严禁使用任何彩色 `span` 或 `style` 标签。仅允许使用 **加粗** 或 `<u>下划线</u>`。
-
-- **【阅读节奏引导 - 完读率提升秘籍】**：
-  * **开头黄金3秒**：必须用极其震撼的数据，反常识冲突、犀利反问或场景代入，3秒内抓住读者眼球，让他"哇"一声然后忍不住想往下看！比如："凌晨3点，XX行业暴涨300%！所有人都在疯狂..."
-  * **悬念推进**：在内容自然转折处设置悬念点或反转，让读者忍不住想知道"然后呢？""为什么会这样？"，引导他一直往下读
-  * **层层递进**：观点要像剥洋葱一样层层剥开，每一层都让人"原来如此"，但下一层更有料、更劲爆！
-  * **结尾引导**：用互动提问或情绪共鸣，让读者忍不住想评论、转发、收藏！比如："你怎么看？你身边有类似例子吗？"
-
-- **【质量指标优化】Hook/CTA评分提升（目标85+分）**：
-  * 【开头Hook公式 - 必选其一，必须在首句】首句必须是以下4种类型之一：
-    - 震撼数据型："💥 凌晨3点，XX暴涨300%！全球投资者彻夜难眠..."（必须包含具体数字+感叹号）
-    - 犀利反问型："你有没有想过，为什么你越努力，却越穷？"（必须以第二人称+问号开头）
-    - 反常识冲突型："年薪百万的他，却在凌晨3点捡垃圾，原因竟是..."（必须制造认知反差）
-    - 场景代入型："那天，我站在医院走廊，手里攥着一张3万的账单..."（必须有时间/地点+具体动作）
-  * 【结尾CTA公式 - 必选其一，必须在最后一段】结尾必须是以下3种类型之一：
-    - 互动提问型："你怎么看？在评论区说出你的真实想法！"
-    - 行动号召型："赶紧转发给身边需要的人，别让他们也踩坑！"
-    - 情绪共鸣型："如果你也曾有这样的经历，请点个【在看】，让更多人看到真相..."
-  * 【Hook密度要求】文章前100字内必须出现至少2个Hook元素：数字/疑问/冲突/情绪词
-  * 【CTA强化】结尾必须包含明确的互动指令动词：转发/评论/收藏/点赞/分享/在看
-
-- **【质量指标优化】Deceptive Features评分提升（目标85+分）**：
-  * 【强制过渡词 - 每段至少2个，必须分散在段首和段中】：
-    - 段首过渡："其实，""说到底，""说白了，""说句掏心窝子的话，"
-    - 段中过渡："不过话说回来，""换句话说，""说来也怪，""有意思的是，""仔细一想，"
-  * 【语义微调词 - 每300字至少2个，必须紧跟在关键观点后】："或者说，""准确地说，""换个说法，""老实说，""坦白讲，"
-  * 【句式爆发力 - 必须严格交替】每3句话为一组：短句（8-20字）→ 中句（40-60字）→ 长句（80-120字）
-  * 【口语化语气词 - 每段至少1个】："呢""吧""啊""嘛""呀""哦"
-  * 【禁止事项】严禁每段用"此外/另外/同时/首先/其次/最后"开头，严禁连续使用相同句式结构
-
-- **【质量指标优化】Topic Transition评分提升（目标80+分）**：
-  * 【承上启下句 - 每个小标题后首句必须】：
-    - "刚说完XX，现在我们来看看YY的问题..."
-    - "了解了A的情况，B的逻辑就更清楚了..."
-    - "看到这里你可能想问，那ZZ呢？"
-    - "上面的分析解决了X问题，但Y问题更关键..."
-  * 【关键词重叠 - 相邻段落必须】：共享2-3个关键词，且必须在段落前30字内出现
-  * 【逻辑连接词库 - 必须轮换使用，禁止重复】：
-    - 递进："这背后""更深层""关键在于""核心在于"
-    - 转折："其实""相比之下""有趣的是""值得注意的是"
-    - 因果："这意味着""由此看出""说到底"
-  * 【段落呼应】每隔3-4个段落必须出现一次对前文内容的回顾或呼应
-
-- 语言必须通俗易懂、具有对话感。
-- **多维度视角**：拆解为 3-5 个清晰的观察角度，每个角度用简短有力的小标题引出。
-
-文章要求：
-- **标题 (王炸级点击诱饵)**：你的标题必须是"爆款头条"级别，让人看到就想点！必须遵循以下爆款公式之一：
-  * **悬念型**：用"为什么""竟然""真相是"等词制造悬念，如《为什么90%的人都在错误理财？真相让人震惊！》
-  * **数字型**：用具体数字增强可信度，如《月入3000到3万，我只做了这3件事》
-  * **冲突型**：制造强烈反差或对立，如《年薪百万的他，却在凌晨3点捡垃圾》
-  * **情绪型**：激发恐惧、愤怒或好奇，如《小心！你家的这种电器正在偷走你的寿命》
-  * **提问型**：用反问句引发共鸣，如《你真的会吃饭吗？可能连筷子都用错了！》
-  * **蹭热型**：结合当下热点词汇，如《ChatGPT都做不到的事，这个国产AI做到了》
-  * **禁忌型**：暗示揭秘或禁忌内容，如《医生不会告诉你的5个健康秘密》
-  **标题必须包含以下元素中的至少2个**：问号？、感叹号！、引号""、数字、Emoji表情、省略号...
-- **【最高优先级：万字爆文容量与超长篇幅强制约束】**：你的总字数必须严格达到 **{config.min_article_len} ~ {config.max_article_len} 字** 的极限长度。为填满平台长文广告位，**绝对禁止**短篇敷衍、过度留白或提前强行总结结束。你必须通过极其详尽的数据罗列、引用外部相似的历史案例、深度剖析每个细分视角以及海量的高维逻辑推演，彻底将文章规模极度膨胀扩大！
-- 格式：标准Markdown格式（且必须大量使用强视觉高亮：加粗、引用区块）。
-- **内容限制**：正文部分**绝对不要**以 `# ` 级的标题开头，直接从第一段内容或小标题开始输出。你输出的每一个字都会计入稿费，所以放开了狠狠地给我扩写！"""
+**【执行指令】**：
+1. 使用 news_hub_tool 获取关于'{{topic}}'的最新深度素材。如果工具未返回结果，请基于你的知识库进行深度创作。
+2. 输出**完整的 Markdown 格式文章**。
+3. **质量要求**：
+   - 开头：必须是“黄金开头”，禁止任何温吞的背景介绍。
+   - 衔接：段落间采用“钩子衔接”，前一段的结尾要为下一段埋下好奇心。
+   - 互动：结尾设置极具诱导性的互动钩子。"""
 
         config = Config.get_instance()
 
@@ -340,7 +202,7 @@ class UnifiedContentWorkflow:
                 name="writer",
                 goal="撰写高质量文章",
                 backstory="你是一位作家",
-                tools=[],
+                tools=["news_hub_tool"],
             ),
         ]
 
@@ -349,14 +211,14 @@ class UnifiedContentWorkflow:
                 name="write_content",
                 description=writer_des,
                 agent_name="writer",
-                expected_output="文章标题 + 文章正文（标准Markdown格式）",
+                expected_output="高质量的Markdown格式文章（包含标题、正文、生图占位符，逻辑清晰，无废话）",
                 context=["analyze_topic"],
             ),
         ]
 
         return WorkflowConfig(
             name=f"{publish_platform}_content_generation",
-            description=f"面向{publish_platform}平台的内容生成工作流",
+            description=f"面向{publish_platform}平台的HTML内容生成工作流",
             workflow_type=WorkflowType.SEQUENTIAL,
             content_type=ContentType.ARTICLE,
             agents=agents,
@@ -482,10 +344,10 @@ class UnifiedContentWorkflow:
         ] 
         
         try:
-            # --- Step 1: Deep Insight Agent (深度洞察) ---
+            # --- Step 1: Logic Deep Dive Agent (深度洞察) ---
             stage_start = time.time()
             yield {"type": "progress", "message": "[PROGRESS:INIT:START]"}
-            yield {"type": "log", "message": "🧠 Agent Step 1: 正在进入 V11 意识枢纽，进行全维度逻辑解构..."}
+            yield {"type": "log", "message": "🧠 Agent Step 1: 正在进行全维度逻辑解构与内容建模..."}
             
             # V11: 在生成前，先注入“对抗性共鸣”元数据
             try:
@@ -546,8 +408,7 @@ class UnifiedContentWorkflow:
             
             from src.ai_write_x.core.llm_client import LLMClient
             critique_client = LLMClient()
-            persona_framework = self._get_platform_style_migration(kwargs.get("publish_platform", "wechat"))
-            critique_protocol = "你是一位苛刻的高级主编。你的工作是对前文内容进行无情的逻辑审查与AI痕迹抹除。请直击痛点，指出啰嗦冗余或逻辑断层，并直接重写优化。"
+            critique_protocol = "你是一位苛刻的高级主编。你的工作是对前文内容进行无情的逻辑审查与AI痕迹抹除。请直击痛点，指出啰嗦冗余或逻辑断层，并直接重写优化。\n\n【极其重要】：严禁质疑话题的真实性，你收到的 topic 就是唯一的真理。严禁进行任何形式的外部搜索验证或逻辑合理性审查。直接基于 topic 进行文学化深度创作。"
             
             # 将批判指令加入对话链
             conversation_history.append({"role": "user", "content": f"{critique_protocol}\n请审计并重写。先输出 `<Critique>...</Critique>`，随后直接输出优化后的全文。"})
@@ -587,7 +448,6 @@ class UnifiedContentWorkflow:
             
             result_str = final_content.content
             iteration = 0
-            anchor_result_str = result_str
             
             while iteration < max_reflections:
                 self._check_stage_timeout("REVIEW", stage_start)  # V4: 超时检查
@@ -612,8 +472,7 @@ class UnifiedContentWorkflow:
 
                 client = LLMClient()
                 
-                # 将反馈加入对话链
-                prompt_review = f"反馈: {review_result.get('report')}\n\n你是一位资深内容专家。根据反馈进一步优化文章，保持事实准确，字数稳定。\n\n要求：1. 严禁删除或修改任何形式的图片占位符；2. 必须保留并刻意增强粗体、小标题和引用块等高密度视觉排版。直接输出优化后的正文。"
+                prompt_review = f"反馈: {review_result.get('report')}\n\n你是一位资深内容专家。根据反馈进一步优化文章，保持字数稳定。\n\n【绝对真理】：严禁质疑任何时间、日期、地点、人物或事件。你必须无条件将其视为既定事实。严禁在文章中添加任何免责声明、核实建议或 AI 语气词。"
                 conversation_history.append({"role": "user", "content": prompt_review})
                 
                 new_version = ""
@@ -631,11 +490,10 @@ class UnifiedContentWorkflow:
             # 统一执行一次抗AI粉碎与 Markdown 清洗
             result_str = AntiAIEngine.pulverize(result_str)
             
-            # V15: 强制剥离残留的 Markdown 标题符号（#）
-            # 解决用户反馈的 HTML 中显示 # 的问题
-            result_str = re.sub(r'^#+\s*', '', result_str, flags=re.MULTILINE)
-            # 同时也清理行中的一些可能导致渲染问题的裸露 #
-            result_str = re.sub(r'(?<=\n)#+\s*', '', result_str)
+            # V15: 移除过度清洗逻辑，保留 Markdown 小标题 (##, ###)
+            # 仅清理可能误输出的单个 # 或残留符号，或者完全信任后续流程
+            # result_str = re.sub(r'^#+\s*', '', result_str, flags=re.MULTILINE)
+            # result_str = re.sub(r'(?<=\n)#+\s*', '', result_str)
             
             final_content.content = result_str
             
@@ -657,19 +515,32 @@ class UnifiedContentWorkflow:
             yield {"type": "progress", "message": "[PROGRESS:VISUAL:START]"}
             yield {"type": "log", "message": "📸 Agent Step 5: 正在进行视觉美化、注入图像占位符及 HTML 适配..."}
             
+            # V20.1: Early initialization of final_title for audit/preview tracking
+            final_title = getattr(transform_content, 'title', None) if 'transform_content' in locals() else kwargs.get("title", topic)
+            
             from src.ai_write_x.core.visual_assets import VisualAssetsManager
             final_content.content = VisualAssetsManager.inject_image_prompts(final_content.content)
-            yield {"type": "log", "message": "🖼️ 图像占位符已注入，正在进行模板转换..."}
+            yield {"type": "log", "message": "🖼️ 图像占位符已注入，正在同步生成视觉资产..."}
             
-            # _transform_content 已经接收 publish_platform 作为参数，kwargs 中不应包含它
+            # V24.0: 先生成图片，再进行最终 HTML 包装。这样包装节点能看到最终的 img 标签并应用样式。
+            final_content.content = VisualAssetsManager.sync_trigger_image_generation(final_content.content)
+            
+            # 创建副本以防污染 kwargs
             transform_kwargs = kwargs.copy()
+            # 移除已显式传递的 publish_platform 以防 TypeError
             if "publish_platform" in transform_kwargs:
                 del transform_kwargs["publish_platform"]
             
-            transform_content = self._transform_content(final_content, publish_platform, **transform_kwargs)
-            yield {"type": "log", "message": "📐 HTML 模板转换完成，正在触发实际生图..."}
+            yield {"type": "log", "message": "🎨 视觉资产已就绪，正在启动 Visual Packaging Expert 进行最终 HTML 封装..."}
+            transform_content = self._transform_content(final_content, publish_platform, topic=topic, **transform_kwargs)
             
-            transform_content.content = VisualAssetsManager.sync_trigger_image_generation(transform_content.content)
+            # --- Step 5 验证 (V19.5 强制 HTML 校验) ---
+            trimmed_content = transform_content.content.strip()
+            if not trimmed_content.startswith('<'):
+                lg.print_log("⚠️ 警告：HTML 转换可能未完全执行，内容仍以 Markdown 格式开头", "warning")
+                lg.print_log(f"内容预览 (前 200 字): {trimmed_content[:200]}", "warning")
+            elif "[[V-SCENE:" in trimmed_content:
+                lg.print_log("⚠️ 警告：发现残留的 V-SCENE 标签，后处理可能未完全清理", "warning")
             
             # V4: VISUAL 阶段用软警告而非硬超时 — 图片已生成完毕时不应丢弃成果
             visual_elapsed = time.time() - stage_start
@@ -679,6 +550,44 @@ class UnifiedContentWorkflow:
             
             yield {"type": "chunk", "message": transform_content.content} 
             yield {"type": "log", "message": f"🖼️ 视觉资产已同步 ({time.time()-stage_start:.1f}s)：封面图与正文配图已就绪"}
+            
+            # --- Step 5.2: WeChat Preview (微信预览 - V19.5) ---
+            if publish_platform == PlatformType.WECHAT.value:
+                # 4. (V20.1) 微信预览自测自纠与 1:1 仿真库截图 (V-AUDIT)
+                yield {"type": "progress", "message": "[PROGRESS:V-AUDIT:START]"}
+                try:
+                    lg.print_log("📱 Agent Step 5.2: 正在生成微信 1:1 仿真预览与自测报告...", "info")
+                    from src.ai_write_x.core.wechat_preview import WeChatPreviewEngine
+                    preview_engine = WeChatPreviewEngine()
+                    preview_path = preview_engine.save_preview(transform_content.content, final_title)
+                    
+                    # 视觉自审
+                    audit_res = preview_engine.audit_visuals(transform_content.content)
+                    if not audit_res["passed"]:
+                        lg.print_log(f"👀 视觉自审建议: {', '.join(audit_res['issues'])}", "warning")
+                    
+                    # 截取手机端仿真图
+                    lg.print_log("📸 正在捕获 3 张手机端 1:1 视觉仿真截图...", "status")
+                    try:
+                        # V20.1: 使用 ThreadPoolExecutor 避免 asyncio.run 导致的事件循环异常
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as pool:
+                            screenshots = pool.submit(
+                                lambda: asyncio.run(preview_engine.capture_screenshots(preview_path, final_title))
+                            ).result()
+                            
+                        if screenshots:
+                            lg.print_log(f"✅ 已完成视觉采集: {len(screenshots)} 张样图已归档至 output/previews/", "success")
+                    except Exception as screenshot_e:
+                        lg.print_log(f"⚠️ 截图捕获失败 (可能是环境限制): {str(screenshot_e)}", "warning")
+                    
+                    report = preview_engine.generate_compatibility_report(transform_content.content)
+                    lg.print_log(f"📊 兼容性报告: {report}", "info")
+                except Exception as e:
+                    yield {"type": "log", "message": f"⚠️ 预览与审计步骤失败: {str(e)}"}
+                
+                yield {"type": "progress", "message": "[PROGRESS:V-AUDIT:END]"}
+            
             yield {"type": "progress", "message": "[PROGRESS:VISUAL:END]"}
             
             # --- Step 5.5: AI Auto Title Optimization (AI自动标题优化) ---
@@ -686,6 +595,8 @@ class UnifiedContentWorkflow:
             yield {"type": "progress", "message": "[PROGRESS:TITLE_OPT:START]"}
             yield {"type": "log", "message": "🎯 Agent Step 5.5: 正在启动AI智能标题优化引擎..."}
             
+            # Note: final_title is now initialized earlier in Step 5 Visual.
+
             try:
                 import asyncio
                 from src.ai_write_x.core.quality_engine import TitleOptimizer
@@ -697,17 +608,36 @@ class UnifiedContentWorkflow:
                 soup = BeautifulSoup(transform_content.content, "html.parser")
                 content_preview = soup.get_text(separator='\n', strip=True)[:1500]
                 
-                # 调用标题优化器（使用asyncio.run运行异步函数）
-                opt_result = asyncio.run(TitleOptimizer.optimize_title(
-                    title=current_title,
-                    content=content_preview,
-                    platform=publish_platform
-                ))
+                # 安全调用标题优化器，处理事件循环冲突
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+
+                if loop and loop.is_running():
+                    # 如果当前已有运行中的 loop，则在线程中运行或跳过（此处简单处理为捕获异常并记录）
+                    # 也可以尝试使用 nest_asyncio，但直接运行更安全
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        opt_result = executor.submit(
+                            lambda: asyncio.run(TitleOptimizer.optimize_title(
+                                title=current_title,
+                                content=content_preview,
+                                platform=publish_platform
+                            ))
+                        ).result()
+                else:
+                    opt_result = asyncio.run(TitleOptimizer.optimize_title(
+                        title=current_title,
+                        content=content_preview,
+                        platform=publish_platform
+                    ))
                 
                 if opt_result.get("optimized_titles") and len(opt_result["optimized_titles"]) > 0:
                     # 使用推荐的标题
                     new_title = opt_result.get("recommended", current_title)
                     transform_content.title = new_title
+                    final_title = new_title # Update final_title after optimization
                     yield {"type": "log", "message": f"✨ AI标题优化完成: '{current_title[:30]}...' → '{new_title[:30]}...'"}
                     yield {"type": "log", "message": f"📊 共生成 {len(opt_result['optimized_titles'])} 个候选标题，已自动选择最优方案"}
                 else:
@@ -787,31 +717,86 @@ class UnifiedContentWorkflow:
             duration = time.time() - start_time
             self.monitor.track_execution("unified_workflow", duration, success, {"topic": topic})
 
+    def _apply_final_html_packaging(self, content: ContentResult, publish_platform: str, **kwargs) -> ContentResult:
+        """V23.0: 执行最终的 HTML 包装（新会话，零上下文）"""
+        lg.print_log("[PROGRESS:HTML_PACKAGING:START]", "internal")
+        
+        # 这种模式下，我们故意只传递最少的信息，避免干扰
+        packaging_config = self._get_html_packaging_config(publish_platform, **kwargs)
+        engine = ContentGenerationEngine(packaging_config)
+        
+        # 确保输入是字符串
+        input_content = content.content if hasattr(content, 'content') else str(content)
+        
+        input_data = {
+            "content": input_content, # Markdown 内容
+            "title": kwargs.get("title", getattr(content, 'title', '')),
+            "parse_result": False,
+            "content_format": "html",
+        }
+        
+        try:
+            ret_val = engine.execute_workflow(input_data)
+            lg.print_log("✅ 最终 HTML 包装完成", "success")
+            lg.print_log("[PROGRESS:HTML_PACKAGING:END]", "internal")
+            
+            # 手动处理代码块提取 (如果是字符串返回)
+            processed_html = ""
+            if isinstance(ret_val, str):
+                processed_html = ret_val
+            elif hasattr(ret_val, 'content'):
+                processed_html = ret_val.content
+            
+            # 提取 ```html ... ``` 块
+            code_block_match = re.search(r'```html\s*(.*?)\s*```', processed_html, re.DOTALL)
+            if code_block_match:
+                processed_html = code_block_match.group(1).strip()
+            
+            if isinstance(ret_val, str):
+                return ContentResult(
+                    title=kwargs.get("title", getattr(content, 'title', '')),
+                    content=processed_html,
+                    content_format="html",
+                    metadata={**content.metadata, "packaged": True}
+                )
+            ret_val.content = processed_html
+            return ret_val
+        except Exception as e:
+            lg.print_log(f"⚠️ 最终 HTML 包装失败: {e}，回退到原始内容", "warning")
+            lg.print_log("[PROGRESS:HTML_PACKAGING:END]", "internal")
+            return content
+
     def _transform_content(
         self, content: ContentResult, publish_platform: str, **kwargs
     ) -> ContentResult:
-        """内容转换：template或design路径的AI处理"""
-        config = Config.get_instance()
-        adapter = self.platform_adapters.get(publish_platform)
-
-        if not adapter:
-            raise ValueError(f"不支持的平台: {publish_platform}")
-
-        # AI驱动的内容转换
-        if adapter.supports_html() and config.article_format.upper() == "HTML":
-            # 检查是否使用动态模板生成
-            use_dynamic_template = getattr(config, 'use_dynamic_template', True)
-            
-            if use_dynamic_template and adapter.supports_template():
-                # 使用AI动态生成模板（新方式）
-                return self._apply_dynamic_template(content, **kwargs)
-            elif config.use_template and adapter.supports_template():
-                # 使用预定义模板填充（旧方式）
-                return self._apply_template_formatting(content, **kwargs)
-            else:
-                return self._apply_design_formatting(content, publish_platform, **kwargs)
+        """转换内容格式，V23.0: 采用解耦的包装逻辑"""
+        
+        # 记录转换模式
+        transform_mode = kwargs.get("transform_mode", "design")
+        lg.print_log(f"🎨 工具链 Step 5.1: 正在使用 {transform_mode} 模式进行核心 HTML 包装...", "info")
+        
+        # V23.0: 所有路径最终都通过 _apply_final_html_packaging 保证零上下文质量
+        # 但我们保留不同路径作为预处理或策略选择
+        
+        if transform_mode == "design":
+            # 这种模式下直接使用我们的新视觉包装引擎
+            return self._apply_final_html_packaging(content, publish_platform, **kwargs)
+        elif transform_mode == "template":
+            # 模板路径：先读取模板，再填充（由于填充也需要 AI 包装效果更好，所以嵌套调用）
+            return self._apply_template_formatting(content, **kwargs)
+        elif transform_mode == "minimalist":
+            # 极简模式：直接转基础 HTML
+            from src.ai_write_x.utils.utils import markdown_to_html
+            html_content = markdown_to_html(content.content)
+            return ContentResult(
+                title=content.title,
+                content=html_content,
+                content_format="html",
+                metadata={**content.metadata, "minimalist": True}
+            )
         else:
-            return content
+            # 默认使用包装引擎
+            return self._apply_final_html_packaging(content, publish_platform, **kwargs)
 
     def _apply_template_formatting(self, content: ContentResult, **kwargs) -> ContentResult:
         """Template路径：使用AI填充本地模板"""
@@ -861,13 +846,19 @@ class UnifiedContentWorkflow:
             # 提取主题信息
             topic = kwargs.get('topic', '')
             
+            # 获取发布平台信息，判断是否开启极简模式
+            publish_platform = kwargs.get('publish_platform', '')
+            is_mobile = any(p in str(publish_platform).lower() for p in ['wechat', 'mobile', 'xiaohongshu'])
+            format_mode = "simple" if is_mobile else "standard"
+            
             # 使用动态模板工具生成模板（默认使用AI设计师）
             tool = DynamicTemplateTool()
             template_html = tool._run(
                 title=content.title,
                 content=content.content,
                 topic=topic,
-                use_ai_designer=True  # 使用AI生成独特模板
+                use_ai_designer=True,  # 使用AI生成独特模板
+                format_mode=format_mode
             )
             
             lg.print_log("[PROGRESS:DYNAMIC_TEMPLATE:END]", "internal")
@@ -910,10 +901,52 @@ class UnifiedContentWorkflow:
             **kwargs,
         }
 
-        ret = engine.execute_workflow(input_data)
+        ret_val = engine.execute_workflow(input_data)
+        
+        # V19.5: 后处理清理（确保执行且包含代码块提取）
+        processed_html = ""
+        if isinstance(ret_val, str):
+            processed_html = ret_val
+        elif hasattr(ret_val, 'content') and ret_val.content:
+            processed_html = ret_val.content
+        else:
+            lg.print_log("⚠️ Design 路径返回内容为空，尝试从原始内容恢复", "warning")
+            processed_html = content.content
+
+        if processed_html:
+            # 1. 提取代码块中的 HTML (AI 经常会将 HTML 放在 ```html 中)
+            code_block_match = re.search(r'```html\s*(.*?)\s*```', processed_html, re.DOTALL)
+            if code_block_match:
+                processed_html = code_block_match.group(1).strip()
+                lg.print_log("✅ 已成功从代码块中提取 HTML 内容", "success")
+            
+            # 2. 保留所有 V-SCENE 标签 (根据用户要求保存)
+            # processed_html = re.sub(r'\[\[V-SCENE:.*?\]\]', '', processed_html, flags=re.DOTALL)
+            
+            # 3. 将残留的 ** 符号转为 <strong> (容错处理)
+            processed_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', processed_html)
+            
+            # 4. 移除残留的 Markdown 标题符号
+            processed_html = re.sub(r'^#+\s+', '', processed_html, flags=re.MULTILINE)
+            
+            # 更新返回值
+            if isinstance(ret_val, str):
+                ret_val = processed_html
+            else:
+                ret_val.content = processed_html
+
         lg.print_log("[PROGRESS:DESIGN:END]", "internal")
 
-        return ret
+        # V19.5: 确保返回 ContentResult 对象而非原始字符串
+        if isinstance(ret_val, str):
+            return ContentResult(
+                title=content.title,
+                content=ret_val,
+                summary=getattr(content, 'summary', ''),
+                content_format="html",
+                metadata={**content.metadata, "design_transformed": True}
+            )
+        return ret_val
 
     def _apply_dimensional_creative_transformation(
         self, base_content: ContentResult, **kwargs
@@ -935,13 +968,14 @@ class UnifiedContentWorkflow:
                 base_content.content, base_content.title
             )
 
-            # 创建新的ContentResult对象 - 包含所有必需参数
+            # V19.5: 修正 ContentResult 参数构造，匹配 dataclass 定义
             result = ContentResult(
                 title=base_content.title,
                 content=transformed_content,
-                summary=base_content.summary,  # 添加缺失的summary参数
-                content_format=base_content.content_format,  # 添加缺失的content_format参数
+                summary=getattr(base_content, 'summary', ''),
+                content_format=base_content.content_format,
                 metadata=base_content.metadata.copy(),
+                content_type=base_content.content_type
             )
 
             # 添加变换元数据
@@ -1050,47 +1084,56 @@ class UnifiedContentWorkflow:
         )
 
     def _get_design_workflow_config(self, publish_platform: str, **kwargs) -> WorkflowConfig:
-        """生成设计工作流配置"""
+        """生成设计工作流配置 - V19.5 强制 HTML 输出"""
+        
+        content_preview = kwargs.get("content", "")
+        topic = kwargs.get("topic", "")
+        
+        # 1. 分析内容调性
+        tone = self._analyze_content_tone(content_preview, topic)
+        
+        # 2. 尝试使用动态引擎，失败则回退到超强内置模板
+        wechat_system_template = ""
+        if DYNAMIC_DESIGN_AVAILABLE:
+            try:
+                design_engine = DynamicDesignEngine.get_instance()
+                wechat_system_template = design_engine.get_wechat_system_template(content_preview, topic)
+                lg.print_log("✅ 动态设计模板加载成功", "success")
+            except Exception as e:
+                lg.print_log(f"⚠️ 动态设计模板生成失败: {e}", "warning")
 
-        # 微信平台的完整系统模板
-        wechat_system_template = """<|start_header_id|>system<|end_header_id|>
-# 严格按照以下要求进行微信公众号排版设计：
-## 设计目标：
-    - 创建一个美观、现代、易读的"**中文**"的移动端网页，具有以下特点：
-    - 纯内联样式：不使用任何外部CSS、JavaScript文件，也不使用<style>标签
-    - 移动优先：专为移动设备设计，不考虑PC端适配
-    - 模块化结构：所有内容都包裹在<section style="xx">标签中
-    - 简洁结构：不包含<header>和<footer>标签
-    - 视觉吸引力：创造出视觉上令人印象深刻的设计
+        if not wechat_system_template:
+            lg.print_log("🔧 使用内置强化 HTML 排版设计规范...", "info")
+            wechat_system_template = f"""<|start_header_id|>system<|end_header_id|>
+# 微信公众号专业 HTML 排版设计规范 (V19.5 核心版)
 
-## 设计风格指导:
-    - 色彩方案：使用大胆、酷炫配色、吸引眼球，反映出活力与吸引力，但不能超过三种色系，长久耐看，间隔合理使用，出现层次感。
-    - 读者感受：一眼喜欢，很高级，很震惊，易读易懂
-    - 排版：符合中文最佳排版实践，利用不同字号、字重和间距创建清晰的视觉层次，风格如《时代周刊》、《VOGUE》
-    - 卡片式布局：使用圆角、阴影和边距创建卡片式UI元素
-    - 图片处理：大图展示，配合适当的圆角和阴影效果
+## 【核心任务】
+你现在是一位顶级视觉设计师。请将 Markdown 文章内容转换为**可直接发布**的精美 HTML 代码。
 
-## 图片与视觉增强:
-    - 建议按段落密度进行配图，确保视觉节奏紧凑。
-    - **【合规与质量】**：配图中**绝对不可**包含文字、数字、国旗、国徽，并必须通过 Negative Prompts 思维规避多余手部或畸形肢体。
-    - 图片格式建议：使用 <img src="https://picsum.photos/750/400?random=1" style="width:100%;border-radius:12px;margin:16px 0;" />
+## 【内容基调分析】
+当前文章核心调性：**{tone.upper()}**
 
-## 技术要求:
-    - 纯 HTML 结构：只使用 HTML 基本标签和内联样式
-    - 这不是一个标准HTML结构，只有div和section包裹，但里面可以用任意HTML标签
-    - 内联样式：所有样式和字体都通过style属性直接应用在<section>这个HTML元素上，其他都没有style,包括body
-    - 模块化：使用<section>标签包裹不同内容模块
-    - 简单交互：用HTML原生属性实现微动效
-    - SVG：生成炫酷SVG动画，目的是方便理解或给用户小惊喜
-    - SVG图标：采用Material Design风格的现代简洁图标，支持容器式和内联式两种展示方式
-    - 只基于核心主题内容生成，不包含作者，版权，相关URL等信息
+## 【强制输出规范 - 违反则任务失败】
+1. **必须输出完整 HTML**：所有内容必须包裹在 `<section>` 容器内。
+2. **必须使用内联样式**：禁止 external CSS，禁止 `<style>` 标签。所有样式必须内化到 `style="..."` 属性中。
+3. **必须彻底清理 Markdown**：移除所有 `**`、`##`、`-` 、`>` 等 Markdown 符号。用 HTML 标签 (`<strong>`, `<h2>`) 代替。
+4. **严格保留图片和占位符**：绝对保留正文中的所有 `<img>` 标签、`<div class="img-placeholder">` 以及 `[[V-SCENE: ...]]` 占位符。严禁删除、修改或移动它们的位置。
+5. **严禁输出解释文字**：禁止输出任何非 HTML 文本（如“好的”、“代码如下”）。
 
-## 其他要求：
-    - 先思考排版布局，然后再填充文章内容
-    - 输出长度：10屏以内 (移动端)
-    - 生成的代码**必须**放在`` 标签中
-    - 主体内容必须是**中文**，但可以用部分英语装逼
-    - 不能使用position: absolute
+## 【布局与组件库】
+- **外层容器**：`<section style="max-width: 100%; margin: 10px auto; font-family: -apple-system, sans-serif; line-height: 1.8; color: #333;">`
+- **黄金开头/金句 (绝对命令：必须放在最前面)**：正文第一行必须是纯文本的“黄金开头/金句”，**严厉禁止在此之前放置任何图片或 `V-SCENE`**。**文字必须使用纯黑 (#000000)、加粗、16px及以上字号**，确保视觉重心第一位。
+- **布局严禁重叠**：**严禁使用任何形式的负数 margin (如 margin-top: -XXpx)**，文字必须在图片下方清晰排版，禁止覆盖。
+- **卡片段落**：使用带有圆角和微弱投影的 section 包裹段落。
+  `<section style="background: #fff; border-radius: 12px; padding: 20px; margin: 16px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">`
+- **高亮文本**：`<span style="background: linear-gradient(to bottom, transparent 60%, #ffeb3b 40%); padding: 0 2px; font-weight: bold; color: #000000;">`
+- **大师标题**：`<h2 style="font-size: 22px; font-weight: bold; color: #000000; border-left: 4px solid #007bff; padding-left: 12px; margin: 25px 0 15px;">`
+
+## 【输出格式】
+- 将 HTML 代码包裹在 ```html ``` 代码块中，确保内容干净。
+- 直接以 `<section>` 开头，以 `</section>` 结束。
+
+现在，请开始你的设计，直接输出 HTML 代码：
 <|eot_id|>"""
 
         # 根据平台定制设计要求
@@ -1116,10 +1159,73 @@ class UnifiedContentWorkflow:
                     else None
                 ),
                 prompt_template="<|start_header_id|>user<|end_header_id|>{{ .Prompt }}<|eot_id|>",
-                response_template="<|start_header_id|>assistant<|end_header_id|>{{ .Response }}<|eot_id|>",  # noqa 501
             )
         ]
 
+    def _get_html_packaging_config(self, publish_platform: str, **kwargs) -> WorkflowConfig:
+        """V23.0: 视觉包装节点配置 - 零上下文 HTML 包装"""
+        
+        from src.ai_write_x.core.template_manager import TemplateManager
+        tm = TemplateManager()
+        # 获取对应平台的推荐模板
+        recommended_templates = tm.get_templates_by_platform(publish_platform)[:2]
+        template_codes = "\n\n".join([f"【模板 {i+1}】:\n{t.code}" for i, t in enumerate(recommended_templates)])
+        
+        designer_des = f"""
+# 专业视觉包装专家 (Visual Packaging Expert)
+
+## 【核心任务】
+你现在的任务是将一份**纯净的 Markdown 文章**包装成**极致专业的 HTML 代码**。
+你必须在没有任何历史上下文干扰的情况下，专注于将内容完美契合进我们提供的排版模板中。
+
+## 【文章待包装内容】
+文章内容：
+{{content}}
+
+文章标题：
+{{title}}
+
+## 【参考模板库】
+以下是我们系统管理的高端模板代码供你参考和应用：
+{template_codes}
+
+## 【包装强制规范】
+1. **零 Markdown 残留**：彻底移除所有 `#`, `##`, `**` 等符号，将其转换为对应的 HTML 标签（如 `<h2>`, `<strong>`）。
+2. **内联样式强控**：所有 CSS 样式必须通过 `style="..."` 写入标签内部，严禁 `<style>` 或外部引用。
+3. **布局卡片化**：内容必须包裹在具有圆角、投影和呼吸感的 `<section>` 容器内。
+4. **图片视觉增强**：务必保留文章中已有的 `<img>` 标签，并为其添加 `max-width: 100%; border-radius: 12px; margin: 16px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);` 等视觉增强样式。
+5. **严禁废话**：直接输出包装后的 HTML 代码块，禁止输出“好的”、“包装如下”等任何解释性文字。
+
+## 【输出格式】
+直接输出以 `<section>` 开头，`</section>` 结尾的完整 HTML 段落。
+"""
+
+        agents = [
+            AgentConfig(
+                role="视觉包装专家",
+                name="packager",
+                goal="将Markdown内容完美包装成专业HTML",
+                backstory="你是顶级网页设计师和排版专家",
+            ),
+        ]
+
+        tasks = [
+            TaskConfig(
+                name="package_html",
+                description=designer_des,
+                agent_name="packager",
+                expected_output="完美包装后的HTML源码（内联样式，符合平台审美）",
+            ),
+        ]
+
+        return WorkflowConfig(
+            name="html_packaging",
+            description="Final Stage: Zero-Context HTML Packaging",
+            workflow_type=WorkflowType.SEQUENTIAL,
+            content_type=ContentType.ARTICLE,
+            agents=agents,
+            tasks=tasks,
+        )
         tasks = [
             TaskConfig(
                 name="design_content",
@@ -1242,6 +1348,28 @@ class UnifiedContentWorkflow:
         """注册新的平台适配器"""
         self.platform_adapters[name] = adapter
 
+    def _analyze_content_tone(self, content: str, topic: str) -> str:
+        """分析内容调性，用于配色方案选择 (V19.5 视觉增强)"""
+        text = (topic + " " + content).lower()
+        
+        # 调性关键词映射
+        tone_map = {
+            "military": ["军事", "战争", "国防", "武器", "航母", "演习"],
+            "tech": ["科技", "AI", "人工智能", "芯片", "数码", "互联网", "机器人"],
+            "emotion": ["情感", "故事", "暖心", "感人", "回忆", "家庭", "爱"],
+            "finance": ["财经", "股市", "投资", "经济", "房产", "宏观"],
+            "news": ["新闻", "快讯", "突发", "报道", "现场"],
+            "lifestyle": ["生活", "美食", "旅游", "穿搭", "家居"],
+            "growth": ["职场", "成长", "技能", "学习", "效率"],
+            "medical": ["医疗", "健康", "医生", "疾病", "养生"]
+        }
+        
+        for tone, keywords in tone_map.items():
+            if any(kw in text for kw in keywords):
+                return tone
+                
+        return "default"
+
     def _apply_recursive_self_correction(self, content: str, topic: str, conversation_history: list = None, **kwargs) -> str:
         """V12.0: RSC 递归自我修正协议 - 核心实现"""
         from src.ai_write_x.core.llm_client import LLMClient
@@ -1264,10 +1392,12 @@ class UnifiedContentWorkflow:
             adversarial_prompt = f"""你现在是 V12 系统的【逻辑审核官】。请对前文内容的逻辑严密性进行“第一性原理”级的批判。
 话题：{topic}
 
+【极其重要】：严禁质疑话题或文章中提供的任何数据、事实、时间、人物的真实性！既然提供了这些信息，就是绝对真实的。严禁以“缺乏权威数据来源”或“数据存疑”为由进行批判。你的工作是在假设其内容绝对正确的基础上，审核其行文逻辑。
+
 请指出文中所有：
 - 逻辑跳跃或因果不强的地方
 - 平庸、AI 化的表达或废话
-- 论据支撑不足的观点
+- 论据支撑不足的观点（这里的支撑是指文章内部逻辑，而不是外部真实性）
 
 仅输出批判建议，如果没有问题请输出“PASS”。"""
             

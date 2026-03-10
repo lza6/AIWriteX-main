@@ -263,6 +263,10 @@ class KnowledgeGraph:
             from src.ai_write_x.utils import log
             log.print_log(f"知识图谱持久化失败: {e}", "warning")
 
+    def _save(self):
+        """兼容老版本接口"""
+        self.save_to_file()
+
     def load_from_file(self):
         """V14.6: 从本地文件加载知识图谱"""
         if not self.persist_path.exists():

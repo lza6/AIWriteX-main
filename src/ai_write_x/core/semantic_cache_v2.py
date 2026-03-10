@@ -610,3 +610,5 @@ def get_semantic_cache() -> SemanticCacheV2:
     if _cache_instance is None:
         _cache_instance = SemanticCacheV2()
     return _cache_instance
+
+SemanticCache = SemanticCacheV2

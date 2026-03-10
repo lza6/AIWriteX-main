@@ -463,16 +463,21 @@ class WeixinPublisher:
     def upload_image(self, image_url):
         from src.ai_write_x.utils.utils import resolve_image_path  # 导入新函数
 
+        log.print_log(f"[upload_image] 开始上传, 输入URL: {image_url}", "debug")
+
         if not image_url:
+            log.print_log("[upload_image] 图片URL为空,使用默认封面", "warning")
             return "SwCSRjrdGJNaWioRQUHzgF68BHFkSlb_f5xlTquvsOSA6Yy0ZRjFo0aW9eS3JJu_", None, None
 
         ret = None, None, None
         try:
             # 先解析图片路径
             resolved_path = resolve_image_path(image_url)
+            log.print_log(f"[upload_image] 解析后的路径: {resolved_path}", "debug")
 
             if resolved_path.startswith(("http://", "https://")):
                 # 处理网络图片
+                log.print_log(f"[upload_image] 检测到网络图片,开始下载: {resolved_path}", "info")
                 image_response = requests.get(resolved_path, stream=True)
                 image_response.raise_for_status()
                 image_buffer = BytesIO(image_response.content)
@@ -482,11 +487,17 @@ class WeixinPublisher:
                     mime_type = "image/jpeg"
                 file_ext = mimetypes.guess_extension(mime_type)
                 file_name = "image" + file_ext if file_ext else "image.jpg"
+                log.print_log(f"[upload_image] 网络图片下载完成: {file_name}, mime={mime_type}", "info")
             else:
                 # 处理本地图片
+                log.print_log(f"[upload_image] 检测到本地图片: {resolved_path}", "info")
                 if not os.path.exists(resolved_path):
+                    log.print_log(f"[upload_image] 本地图片不存在: {resolved_path}", "error")
                     ret = None, None, f"本地图片未找到: {resolved_path}"
                     return ret
+                
+                file_size = os.path.getsize(resolved_path)
+                log.print_log(f"[upload_image] 本地图片存在,大小: {file_size} bytes", "info")
 
                 with open(resolved_path, "rb") as f:
                     image_buffer = BytesIO(f.read())
@@ -505,14 +516,22 @@ class WeixinPublisher:
             files = {"media": (file_name, image_buffer, mime_type)}
             result = self._request_with_retry("POST", url, files=files)
 
-            if result.get("errcode", 0) != 0:
-                ret = None, None, f"图片上传失败: {result.get('errmsg')}"
+            # 调试日志：记录完整响应
+            log.print_log(f"[图片上传] 微信API响应: {result}", "debug")
+
+            if result is None:
+                ret = None, None, "图片上传失败: API返回空响应"
+            elif result.get("errcode", 0) != 0:
+                errmsg = result.get('errmsg') or result.get('errMsg') or f"未知错误(代码: {result.get('errcode')})"
+                ret = None, None, f"图片上传失败: {errmsg}"
             elif "media_id" not in result:
-                ret = None, None, "图片上传失败: 响应中缺少 media_id"
+                ret = None, None, f"图片上传失败: 响应中缺少 media_id, 完整响应: {result}"
             else:
                 ret = result.get("media_id"), result.get("url"), None
 
         except Exception as e:
+            import traceback
+            log.print_log(f"[图片上传] 异常详情: {traceback.format_exc()}", "error")
             ret = None, None, f"图片上传失败: {e}"
 
         return ret
@@ -824,6 +843,7 @@ def pub2wx(title, digest, article, appid, appsecret, author, cover_path=None):
     final_image_path = None  # 最终要上传的图片路径
 
     if cover_path:
+        # 如果明确指定了封面路径，使用指定的封面
         resolved_cover_path = utils.resolve_image_path(cover_path)
         cropped_image_path = utils.crop_cover_image(resolved_cover_path, (900, 384))
 
@@ -832,54 +852,71 @@ def pub2wx(title, digest, article, appid, appsecret, author, cover_path=None):
         else:
             final_image_path = resolved_cover_path
     else:
-        # 自动生成封面
-        image_url = publisher.generate_img(
-            "主题:" + title.split("|")[-1] + ",内容:" + digest,
-            "900*384",
-        )
-
-        if image_url is None:
-            import random
+        # 默认策略：优先从正文中随机提取图片作为封面
+        import random
+        
+        article_images = utils.extract_image_urls(article)
+        if article_images:
+            # 从正文中随机选择一张图片作为封面
+            random_cover_url = random.choice(article_images)
+            log.print_log(f"从正文随机选取图片作为封面: {random_cover_url}")
             
-            # 尝试从正文提取随机图片作为封面
-            article_images = utils.extract_image_urls(article)
-            if article_images:
-                random_cover_url = random.choice(article_images)
-                log.print_log(f"生成图片出错，从正文随机选取图片作为封面: {random_cover_url}")
-                
-                # 下载或解析图片路径
-                resolved_cover_path = utils.resolve_image_path(random_cover_url)
-                if not utils.is_local_path(resolved_cover_path):
-                    resolved_cover_path = utils.download_and_save_image(
-                        resolved_cover_path,
-                        str(PathManager.get_image_dir()),
-                    )
-                
-                if resolved_cover_path:
-                    # 使用与顶部完全一致的 cover 逻辑对图片进行安全裁剪 (900x384)
-                    temp_crop = utils.crop_cover_image(resolved_cover_path, (900, 384))
-                    if temp_crop:
-                        final_image_path = temp_crop
-                        cropped_image_path = temp_crop  # 记录到外部变量以确保之后被垃圾回收删除
-                    else:
-                        final_image_path = resolved_cover_path
+            # 解析图片路径
+            resolved_cover_path = utils.resolve_image_path(random_cover_url)
+            if not utils.is_local_path(resolved_cover_path):
+                # 如果是网络图片，先下载到本地
+                resolved_cover_path = utils.download_and_save_image(
+                    resolved_cover_path,
+                    str(PathManager.get_image_dir()),
+                )
+            
+            if resolved_cover_path and os.path.exists(resolved_cover_path):
+                # 对图片进行安全裁剪 (900x384)
+                temp_crop = utils.crop_cover_image(resolved_cover_path, (900, 384))
+                if temp_crop:
+                    final_image_path = temp_crop
+                    cropped_image_path = temp_crop
                 else:
-                    log.print_log("提取的图片下载失败，降级使用默认图片")
-                    default_image = utils.get_res_path(
-                        os.path.join("branding", "app_icon_1024.png"), os.path.dirname(__file__) + "/../assets/"
-                    )
-                    final_image_path = utils.resolve_image_path(default_image)
+                    final_image_path = resolved_cover_path
             else:
-                log.print_log("生成图片出错，且正文无图片，降级使用默认图片")
+                log.print_log("正文图片处理失败，尝试生成封面...", "warning")
+                final_image_path = None
+        else:
+            log.print_log("正文无图片，需要生成封面...", "info")
+            final_image_path = None
+        
+        # 如果正文没有可用图片，尝试自动生成
+        if final_image_path is None:
+            image_url = publisher.generate_img(
+                "主题:" + title.split("|")[-1] + ",内容:" + digest,
+                "900*384",
+            )
+            
+            if image_url:
+                final_image_path = utils.resolve_image_path(image_url)
+                log.print_log(f"成功生成封面图片: {final_image_path}", "success")
+            else:
+                # 生成也失败，使用默认图片
+                log.print_log("生成封面失败，使用默认图片", "warning")
                 default_image = utils.get_res_path(
-                    os.path.join("branding", "app_icon_1024.png"), os.path.dirname(__file__) + "/../assets/"
+                    os.path.join("branding", "app_icon_1024.png"), 
+                    os.path.dirname(__file__) + "/../assets/"
                 )
                 final_image_path = utils.resolve_image_path(default_image)
-        else:
-            final_image_path = utils.resolve_image_path(image_url)
 
+    # 先提取文章中的所有图片URL（供后续使用）
+    image_urls = utils.extract_image_urls(article)
+    
     # 封面图片上传
-    media_id, _, err_msg = publisher.upload_image(final_image_path)
+    log.print_log(f"[发布] 准备上传封面图片: {final_image_path}", "info")
+    if not os.path.exists(final_image_path):
+        log.print_log(f"[发布] 封面图片文件不存在: {final_image_path}", "error")
+    else:
+        file_size = os.path.getsize(final_image_path)
+        log.print_log(f"[发布] 封面图片文件大小: {file_size} bytes", "info")
+    
+    media_id, uploaded_url, err_msg = publisher.upload_image(final_image_path)
+    log.print_log(f"[发布] 封面上传结果: media_id={media_id}, url={uploaded_url}, err={err_msg}", "debug")
 
     # 如果使用了临时裁剪文件，上传后删除
     if cover_path and cropped_image_path and cropped_image_path != cover_path:
@@ -889,12 +926,30 @@ def pub2wx(title, digest, article, appid, appsecret, author, cover_path=None):
             pass
 
     if media_id is None:
-        log.print_log(f"封面图片上传失败: {err_msg}，将使用系统自带测试封面", "warning")
-        media_id = "SwCSRjrdGJNaWioRQUHzgF68BHFkSlb_f5xlTquvsOSA6Yy0ZRjFo0aW9eS3JJu_"
+        log.print_log(f"封面图片上传失败: {err_msg}", "warning")
+        log.print_log("尝试从正文提取其他图片作为封面...", "info")
+        
+        # 尝试从正文提取其他图片
+        fallback_media_id = None
+        for other_url in image_urls:
+            other_resolved = utils.resolve_image_path(other_url)
+            if utils.is_local_path(other_resolved) and os.path.exists(other_resolved):
+                log.print_log(f"尝试使用正文图片作为封面: {other_resolved}", "info")
+                other_media_id, _, other_err = publisher.upload_image(other_resolved)
+                if other_media_id:
+                    fallback_media_id = other_media_id
+                    log.print_log("成功使用正文图片作为封面", "success")
+                    break
+        
+        if fallback_media_id:
+            media_id = fallback_media_id
+        else:
+            # 如果没有可用的封面图片，提示用户并提供手动上传选项
+            log.print_log("无法自动获取有效封面图片，请在微信公众号后台手动上传封面", "error")
+            return "无法获取有效封面图片，发布失败。请在微信公众号后台手动上传封面", article, False
 
     # 这里需要将文章中的图片url替换为上传到微信返回的图片url
     try:
-        image_urls = utils.extract_image_urls(article)
         for image_url in image_urls:
             # 先解析图片路径
             resolved_path = utils.resolve_image_path(image_url)

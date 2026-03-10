@@ -6,10 +6,9 @@ import os
 import importlib.util
 
 # 添加路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src', 'ai_write_x'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src', 'ai_write_x', 'scrapers'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from tools.spider_runner import SpiderRunner
+from ai_write_x.tools.spider_runner import SpiderRunner
 
 # 创建SpiderRunner实例
 runner = SpiderRunner()

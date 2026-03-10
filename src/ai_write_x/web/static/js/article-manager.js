@@ -904,14 +904,19 @@ class ArticleManager {
                 <style>
                     body {
                         margin: 0;
-                        padding: 8px;
+                        padding: 0; /* 移除默认 padding，让全宽模板可以正常撑满 */
                         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                         font-size: 11px;
-                        line-height: 1.4;
+                        line-height: 1.6;
                         color: ${textColor};
                         background: ${bgColor};
-                        overflow: hidden;
+                        overflow-x: hidden;
                     }
+                    /* 给普通内容添加基础内间距容器，防止贴边 */
+                    .article-container { 
+                        padding: 16px; 
+                    }
+                    /* 如果是自定义 HTML 模板内容，不加容器 */
                     /* 标题样式 */
                     h1, h2, h3, h4, h5, h6 { margin: 8px 0 4px 0; font-weight: 600; color: ${isDark ? '#fff' : '#000'}; }
                     h1 { font-size: 1.4em; }
@@ -1214,12 +1219,16 @@ class ArticleManager {
             if (response.ok) {
                 const content = await response.text();
 
-                // 检测文件扩展名  
+                // 检测是否为HTML内容 (即使扩展名是.md)
+                const isHtml = content.trim().startsWith('<');
                 const ext = article.path.toLowerCase().split('.').pop();
                 let htmlContent = content;
 
-                // 如果是Markdown文件,使用 renderWithStyles 生成带滚动条的完整文档  
-                if ((ext === 'md' || ext === 'markdown') && window.markdownRenderer) {
+                if (isHtml) {
+                    // 如果内容本身就是HTML,无论扩展名是什么,都直接作为HTML预览
+                    htmlContent = content;
+                } else if ((ext === 'md' || ext === 'markdown') && window.markdownRenderer) {
+                    // 只有在不是HTML的情况下,才尝试Markdown渲染
                     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                     htmlContent = window.markdownRenderer.renderWithStyles(content, isDark);
                 } else if (ext === 'txt') {

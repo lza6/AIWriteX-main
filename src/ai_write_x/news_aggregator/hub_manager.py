@@ -61,7 +61,8 @@ class NewsHubManager:
                            categories: Optional[List[DataSourceCategory]] = None,
                            min_score: float = 6.0,
                            enable_ai_processing: bool = True,
-                           target_count: int = 100) -> AggregationResult:
+                           target_count: int = 100,
+                           filter_processed: bool = False) -> AggregationResult:
         """
         执行一次聚合 (V17大规模抓取优化)
         
@@ -70,6 +71,7 @@ class NewsHubManager:
             min_score: 最小分数阈值
             enable_ai_processing: 是否启用AI处理
             target_count: 目标获取数量，默认100条
+            filter_processed: 是否过滤已处理的主题
             
         Returns:
             聚合结果
@@ -99,6 +101,17 @@ class NewsHubManager:
             
             # 3. 转换为新闻项
             news_items = self._convert_to_news_items(raw_contents)
+            
+            # V15.2: 过滤已处理的主题
+            if filter_processed:
+                from src.ai_write_x.utils.topic_deduplicator import TopicDeduplicator
+                dedup = TopicDeduplicator(dedup_days=30) # 过滤最近30天已处理的
+                original_count = len(news_items)
+                news_items = [
+                    item for item in news_items 
+                    if not dedup.is_duplicate(item.title)
+                ]
+                log.print_log(f"[NewsHub] 过滤已处理话题: {original_count} -> {len(news_items)} (过滤数: {original_count - len(news_items)})")
             
             # 4. 去重
             unique_items, duplicate_groups = self.deduplicator.deduplicate(news_items)

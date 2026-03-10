@@ -22,7 +22,7 @@ from collections import defaultdict
 from ..utils import log
 from .swarm_protocol import SwarmTask, SwarmCapabilities, AgentBid
 from .decentralized_allocator import DecentralizedAllocator
-from .consensus_memory import ConsensusMemory
+from .consensus_memory import EnhancedConsensusMemory as ConsensusMemory
 from .swarm_protocol import SwarmMessageType, SwarmMessage
 
 

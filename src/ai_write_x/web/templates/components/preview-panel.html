@@ -50,6 +50,18 @@
                     </button>
                 </div>
 
+                <button class="preview-toggle-source" id="preview-toggle-source" title="显示源码">
+                    <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                </button>
+                <button class="preview-copy-html" id="preview-copy-html" title="拷贝 HTML">
+                    <svg class="btn-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
                 <button class="preview-toggle-size" id="preview-toggle-size" title="切换尺寸">
                     📱
                 </button>
@@ -59,6 +71,9 @@
         <div class="preview-content">
             <div class="preview-area" id="preview-area">
                 <p class="preview-placeholder">内容预览将在这里显示</p>
+            </div>
+            <div class="preview-source-area" id="preview-source-area" style="display: none;">
+                <textarea id="preview-source-code" readonly placeholder="HTML 源码将在这里显示"></textarea>
             </div>
         </div>
         <div class="preview-footer">

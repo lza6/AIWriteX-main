@@ -242,7 +242,7 @@
       "id": "event_4466",
       "name": "制裁",
       "type": "event",
-      "frequency": 1,
+      "frequency": 2,
       "confidence": 1.0
     },
     {
@@ -781,7 +781,7 @@
       "id": "time_7369",
       "name": "3月10日",
       "type": "time",
-      "frequency": 1,
+      "frequency": 2,
       "confidence": 1.0
     },
     {
@@ -886,7 +886,7 @@
       "id": "time_9773",
       "name": "2026年2月27日",
       "type": "time",
-      "frequency": 1,
+      "frequency": 2,
       "confidence": 1.0
     },
     {
@@ -1189,20 +1189,2583 @@
       "type": "concept",
       "frequency": 1,
       "confidence": 1.0
+    },
+    {
+      "id": "org_7380",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2365",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_767",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3763",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2676",
+      "name": "北京",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_7241",
+      "name": "华盛顿",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_3468",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_5267",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_836",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_6370",
+      "name": "发布会",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6183",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7081",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7625",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 2,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7392",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5238",
+      "name": "2026年3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4051",
+      "name": "2026年3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7650",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1956",
+      "name": "3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6681",
+      "name": "3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8569",
+      "name": "亚马逊",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6994",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9188",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8008",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_3831",
+      "name": "乌克兰",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_2847",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_3945",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_9144",
+      "name": "发布会",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1376",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5168",
+      "name": "2026年3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5184",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6085",
+      "name": "3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_1667",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5340",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6165",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_7822",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8530",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9248",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_3975",
+      "name": "乌克兰",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_7738",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_8378",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5903",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4970",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_565",
+      "name": "2024年9月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5984",
+      "name": "2024年9月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7399",
+      "name": "9月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_175",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3156",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_1548",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2217",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6728",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_4636",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4687",
+      "name": "人工智能",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4889",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_1154",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7682",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_89",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_420",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1397",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4948",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_941",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6188",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7004",
+      "name": "2026年3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4536",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9898",
+      "name": "3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6305",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_7147",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_9976",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4241",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_9217",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_386",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_2663",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2796",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_908",
+      "name": "新加坡",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6016",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7785",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4705",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_3968",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4838",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1496",
+      "name": "3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9185",
+      "name": "3月2日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7957",
+      "name": "3月3日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1438",
+      "name": "3月4日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5385",
+      "name": "3月5日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2414",
+      "name": "特斯拉",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1509",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1617",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1606",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8102",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_3586",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_8038",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1638",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "person_6156",
+      "name": "特朗普",
+      "type": "person",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4430",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_2076",
+      "name": "大选",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7899",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5696",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7106",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8989",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7083",
+      "name": "改革",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5060",
+      "name": "2024年7月15日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1595",
+      "name": "2024年7月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6999",
+      "name": "7月15日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5114",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5291",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_3664",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_7676",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_8474",
+      "name": "发布会",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_348",
+      "name": "2026年2月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9093",
+      "name": "2021年4月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4717",
+      "name": "2022年6月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_8763",
+      "name": "2024年8月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8068",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2058",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1080",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_9621",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5071",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1785",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6430",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3021",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3312",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_8468",
+      "name": "2026年3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4785",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9827",
+      "name": "2024年10月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1307",
+      "name": "2023年10月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4230",
+      "name": "2024年9月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7781",
+      "name": "2025年12月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4309",
+      "name": "3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5719",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3913",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2265",
+      "name": "东京",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_3094",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5768",
+      "name": "2014年4月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9707",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_7433",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_1725",
+      "name": "北约",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_1547",
+      "name": "乌克兰",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_28",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3481",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6642",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4057",
+      "name": "2026年3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4433",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1762",
+      "name": "3月6日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8240",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6925",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5859",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_8462",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1271",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7359",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6618",
+      "name": "教育",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4209",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1619",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8914",
+      "name": "改革",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_2394",
+      "name": "2026年3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4656",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9821",
+      "name": "2026年2月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4752",
+      "name": "3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3885",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4312",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_1878",
+      "name": "论坛",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_9633",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3635",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7866",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8492",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "person_4718",
+      "name": "马克龙",
+      "type": "person",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9137",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6395",
+      "name": "巴黎",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6682",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_9008",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3735",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7350",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2991",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4939",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9397",
+      "name": "2026年3月5日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6742",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_3587",
+      "name": "3月5日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9450",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2587",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1727",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2542",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_117",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_887",
+      "name": "2026年3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9368",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_576",
+      "name": "3月7日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6997",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4191",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3413",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_9761",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_8036",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_4242",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7103",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5297",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1363",
+      "name": "教育",
+      "type": "concept",
+      "frequency": 2,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5609",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5687",
+      "name": "openai",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1022",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_7582",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6648",
+      "name": "半导体",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_9278",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4174",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5720",
+      "name": "去年",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6153",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6121",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_5212",
+      "name": "半导体",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2426",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7560",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5045",
+      "name": "2026年1月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_8008",
+      "name": "大数据",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_7411",
+      "name": "疫情",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8373",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2288",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2827",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_9961",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5743",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6025",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_528",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5408",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2615",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_7165",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_2920",
+      "name": "人工智能",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4349",
+      "name": "区块链",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_1093",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1865",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4869",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_7299",
+      "name": "2026年3月8日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9164",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5114",
+      "name": "3月8日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9196",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9517",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4212",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4519",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6870",
+      "name": "北约",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_8710",
+      "name": "纽约",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_1685",
+      "name": "乌克兰",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_802",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6727",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_8840",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5402",
+      "name": "2026年2月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_650",
+      "name": "2025年8月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_81",
+      "name": "2025年12月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_5978",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_2580",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4871",
+      "name": "俄罗斯",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6773",
+      "name": "欧盟",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9265",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_5768",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8552",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4234",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_8067",
+      "name": "2024年12月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6115",
+      "name": "2025年1月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_9698",
+      "name": "今天",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4964",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3243",
+      "name": "苹果",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_580",
+      "name": "小米",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7599",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "product_6251",
+      "name": "iPhone 14",
+      "type": "product",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "product_7582",
+      "name": "iPhone 15",
+      "type": "product",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "product_97",
+      "name": "小米等竞争对手开始重新评估印度市场的战略价值",
+      "type": "product",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4997",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_7305",
+      "name": "苹果",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8957",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3816",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8514",
+      "name": "全球化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6802",
+      "name": "2026年3月10日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_4997",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_6500",
+      "name": "3月10日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_1947",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6840",
+      "name": "苹果",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7147",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3322",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_7008",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3102",
+      "name": "苹果",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9133",
+      "name": "小米",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6418",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4070",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "product_9703",
+      "name": "iPhone 15",
+      "type": "product",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9542",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4430",
+      "name": "苹果",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_1431",
+      "name": "疫情",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1752",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2721",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_8857",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7538",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2354",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_3194",
+      "name": "2026年3月10日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_3862",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1075",
+      "name": "3月10日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_7839",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_604",
+      "name": "联合国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_1487",
+      "name": "华盛顿",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7737",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_956",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_8287",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3918",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_4299",
+      "name": "北京",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2548",
+      "name": "上海",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4734",
+      "name": "人工智能",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_9119",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2319",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7163",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7203",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4900",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6595",
+      "name": "gpt",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_4529",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_5936",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1391",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_7346",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_2645",
+      "name": "疫情",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_5131",
+      "name": "今年",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6842",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_6506",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8879",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7854",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "person_2062",
+      "name": "马斯克",
+      "type": "person",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3",
+      "name": "特斯拉",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_9518",
+      "name": "发布会",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_8757",
+      "name": "华为",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_3106",
+      "name": "发布会",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1576",
+      "name": "3月17日",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_977",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_7964",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_1435",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6542",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_257",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_4234",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_9973",
+      "name": "美国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_7378",
+      "name": "北约",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_2120",
+      "name": "中东",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_8349",
+      "name": "ar",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_3783",
+      "name": "制裁",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "event_7634",
+      "name": "冲突",
+      "type": "event",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3434",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2497",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_6621",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_9982",
+      "name": "自动驾驶",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7070",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3196",
+      "name": "文化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2513",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8972",
+      "name": "文化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5100",
+      "name": "改革",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "time_1862",
+      "name": "2026年3月",
+      "type": "time",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_208",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_6476",
+      "name": "北京",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_3711",
+      "name": "特斯拉",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2647",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3850",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6862",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6863",
+      "name": "5g",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7715",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2283",
+      "name": "数字化",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4161",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_1564",
+      "name": "自动驾驶",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_6204",
+      "name": "芯片",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "tech_9153",
+      "name": "半导体",
+      "type": "tech",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7992",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "org_4432",
+      "name": "中国",
+      "type": "org",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "location_7465",
+      "name": "上海",
+      "type": "location",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5375",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_7336",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "person_167",
+      "name": "习近平",
+      "type": "person",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_863",
+      "name": "经济",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2659",
+      "name": "政治",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_5139",
+      "name": "科技",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_9727",
+      "name": "教育",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_2876",
+      "name": "医疗",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_8384",
+      "name": "创新",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
+    },
+    {
+      "id": "concept_3146",
+      "name": "发展",
+      "type": "concept",
+      "frequency": 1,
+      "confidence": 1.0
     }
   ],
   "edges": [],
   "stats": {
-    "total_entities": 170,
+    "total_entities": 536,
     "total_relations": 0,
     "entity_types": {
-      "org": 22,
-      "tech": 26,
-      "concept": 37,
-      "event": 15,
-      "time": 56,
-      "location": 10,
-      "person": 4
+      "org": 102,
+      "tech": 70,
+      "concept": 143,
+      "event": 42,
+      "time": 128,
+      "location": 39,
+      "person": 8,
+      "product": 4
     }
   }
 }

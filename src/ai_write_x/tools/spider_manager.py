@@ -10,6 +10,8 @@ from typing import List, Dict, Optional
 from pathlib import Path
 import shutil
 
+from src.ai_write_x.config.config import Config
+
 
 class SpiderDataManager:
     """简化版爬虫数据管理器，使用 JSON 文件存储"""
@@ -117,8 +119,11 @@ class SpiderDataManager:
 
     def save_article(self, article_data: Dict) -> bool:
         """保存单篇文章 (包含敏感词过滤)"""
-        # 敏感词黑名单 (过滤国家领导人及大政方针相关热点)
-        sensitive_keywords = ["总书记", "习近平", "主席", "国家大政方针", "李强", "总理", "中共中央"]
+        # V14.1: 敏感词从配置读取，避免硬编码
+        sensitive_keywords = Config.get_instance().sensitive_keywords if hasattr(Config.get_instance(), 'sensitive_keywords') else []
+        if not sensitive_keywords:
+            # 默认空列表，生产环境应通过配置设置
+            sensitive_keywords = []
         title = article_data.get('title', '')
         
         for keyword in sensitive_keywords:

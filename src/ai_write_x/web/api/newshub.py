@@ -32,6 +32,7 @@ class AggregateRequest(BaseModel):
     categories: List[str] = []
     min_score: float = 0
     limit: int = 200
+    filter_processed: bool = False
 
 
 class NewsItemResponse(BaseModel):
@@ -110,7 +111,8 @@ async def aggregate_news(request: AggregateRequest):
         # 执行聚合
         result = await manager.aggregate_once(
             categories=categories,
-            min_score=request.min_score
+            min_score=request.min_score,
+            filter_processed=request.filter_processed
         )
         
         # 构建响应

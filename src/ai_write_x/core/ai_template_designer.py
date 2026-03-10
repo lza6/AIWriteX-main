@@ -195,11 +195,20 @@ class AITemplateDesigner:
         """
         V18.3: 极致发散思维设计提示词引擎
         注入“视觉重心防护”与“熵增布局机制”
+        V19.0: 引入“模板 DNA 突变”机制，支持参考高阶模板进行二次创作
         """
         ref_templates_str = ""
         if reference_templates:
-            ref_templates_str = "\n【结构参考（仅供灵感启发，严禁照抄布局）】\n" + "\n---".join(reference_templates)
-            
+            ref_templates_str = "\n【结构参考（Base DNA - 允许提取其排版精髓并根据本文话题进行视觉突变）】\n" + "\n---".join(reference_templates)
+        else:
+            # V19.0: 如果没有传入参考，自动注入一个高阶模板作为 DNA 种子
+            # 特别是针对财经/严肃话题，强制参考“黄金/大厂先锋”排版风格
+            ref_templates_str = """
+【推荐基底 DNA：先锋派模块化排版】
+- 风格特征：顶部高饱和渐变标题区、SVG 动态数据图表区域、模块化 SectionCard、沉浸式互动结尾。
+- 突变指令：严禁照搬色彩！如果是外交新闻，将“金黄色”突变为“外交紫”或“深邃蓝”；如果是科技新闻，突变为“霓虹绿”或“极客黑”。
+"""
+
         # 视觉突变种子 (Entropy Seeds) - 强制打破固定审美
         visual_mutations = [
             "采用【Bento Grid (便当盒) 分块排版】，将文章核心观点模块化，每个卡片拥有独立的视觉律动",
@@ -226,13 +235,15 @@ class AITemplateDesigner:
         prompt = f"""你是一位享誉全球的**顶级跨媒体艺术总监**。你的任务是为文章《{title}》定制一个**绝无仅有、充满艺术张力且极易阅读**的独立 HTML 交互容器。
 
 【本次设计的灵魂指令】
+- **底层 DNA 继承与突变**：{ref_templates_str}
 - **核心布局突变种子**：{mutation_seed}
 - **用户审美锚点**：{style_context}
 
 【视觉生成算法要求】
-1. **拒绝预设色彩**：不要使用任何常见的“蓝白”或“黑白”组合。请根据文章情感，构思一套互补色或类比色体系（包含 Primary, Secondary, Accent, Background），并在 CSS 变量中定义。
-2. **创造力发散**：鼓励手写复杂的 CSS 动画、SVG 物理碰撞形状、以及伪类（::before/::after）装饰。
-3. **百万分之一独特性**：每一篇文章都应拥有独特的装饰性 SVG，例如根据文章主题生成内联的抽象多边形或线条。
+1. **内容感知色彩 (Semantic Color Theory)**：根据内容情感重新定义色彩体系。伊朗战争话题应使用【凛冽/外交/严肃】色系；黄金话题应使用【尊贵/财富/波动】色系。
+2. **拒绝预设色彩**：不要使用任何常见的“蓝白”或“黑白”组合。请在 CSS 变量中定义一套专属调色板。
+3. **创造力发散**：鼓励手写复杂的 CSS 动画、SVG 物理碰撞形状、以及伪类（::before/::after）装饰。
+4. **百万分之一独特性**：每一篇文章都应拥有独特的装饰性 SVG。
 
 {readability_rules}
 
@@ -240,8 +251,6 @@ class AITemplateDesigner:
 - 必须包含：完整的响应式 CSS (Flex/Grid)、内联 SVG、以及移动端完美自适应。
 - 内容占位符：必须且仅为 `{{{{content}}}}`。
 - 暗号同步：<!-- DESIGN_SYNC: {{"primary": "自拟色值", "secondary": "自拟色值", "accent": "自拟色值", "bg": "自拟色值"}} -->
-
-{ref_templates_str}
 
 【内容灵魂参考】
 {content[:1500]} ...

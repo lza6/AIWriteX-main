@@ -7,6 +7,8 @@ class PreviewPanelManager {
         this.panel = null;
         this.isVisible = false;
         this.currentSize = 'mobile';
+        this.isSourceView = false;
+        this.currentHtml = '';
         this.sizePresets = {
             mobile: { width: 375, label: '375×667 (iPhone)' },
             tablet: { width: 768, label: '768×1024 (iPad)' },
@@ -58,6 +60,18 @@ class PreviewPanelManager {
                 this.hide();
             }
         });
+
+        // 源码切换按钮
+        const toggleSourceBtn = document.getElementById('preview-toggle-source');
+        if (toggleSourceBtn) {
+            toggleSourceBtn.addEventListener('click', () => this.toggleSourceView());
+        }
+
+        // 源码复制按钮
+        const copyHtmlBtn = document.getElementById('preview-copy-html');
+        if (copyHtmlBtn) {
+            copyHtmlBtn.addEventListener('click', () => this.copyHtml());
+        }
     }
 
     bindActionEvents() {
@@ -192,6 +206,12 @@ class PreviewPanelManager {
         }, 300);
 
         this.isVisible = false;
+
+        // 隐藏时重置为预览模式
+        if (this.isSourceView) {
+            this.toggleSourceView(false);
+        }
+
         this.updateTriggerState();
     }
 
@@ -231,7 +251,14 @@ class PreviewPanelManager {
 
     setContent(content) {
         const previewArea = document.getElementById('preview-area');
+        const sourceArea = document.getElementById('preview-source-code');
         if (!previewArea) return;
+
+        // 保存原始内容供源码查看
+        this.currentHtml = typeof content === 'string' ? content : (content.innerHTML || '');
+        if (sourceArea) {
+            sourceArea.value = this.currentHtml;
+        }
 
         // 清空现有内容    
         previewArea.innerHTML = '';
@@ -368,6 +395,59 @@ class PreviewPanelManager {
             }
         } else {
             previewArea.appendChild(content);
+        }
+    }
+
+    /**
+     * 切换源码视图
+     */
+    toggleSourceView(force = null) {
+        const previewArea = document.getElementById('preview-area');
+        const sourceContainer = document.getElementById('preview-source-area');
+        const toggleBtn = document.getElementById('preview-toggle-source');
+
+        this.isSourceView = force !== null ? force : !this.isSourceView;
+
+        if (this.isSourceView) {
+            if (previewArea) previewArea.style.display = 'none';
+            if (sourceContainer) sourceContainer.style.display = 'block';
+            if (toggleBtn) {
+                toggleBtn.classList.add('active');
+                toggleBtn.title = '切回预览';
+            }
+        } else {
+            if (previewArea) previewArea.style.display = 'block';
+            if (sourceContainer) sourceContainer.style.display = 'none';
+            if (toggleBtn) {
+                toggleBtn.classList.remove('active');
+                toggleBtn.title = '显示源码';
+            }
+        }
+    }
+
+    /**
+     * 复制 HTML 到剪贴板
+     */
+    async copyHtml() {
+        if (!this.currentHtml) {
+            window.app?.showNotification('没有可复制的内容', 'warning');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(this.currentHtml);
+            window.app?.showNotification('HTML 已成功拷贝到剪贴板', 'success');
+        } catch (err) {
+            console.error('拷贝失败:', err);
+            // 降级使用 textarea 选中的方式
+            const sourceCode = document.getElementById('preview-source-code');
+            if (sourceCode) {
+                sourceCode.select();
+                document.execCommand('copy');
+                window.app?.showNotification('HTML 已成功拷贝到剪贴板', 'success');
+            } else {
+                window.app?.showNotification('拷贝失败，请手动选择复制', 'error');
+            }
         }
     }
 

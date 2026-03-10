@@ -1,0 +1,432 @@
+{
+    "dashboard": {
+        "id": null,
+        "uid": "aiwritex-v21",
+        "title": "AIWriteX V21 - 系统监控仪表盘",
+        "tags": [
+            "aiwritex",
+            "llm",
+            "monitoring"
+        ],
+        "timezone": "browser",
+        "schemaVersion": 38,
+        "version": 1,
+        "refresh": "5s",
+        "panels": [
+            {
+                "id": 1,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 0
+                },
+                "type": "timeseries",
+                "title": "HTTP 请求量 (QPS)",
+                "targets": [
+                    {
+                        "expr": "rate(http_requests_total[1m])",
+                        "legendFormat": "{{status}}",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "reqps",
+                        "color": {
+                            "mode": "palette-classic"
+                        }
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 0
+                },
+                "type": "timeseries",
+                "title": "HTTP 请求延迟 (P95/P99)",
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))",
+                        "legendFormat": "P95",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(http_request_duration_ms_bucket[5m]))",
+                        "legendFormat": "P99",
+                        "refId": "B"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "ms",
+                        "color": {
+                            "mode": "palette-classic"
+                        }
+                    }
+                }
+            },
+            {
+                "id": 3,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 8
+                },
+                "type": "timeseries",
+                "title": "LLM 请求延迟",
+                "targets": [
+                    {
+                        "expr": "rate(llm_request_duration_ms_sum[5m]) / rate(llm_request_duration_ms_count[5m])",
+                        "legendFormat": "平均延迟",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.95, rate(llm_request_duration_ms_bucket[5m]))",
+                        "legendFormat": "P95",
+                        "refId": "B"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "ms",
+                        "color": {
+                            "mode": "palette-classic"
+                        }
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 8
+                },
+                "type": "timeseries",
+                "title": "Token 使用量",
+                "targets": [
+                    {
+                        "expr": "rate(llm_tokens_input_total[1m])",
+                        "legendFormat": "输入 Token/s",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "rate(llm_tokens_output_total[1m])",
+                        "legendFormat": "输出 Token/s",
+                        "refId": "B"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "tokens",
+                        "color": {
+                            "mode": "palette-classic"
+                        }
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 16
+                },
+                "type": "timeseries",
+                "title": "缓存命中率",
+                "targets": [
+                    {
+                        "expr": "rate(llm_cache_hits_total[1m]) / (rate(llm_requests_total[1m]) + 0.001) * 100",
+                        "legendFormat": "命中率 %",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "color": {
+                            "mode": "palette-classic"
+                        },
+                        "mappings": [
+                            {
+                                "type": "range-to-text",
+                                "options": {
+                                    "from": 0,
+                                    "to": 50,
+                                    "text": "低",
+                                    "color": "red"
+                                }
+                            },
+                            {
+                                "type": "range-to-text",
+                                "options": {
+                                    "from": 50,
+                                    "to": 80,
+                                    "text": "中",
+                                    "color": "yellow"
+                                }
+                            },
+                            {
+                                "type": "range-to-text",
+                                "options": {
+                                    "from": 80,
+                                    "to": 100,
+                                    "text": "高",
+                                    "color": "green"
+                                }
+                            }
+                        ]
+                    }
+                }
+            },
+            {
+                "id": 6,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 16
+                },
+                "type": "timeseries",
+                "title": "文章生成统计",
+                "targets": [
+                    {
+                        "expr": "rate(articles_generated_total[1m])",
+                        "legendFormat": "文章/分钟",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "articles/min",
+                        "color": {
+                            "mode": "palette-classic"
+                        }
+                    }
+                }
+            },
+            {
+                "id": 7,
+                "gridPos": {
+                    "h": 8,
+                    "w": 24,
+                    "x": 0,
+                    "y": 24
+                },
+                "type": "stat",
+                "title": "系统健康状态",
+                "targets": [
+                    {
+                        "expr": "up{job=\"ai-write-x\"}",
+                        "legendFormat": "{{instance}}",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "mappings": [
+                            {
+                                "type": "value",
+                                "options": {
+                                    "0": {
+                                        "text": "Down",
+                                        "color": "red"
+                                    },
+                                    "1": {
+                                        "text": "Up",
+                                        "color": "green"
+                                    }
+                                }
+                            }
+                        ],
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": 0
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 1
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 8,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 32
+                },
+                "type": "gauge",
+                "title": "CPU 使用率",
+                "targets": [
+                    {
+                        "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+                        "legendFormat": "{{instance}}",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": 0
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 60
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 80
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 9,
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 32
+                },
+                "type": "gauge",
+                "title": "内存使用率",
+                "targets": [
+                    {
+                        "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                        "legendFormat": "{{instance}}",
+                        "refId": "A"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": 0
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 70
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 90
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 10,
+                "gridPos": {
+                    "h": 8,
+                    "w": 24,
+                    "x": 0,
+                    "y": 40
+                },
+                "type": "table",
+                "title": "服务实例状态",
+                "targets": [
+                    {
+                        "expr": "up{job=\"ai-write-x\"}",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": {
+                                "Time": true,
+                                "__name__": true,
+                                "job": true
+                            },
+                            "renameByName": {
+                                "Value": "状态",
+                                "instance": "实例"
+                            }
+                        }
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "mappings": [
+                            {
+                                "type": "value",
+                                "options": {
+                                    "0": {
+                                        "text": "Down",
+                                        "color": "red"
+                                    },
+                                    "1": {
+                                        "text": "Up",
+                                        "color": "green"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "templating": {
+            "list": [
+                {
+                    "name": "datasource",
+                    "type": "prometheus",
+                    "query": "prometheus",
+                    "current": {},
+                    "hide": 0,
+                    "includeAll": false,
+                    "multi": false,
+                    "label": "数据源"
+                },
+                {
+                    "name": "instance",
+                    "type": "query",
+                    "query": "label_values(up{job=\"ai-write-x\"}, instance)",
+                    "current": {},
+                    "refresh": 2,
+                    "includeAll": true,
+                    "multi": true,
+                    "label": "实例"
+                }
+            ]
+        },
+        "time": {
+            "from": "now-1h",
+            "to": "now"
+        },
+        "timepicker": {}
+    }
+}

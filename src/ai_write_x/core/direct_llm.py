@@ -15,8 +15,9 @@ from openai import OpenAI
 from crewai import LLM
 
 from src.ai_write_x.core.llm_client import VisionModelDetector
+from src.ai_write_x.core.repetition_detector import check_generation_quality, get_detector
 from src.ai_write_x.core.exceptions import (
-    NetworkError, APITimeoutError, RateLimitError, 
+    NetworkError, APITimeoutError, RateLimitError,
     InvalidAPIKeyError, ModelNotAvailableError, ContentGenerationError
 )
 from src.ai_write_x.utils import log
@@ -40,13 +41,13 @@ def get_stream_callback() -> Optional[Callable[[str], None]]:
 class OpenAIDirectLLM(LLM):
     """
     直接使用 OpenAI SDK 的 LLM 类
-    
+
     继承自 CrewAI 的 LLM 类，但覆盖 call 方法，
     直接使用 OpenAI 官方 SDK 进行 API 调用，完全绕过 litellm。
-    
+
     支持流式输出，实时显示生成进度。
     """
-    
+
     def __init__(
         self,
         model: str,
@@ -61,7 +62,7 @@ class OpenAIDirectLLM(LLM):
     ):
         """
         初始化直接使用 OpenAI SDK 的 LLM
-        
+
         Args:
             model: 模型名称（原始名称，如 glm-4.6）
             api_key: API 密钥
@@ -80,7 +81,7 @@ class OpenAIDirectLLM(LLM):
             # 如果没有前缀且不是原生 OpenAI 模型，强制补全 openai/ 前缀
             # 这告诉 LiteLLM 使用 openai 兼容格式解析参数
             model = f"openai/{model}"
-            
+
         # 调用父类初始化
         super().__init__(
             model=model,
@@ -91,52 +92,53 @@ class OpenAIDirectLLM(LLM):
             timeout=timeout,
             **kwargs
         )
-        
+
         # 再次确保原始模型名用于内部 SDK 调用（不含 LiteLLM 前缀）
         self._stream = stream
         self._fallback_model = fallback_model  # 备用模型
-        
+
         # 创建 API Key 列表并初始化指针
         from src.ai_write_x.config.config import Config
         self._api_keys = Config.get_instance().get_api_keys()
         if not self._api_keys:
             self._api_keys = [api_key]
-        
+
         self._current_key_index = 0
-        
+
         # 自动补全 /v1 后缀（如果用户没加完整路径）
         # 如果URL以#结尾，强制使用原始地址不添加后缀
         processed_base_url = base_url.rstrip()
         if processed_base_url.endswith('#'):
             # 强制使用原始地址，去掉#号
             processed_base_url = processed_base_url[:-1].rstrip('/')
-            log.print_log(f"[DEBUG] 检测到#后缀，强制使用原始地址: {processed_base_url}", "debug")
+            log.print_log(
+                f"[DEBUG] 检测到#后缀，强制使用原始地址: {processed_base_url}", "debug")
         else:
             # 正常补全逻辑
             if not processed_base_url.endswith('/v1') and not processed_base_url.endswith('/v1/chat/completions'):
                 processed_base_url = processed_base_url.rstrip('/') + "/v1"
-        
+
         # 创建 OpenAI 客户端
         self._openai_client = OpenAI(
             api_key=self._api_keys[self._current_key_index],
             base_url=processed_base_url,
             timeout=timeout if timeout else 120.0
         )
-        
+
         # 检测是否为视觉模型
         self._is_vision = VisionModelDetector.is_vision_model(model)
-        
+
         fallback_info = f", fallback={fallback_model}" if fallback_model else ""
         log.print_log(
             f"OpenAIDirectLLM 初始化: model={model}, base_url={processed_base_url}, vision={self._is_vision}{fallback_info}",
             "info"
         )
-    
+
     @property
     def is_vision_model(self) -> bool:
         """是否为视觉模型"""
         return self._is_vision
-    
+
     def _stream_call(
         self,
         messages: List[Dict[str, str]],
@@ -145,7 +147,7 @@ class OpenAIDirectLLM(LLM):
     ) -> str:
         """
         流式调用 OpenAI API
-        
+
         实时输出生成的内容，让用户看到进度。
         """
         # 构建请求参数
@@ -156,24 +158,35 @@ class OpenAIDirectLLM(LLM):
             "max_tokens": self.max_tokens,  # 添加 max_tokens 参数
             "stream": True,  # 启用流式输出
         }
-        
+
         if tools:
             params["tools"] = tools
-            
+
         if kwargs:
+            # V23.1 FIX: 过滤掉非 OpenAI 标准参数（如 CrewAI 注入的 'from_task' 等）
+            # 只透传 OpenAI 官方支持的核心扩展参数
+            openai_allowed_params = {
+                "response_format", "seed", "stop", "user", 
+                "tools", "tool_choice", "parallel_tool_calls",
+                "frequency_penalty", "presence_penalty", "logit_bias", "logprobs", "top_logprobs"
+            }
             for key, value in kwargs.items():
-                if key not in params:
+                if key in openai_allowed_params and key not in params:
                     params[key] = value
-        
+                elif key not in params:
+                    # 记录被忽略的非标参数
+                    log.print_log(f"[DEBUG] 忽略非 OpenAI 标准参数: {key}", "debug")
+
         full_content = ""
         tool_calls_data = []
         chunk_count = 0
         last_status_len = 0
-        
+
         try:
             log.print_log("AI正在生成内容...", "status")
-            log.print_log(f"[DEBUG] 调用参数: model={self._original_model}, max_tokens={self.max_tokens}", "debug")
-            
+            log.print_log(
+                f"[DEBUG] 调用参数: model={self._original_model}, max_tokens={self.max_tokens}", "debug")
+
             # 拼接完整的API URL并显示
             base_url_str = str(self._openai_client.base_url)
             # 自动补全 /v1/chat/completions 后缀（如果用户没加）
@@ -181,42 +194,44 @@ class OpenAIDirectLLM(LLM):
                 full_api_url = base_url_str.rstrip('/') + "/chat/completions"
             else:
                 full_api_url = base_url_str
-            
+
             # 流式获取响应
             log.print_log(f"[DEBUG] 发送请求到: {full_api_url}", "debug")
-            log.print_log(f"[DEBUG] 请求体: {json.dumps(params, ensure_ascii=False, indent=2)[:500]}", "debug")
-            
+            log.print_log(
+                f"[DEBUG] 请求体: {json.dumps(params, ensure_ascii=False, indent=2, default=str)[:500]}", "debug")
+
             stream = self._openai_client.chat.completions.create(**params)
             log.print_log("[DEBUG] API 连接成功，开始接收流式数据...", "debug")
-            
+
             chunk_index = 0
             for chunk in stream:
                 chunk_index += 1
                 # 调试：打印每个 chunk 的完整结构
                 if chunk_index <= 3:
-                    log.print_log(f"[DEBUG] Chunk {chunk_index} 完整结构: {chunk.model_dump_json()[:500]}", "debug")
-                
+                    log.print_log(
+                        f"[DEBUG] Chunk {chunk_index} 完整结构: {chunk.model_dump_json()[:500]}", "debug")
+
                 # 检查是否有内容
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
-                    
+
                     # 处理文本内容
                     if delta.content:
                         content = delta.content
                         full_content += content
                         chunk_count += 1
-                        
+
                         # 每50个chunk输出一次进度状态（避免过多日志）
                         if chunk_count % 50 == 0:
                             # 显示已生成字数
                             status_msg = f"AI生成中... ({len(full_content)}字)"
                             log.print_log(status_msg, "status")
-                        
+
                         # 调用全局回调（用于UI显示）
                         callback = get_stream_callback()
                         if callback:
                             callback(content)
-                    
+
                     # 处理工具调用
                     if delta.tool_calls:
                         for tc in delta.tool_calls:
@@ -233,19 +248,20 @@ class OpenAIDirectLLM(LLM):
                                     tool_calls_data[tc.index]["function"]["name"] = tc.function.name
                                 if tc.function.arguments:
                                     tool_calls_data[tc.index]["function"]["arguments"] += tc.function.arguments
-            
+
             # 调试：循环结束后的状态
-            log.print_log(f"[DEBUG] 流式结束: 共 {chunk_index} 个 chunk, {chunk_count} 个有效内容, 内容长度 {len(full_content)}", "debug")
-            
+            log.print_log(
+                f"[DEBUG] 流式结束: 共 {chunk_index} 个 chunk, {chunk_count} 个有效内容, 内容长度 {len(full_content)}", "debug")
+
             # 生成完成状态
             if full_content:
                 log.print_log(f"AI生成完成 ({len(full_content)}字)", "status")
-            
+
             # 如果有工具调用，返回工具调用数据
             if tool_calls_data:
                 log.print_log(f"检测到工具调用: {len(tool_calls_data)} 个", "debug")
                 return {"tool_calls": tool_calls_data}
-            
+
             # 检查是否返回空内容 - 抛出异常以便重试
             if not full_content or not full_content.strip():
                 log.print_log("错误: LLM 返回空内容，将触发重试", "error")
@@ -256,9 +272,9 @@ class OpenAIDirectLLM(LLM):
                     "2. API 服务端问题\n\n"
                     "建议: 在设置中切换到其他模型(如 deepseek-v3 或 kimi-k2)后重试"
                 )
-            
+
             return full_content
-            
+
         except ModelNotAvailableError:
             raise
         except RateLimitError:
@@ -281,7 +297,7 @@ class OpenAIDirectLLM(LLM):
                 if hasattr(e, '__dict__'):
                     log.print_log(f"错误详情: {e.__dict__}", "error")
                 raise ContentGenerationError(f"内容生成失败: {error_msg}") from e
-    
+
     def _non_stream_call(
         self,
         messages: List[Dict[str, str]],
@@ -296,41 +312,49 @@ class OpenAIDirectLLM(LLM):
             "messages": messages,
             "temperature": self.temperature,
         }
-        
+
         if tools:
             params["tools"] = tools
-            
+
         if kwargs:
+            # V23.1 FIX: 过滤掉非 OpenAI 标准参数
+            openai_allowed_params = {
+                "response_format", "seed", "stop", "user", 
+                "tools", "tool_choice", "parallel_tool_calls",
+                "frequency_penalty", "presence_penalty", "logit_bias", "logprobs", "top_logprobs"
+            }
             for key, value in kwargs.items():
-                if key not in params:
+                if key in openai_allowed_params and key not in params:
                     params[key] = value
-        
+                elif key not in params:
+                    log.print_log(f"[DEBUG] 忽略非 OpenAI 标准参数: {key}", "debug")
+
         log.print_log("AI正在生成内容...", "status")
-        
+
         # 显示完整API URL
         base_url_str = str(self._openai_client.base_url)
         full_api_url = base_url_str.rstrip('/') + "/chat/completions"
         log.print_log(f"[DEBUG] 发送请求到: {full_api_url}", "debug")
-        
+
         response = self._openai_client.chat.completions.create(**params)
         message = response.choices[0].message
-        
+
         # 检查是否有工具调用
         if message.tool_calls:
             return {"tool_calls": message.tool_calls}
-        
+
         content = message.content or ""
-        
+
         # 输出生成完成状态
         log.print_log(f"AI生成完成 ({len(content)}字)", "status")
-        
+
         # 调用全局回调
         callback = get_stream_callback()
         if callback:
             callback(content)
-        
+
         return content
-    
+
     def call(
         self,
         messages: Union[str, List[Dict[str, str]]],
@@ -341,49 +365,50 @@ class OpenAIDirectLLM(LLM):
     ) -> Union[str, Any]:
         """
         直接使用 OpenAI SDK 调用 LLM
-        
+
         完全绕过 litellm，直接使用 OpenAI 官方 SDK。
         支持流式输出，实时显示生成进度。
-        
+
         Args:
             messages: 输入消息（字符串或消息列表）
             tools: 工具列表（用于 function calling）
             callbacks: 回调函数列表
             available_functions: 可用函数映射
-            
+
         Returns:
             LLM 响应文本或工具调用结果
         """
         # 如果是字符串，转换为消息列表
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
-            
+
         # 强制注入 Anti-AI 风格模仿系统词汇 (Style Mimicry Injection)
         from src.ai_write_x.core.anti_ai import AntiAIEngine
         anti_ai_prompt = AntiAIEngine.get_style_mimicry_prompt()
         # 确保不会重复添加
         if not any(anti_ai_prompt in m.get("content", "") for m in messages):
             # 将提示追加到最后一个系统消息，如果没有则直接追加系统消息
-            system_msg = next((m for m in reversed(messages) if m.get("role") == "system"), None)
+            system_msg = next((m for m in reversed(messages)
+                              if m.get("role") == "system"), None)
             if system_msg:
                 system_msg["content"] += f"\n\n{anti_ai_prompt}"
             else:
                 messages.append({"role": "system", "content": anti_ai_prompt})
-        
+
         # 处理 O1 模型的系统消息
         if "o1" in self._original_model.lower():
             for message in messages:
                 if message.get("role") == "system":
                     message["role"] = "assistant"
-        
+
         # 设置回调
         if callbacks:
             self.set_callbacks(callbacks)
-        
+
         # 添加带指数避让和上下文压缩的重试机制
         max_retries = 4
         last_error = None
-        
+
         for attempt in range(max_retries + 1):
             try:
                 # 根据配置选择流式或非流式调用
@@ -391,30 +416,33 @@ class OpenAIDirectLLM(LLM):
                     result = self._stream_call(messages, tools, **kwargs)
                 else:
                     result = self._non_stream_call(messages, tools, **kwargs)
-                
+
                 # 检查结果是否为空
                 if result is None or (isinstance(result, str) and not result.strip()):
                     raise ValueError("LLM 返回空响应")
-                
+
                 # 处理工具调用结果
                 if isinstance(result, dict) and "tool_calls" in result:
                     tool_calls = result["tool_calls"]
                     if available_functions:
                         for tool_call in tool_calls:
-                            func_name = tool_call.function.name if hasattr(tool_call, 'function') else tool_call["function"]["name"]
+                            func_name = tool_call.function.name if hasattr(
+                                tool_call, 'function') else tool_call["function"]["name"]
                             if func_name in available_functions:
-                                func_args_str = tool_call.function.arguments if hasattr(tool_call, 'function') else tool_call["function"]["arguments"]
+                                func_args_str = tool_call.function.arguments if hasattr(
+                                    tool_call, 'function') else tool_call["function"]["arguments"]
                                 func_args = json.loads(func_args_str)
                                 return available_functions[func_name](**func_args)
                     return tool_calls
-                
+
                 return result
-                
+
             except Exception as e:
                 last_error = e
                 error_msg = str(e)
-                log.print_log(f"OpenAI API 调用失败 (尝试 {attempt + 1}/{max_retries + 1}): {error_msg}", "error")
-                
+                log.print_log(
+                    f"OpenAI API 调用失败 (尝试 {attempt + 1}/{max_retries + 1}): {error_msg}", "error")
+
                 # 检查是否是上下文长度超出 -> 触发动态上下文压缩
                 if "context" in error_msg.lower() and "length" in error_msg.lower():
                     if len(messages) > 3:
@@ -431,42 +459,46 @@ class OpenAIDirectLLM(LLM):
                         raise LLMContextLengthExceededException(
                             f"上下文首尾两端内容超限且无法通过截断历史恢复: {error_msg}"
                         )
-                
+
                 # 检查是否是 API 限流或鉴权失败 -> 触发多 Key 负载均衡切换
-                is_auth_error = "auth" in error_msg.lower() or "key" in error_msg.lower() or "401" in error_msg
-                is_rate_limit = "rate" in error_msg.lower() or "limit" in error_msg.lower() or "429" in error_msg
-                
+                is_auth_error = "auth" in error_msg.lower(
+                ) or "key" in error_msg.lower() or "401" in error_msg
+                is_rate_limit = "rate" in error_msg.lower(
+                ) or "limit" in error_msg.lower() or "429" in error_msg
+
                 if (is_auth_error or is_rate_limit) and len(self._api_keys) > 1:
                     import time
                     # 轮转到下一个 Key
-                    self._current_key_index = (self._current_key_index + 1) % len(self._api_keys)
+                    self._current_key_index = (
+                        self._current_key_index + 1) % len(self._api_keys)
                     new_key = self._api_keys[self._current_key_index]
-                    
+
                     log.print_log(
-                        f"[Failover] 触发自动切换 Key (当前索引: {self._current_key_index}). 原因: {error_msg[:50]}...", 
+                        f"[Failover] 触发自动切换 Key (当前索引: {self._current_key_index}). 原因: {error_msg[:50]}...",
                         "warning"
                     )
-                    
+
                     # 重新创建客户端以应用新 Key
                     self._openai_client = OpenAI(
                         api_key=new_key,
                         base_url=self.base_url,
                         timeout=self.timeout if self.timeout else 120.0
                     )
-                    
+
                     # 稍微等待以避免立即碰撞
                     time.sleep(0.5)
                     continue
-                
+
                 # 检查是否是 API 限流 (单 Key 模式下的指数退避)
                 if is_rate_limit:
                     import time
                     import random
                     wait_time = (2 ** attempt) + random.uniform(0.5, 2.5)
-                    log.print_log(f"API 限流且无备用 Key，将在 {wait_time:.2f} 秒后重试...", "warning")
+                    log.print_log(
+                        f"API 限流且无备用 Key，将在 {wait_time:.2f} 秒后重试...", "warning")
                     time.sleep(wait_time)
                     continue
-                
+
                 # 如果还有重试机会应对一般网络抖动，继续重试
                 if attempt < max_retries:
                     import time
@@ -489,30 +521,36 @@ class OpenAIDirectLLM(LLM):
                             for fb_attempt in range(fallback_retries):
                                 try:
                                     if self._stream:
-                                        result = self._stream_call(messages, tools, **kwargs)
+                                        result = self._stream_call(
+                                            messages, tools, **kwargs)
                                     else:
-                                        result = self._non_stream_call(messages, tools, **kwargs)
-                                    
+                                        result = self._non_stream_call(
+                                            messages, tools, **kwargs)
+
                                     if result is None or (isinstance(result, str) and not result.strip()):
                                         raise ValueError("备用模型返回空响应")
-                                    
-                                    log.print_log(f"✅ 备用模型 [{self._fallback_model}] 调用成功！", "success")
+
+                                    log.print_log(
+                                        f"✅ 备用模型 [{self._fallback_model}] 调用成功！", "success")
                                     return result
                                 except Exception as fb_e:
                                     fb_err_msg = str(fb_e)
                                     # 备用模式下的 Key 切换
                                     is_fb_failover = "auth" in fb_err_msg.lower() or "limit" in fb_err_msg.lower()
                                     if is_fb_failover and len(self._api_keys) > 1:
-                                        self._current_key_index = (self._current_key_index + 1) % len(self._api_keys)
+                                        self._current_key_index = (
+                                            self._current_key_index + 1) % len(self._api_keys)
                                         self._openai_client = OpenAI(
                                             api_key=self._api_keys[self._current_key_index],
                                             base_url=self.base_url,
                                             timeout=self.timeout if self.timeout else 120.0
                                         )
-                                        log.print_log(f"[Fallback-Failover] 切换备用 Key {self._current_key_index}", "warning")
+                                        log.print_log(
+                                            f"[Fallback-Failover] 切换备用 Key {self._current_key_index}", "warning")
                                         continue
-                                    
-                                    log.print_log(f"备用模型重试 ({fb_attempt + 1}/{fallback_retries}): {fb_e}", "error")
+
+                                    log.print_log(
+                                        f"备用模型重试 ({fb_attempt + 1}/{fallback_retries}): {fb_e}", "error")
                                     if fb_attempt < fallback_retries - 1:
                                         import time
                                         time.sleep(1)
@@ -521,22 +559,22 @@ class OpenAIDirectLLM(LLM):
                         finally:
                             self._original_model = saved_model  # 恢复主模型
                     raise
-        
+
         # 不应该到达这里
         raise last_error or Exception("LLM 调用重试次数耗尽，未知错误")
-    
+
     def supports_function_calling(self) -> bool:
         """是否支持 function calling"""
         return True
-    
+
     def supports_stop_words(self) -> bool:
         """是否支持 stop words"""
         return True
-    
+
     def get_context_window_size(self) -> int:
         """获取上下文窗口大小"""
         model_lower = self._original_model.lower()
-        
+
         if "gpt-4" in model_lower or "gpt4" in model_lower:
             return 128000
         elif "gpt-3.5" in model_lower:
@@ -562,7 +600,7 @@ def create_direct_llm(
 ) -> OpenAIDirectLLM:
     """
     创建直接使用 OpenAI SDK 的 LLM 实例
-    
+
     Args:
         model: 模型名称
         api_key: API 密钥
@@ -571,7 +609,7 @@ def create_direct_llm(
         max_tokens: 最大 token 数
         stream: 是否启用流式输出
         **kwargs: 其他参数
-        
+
     Returns:
         OpenAIDirectLLM 实例
     """

@@ -99,9 +99,6 @@ class LogManager:
 _log_manager = LogManager.get_instance()
 
 
-# ==================== 日志系统初始化函数 ====================
-
-
 def init_ui_mode():
     """初始化为UI模式"""
     _log_manager.set_ui_mode(True)
@@ -128,9 +125,6 @@ def strip_ansi_codes(text):
     return re.sub(ansi_pattern, "", text)
 
 
-# ==================== 进程间通信日志处理器 ====================
-
-
 class ProcessLoggingHandler(logging.Handler):
     """进程专用日志处理器"""
 
@@ -140,7 +134,6 @@ class ProcessLoggingHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            # 过滤掉不需要的日志
             if record.name in ["httpx", "httpcore", "openai"]:
                 return
 
@@ -156,7 +149,6 @@ class ProcessLoggingHandler(logging.Handler):
                 }
             )
         except Exception:
-            # 在进程环境下，不能调用 handleError
             pass
 
 
@@ -178,7 +170,6 @@ class ProcessStreamHandler:
         if not msg:
             return
 
-        # 只在开发模式下输出到终端
         if not utils.get_is_release_ver() and self.original_stdout:
             try:
                 self.original_stdout.write(msg)
@@ -191,14 +182,11 @@ class ProcessStreamHandler:
             self._buffer += msg
             self._last_write_time = current_time
 
-            # 检查缓冲区大小，防止超长内容积累
             if len(self._buffer) > self._max_buffer_size:
                 self._force_flush()
                 return
 
-            # 检测AIForge标识，立即处理
             if "[AIForge]" in self._buffer:
-                # 按AIForge标识切分并处理
                 parts = self._buffer.split("[AIForge]")
                 for i, part in enumerate(parts[:-1]):
                     if i == 0 and part.strip():
@@ -210,16 +198,13 @@ class ProcessStreamHandler:
                         if clean_msg:
                             self._send_to_queue(clean_msg)
 
-                # 保留最后一个不完整的部分
                 last_part = parts[-1]
                 if last_part.startswith("[AIForge]") or not last_part.strip():
                     self._buffer = last_part
                 else:
                     self._buffer = f"[AIForge]{last_part}"
 
-            # 检查换行符处理（无论是否处理了AIForge）
             if "\\n" in self._buffer:
-                # 取消任何待处理的定时器
                 if self._timer and self._timer.is_alive():
                     self._timer.cancel()
                     self._timer = None
@@ -233,24 +218,19 @@ class ProcessStreamHandler:
 
                 self._buffer = lines[-1]
             else:
-                # 设置延迟刷新
                 if not self._pending_flush:
                     self._pending_flush = True
                     self._timer = threading.Timer(self._flush_delay, self._delayed_flush)
                     self._timer.start()
 
     def _force_flush(self):
-        """强制刷新超长内容"""
         if self._buffer.strip():
             clean_msg = strip_ansi_codes(self._buffer.strip())
-            # 统一格式化
             self._send_to_queue({"type": "print", "message": clean_msg, "timestamp": time.time()})
             self._buffer = ""
 
     def _send_to_queue(self, message):
-        """安全地发送消息到队列"""
         try:
-            # 确保消息格式统一
             if isinstance(message, str):
                 formatted_message = {"type": "print", "message": message, "timestamp": time.time()}
             else:
@@ -269,7 +249,6 @@ class ProcessStreamHandler:
             self._timer = None
 
     def flush(self):
-        # 发送缓冲区中剩余的内容
         if self._buffer.strip():
             clean_msg = strip_ansi_codes(self._buffer.strip())
             self._send_to_queue({"type": "print", "message": clean_msg, "timestamp": time.time()})
@@ -278,11 +257,9 @@ class ProcessStreamHandler:
 
 def setup_process_logging(process_queue: multiprocessing.Queue):
     """在子进程中设置日志系统"""
-    # 1. 重定向所有标准输出
     sys.stdout = ProcessStreamHandler(process_queue)
     sys.stderr = ProcessStreamHandler(process_queue)
 
-    # 2. 设置根日志记录器
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
 
@@ -291,20 +268,15 @@ def setup_process_logging(process_queue: multiprocessing.Queue):
     handler.setFormatter(formatter)
 
     root_logger.addHandler(handler)
-    root_logger.setLevel(logging.WARNING)  # 设置为 WARNING 级别
+    root_logger.setLevel(logging.WARNING)
 
-    # 3. 完全禁用特定库的日志输出
     logging.getLogger("httpx").setLevel(logging.ERROR)
     logging.getLogger("httpcore").setLevel(logging.ERROR)
     logging.getLogger("openai").setLevel(logging.ERROR)
 
-    # 4. 设置 CrewAI 特定日志记录器
     crewai_logger = logging.getLogger("crewai")
-    crewai_logger.setLevel(logging.WARNING)  # 只显示警告和错误
+    crewai_logger.setLevel(logging.WARNING)
     crewai_logger.propagate = True
-
-
-# ==================== 线程间通信日志处理器 ====================
 
 
 class QueueLoggingHandler(logging.Handler):
@@ -316,7 +288,6 @@ class QueueLoggingHandler(logging.Handler):
 
     def emit(self, record):
         try:
-            # 过滤掉不需要的日志
             if record.name in ["httpx", "httpcore", "openai"]:
                 return
 
@@ -339,7 +310,6 @@ class QueueStreamHandler:
             clean_msg = strip_ansi_codes(msg.rstrip())
             self.queue.put({"type": "status", "value": f"PRINT: {clean_msg}"})
 
-            # 只在开发模式下输出到终端
             if not utils.get_is_release_ver() and self.original_stdout is not None:
                 try:
                     self.original_stdout.write(msg.rstrip() + "\n")
@@ -381,7 +351,7 @@ def setup_logging(log_name, queue):
         queue: 日志队列
     """
     logger = logging.getLogger(log_name)
-    logger.setLevel(logging.WARNING)  # 改为 WARNING 级别
+    logger.setLevel(logging.WARNING)
     handler = QueueLoggingHandler(queue)
     formatter = logging.Formatter("[%(asctime)s][%(levelname)s]: %(message)s")
     handler.setFormatter(formatter)
@@ -391,21 +361,17 @@ def setup_logging(log_name, queue):
         if isinstance(h, logging.StreamHandler) and h is not handler:
             logger.removeHandler(h)
 
-    # 从 LogManager 获取 ui_mode 状态
     ui_mode = _log_manager.get_ui_mode()
     if ui_mode and not hasattr(sys.stdout, "_is_queue_handler"):
-        # 创建一个包装器，同时输出到队列和终端
         class DualOutputHandler:
             def __init__(self, queue, original_stdout):
                 self.queue_handler = QueueStreamHandler(queue)
                 self.original_stdout = original_stdout
-                self._is_queue_handler = True  # 标记避免重复包装
+                self._is_queue_handler = True
 
             def write(self, msg):
-                # 发送到队列（用于 UI）
                 self.queue_handler.write(msg)
 
-                # 只在开发模式下输出到终端
                 if not utils.get_is_release_ver() and self.original_stdout:
                     try:
                         self.original_stdout.write(msg)
@@ -425,9 +391,6 @@ def setup_logging(log_name, queue):
                 return self.queue_handler.fileno()
 
         sys.stdout = DualOutputHandler(queue, sys.stdout)
-
-
-# ==================== 统一日志接口 ====================
 
 
 def _rich_print(msg, msg_type):
@@ -463,41 +426,32 @@ def print_log(msg, msg_type="status", show_in_ui=True):
         show_in_ui: False 表示只输出到终端/文件,不发送到 UI
     """
     if not show_in_ui:
-        # 只输出到终端
         _rich_print(msg, msg_type)
         return
 
-    # 从日志管理器获取当前状态
     ui_mode = _log_manager.get_ui_mode()
     process_log_queue = _log_manager.get_process_log_queue()
 
     if ui_mode:
-        # UI模式：发送到线程或进程队列
         if process_log_queue is not None:
-            # 子进程模式：直接发送到进程队列
             try:
                 process_log_queue.put({"type": msg_type, "message": msg, "timestamp": time.time()})
             except Exception:
-                # 队列已关闭或其他错误，回退到控制台输出
                 _rich_print(msg, msg_type)
                 return
         else:
-            # 主进程模式：发送到线程队列
             try:
                 comm.send_update(msg_type, msg)
             except Exception:
-                # comm 模块不可用，回退到控制台输出
                 _rich_print(msg, msg_type)
                 return
 
-        # 在开发模式下同时输出到终端
         if not utils.get_is_release_ver():
             try:
                 _rich_print(msg, msg_type)
             except Exception:
                 pass
     else:
-        # 命令行模式：直接打印
         _rich_print(msg, msg_type)
 
 
@@ -515,3 +469,94 @@ def print_traceback(what, e):
     # 使用 print_log 统一处理
     print_log(ret, "print")
     return ret
+
+
+def print_ai_log(title, content, log_type="payload", req_id=None):
+    """
+    V23.1 新增: 专门用于记录 AI 请求和响应的详细日志
+    使用 Rich Panel 展示，支持 JSON 格式化或长文本智能截断
+    
+    Args:
+        title: 日志标题 (如 "AI Request", "AI Response")
+        content: 消息原文 (字符串或字典)
+        log_type: "payload" (请求载荷) 或 "response" (响应内容)
+        req_id: 请求追踪 ID
+    """
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+        from rich.text import Text
+        import json
+
+        def safe_json_default(obj):
+            """处理不可序列化的对象"""
+            try:
+                if hasattr(obj, "to_dict"):
+                    return obj.to_dict()
+                if hasattr(obj, "__dict__"):
+                    return str(obj.__dict__)
+                return f"<<Non-serializable: {type(obj).__name__}>>"
+            except Exception:
+                return f"<<Error-serializable: {type(obj).__name__}>>"
+
+        console = Console()
+        
+        # 确定边框颜色
+        if log_type == "payload":
+            border_style = "bold cyan"
+            title_styled = f"[bold cyan]▲ {title}[/bold cyan]"
+        else:
+            border_style = "bold green"
+            title_styled = f"[bold green]▼ {title}[/bold green]"
+            
+        if req_id:
+            title_styled += f" [dim](ID: {req_id})[/dim]"
+
+        # 处理内容显示
+        rendered_content = ""
+        if isinstance(content, (dict, list)):
+            # 格式化 JSON (增加防御性处理)
+            try:
+                json_str = json.dumps(content, indent=4, ensure_ascii=False, default=safe_json_default)
+                rendered_content = Syntax(json_str, "json", theme="monokai", background_color="default")
+            except Exception as je:
+                rendered_content = Text(f"[JSON Serialization Error] {str(je)}\nRaw: {str(content)[:1000]}")
+        else:
+            # 文本内容处理
+            text_str = str(content)
+            # 如果内容过长且非 Release 版本，尝试智能截断显示，但文件日志会保留完整
+            if len(text_str) > 2000 and utils.get_is_release_ver():
+                text_str = text_str[:1000] + "\n\n... [数据过大已在终端截断，完整内容请查阅日志文件] ...\n\n" + text_str[-500:]
+            
+            rendered_content = Text(text_str)
+
+        # 终端实时美化显示
+        panel = Panel(
+            rendered_content,
+            title=title_styled,
+            border_style=border_style,
+            expand=False,
+            padding=(1, 2)
+        )
+        console.print(panel)
+        
+        # 同时记录到文件（如果配置了文件处理器）
+        file_handler = _log_manager.get_file_handler()
+        if file_handler:
+            try:
+                # 文件日志也需要序列化防御
+                json_content = json.dumps(content, ensure_ascii=False, default=safe_json_default) if isinstance(content, (dict, list)) else content
+                raw_msg = f"{title} [{req_id or 'N/A'}]: {json_content}"
+            except Exception:
+                raw_msg = f"{title} [{req_id or 'N/A'}]: [Serialization Failed] {str(content)[:500]}"
+                
+            file_handler.write_log({
+                "type": "ai_trace",
+                "message": raw_msg,
+                "timestamp": time.time()
+            })
+            
+    except Exception as e:
+        # Fallback to simple print if rich fails
+        print(f"[{title}] {content}")

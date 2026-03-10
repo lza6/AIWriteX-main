@@ -72,6 +72,14 @@ class NewsHubManager {
             });
         }
 
+        // 过滤已写话题开关
+        const filterProcessed = document.getElementById('nh-filter-processed');
+        if (filterProcessed) {
+            filterProcessed.addEventListener('change', () => {
+                this.loadNews();
+            });
+        }
+
         // 模态框关闭按钮
         const modal = document.getElementById('nh-sources-modal');
 
@@ -123,6 +131,7 @@ class NewsHubManager {
 
     async loadNews() {
         const category = document.getElementById('nh-category-filter')?.value || '';
+        const filterProcessed = document.getElementById('nh-filter-processed')?.checked || false;
 
         try {
             const response = await fetch('/api/newshub/aggregate', {
@@ -132,6 +141,7 @@ class NewsHubManager {
                     categories: category ? [category] : [],
                     min_score: 0,
                     limit: 200,
+                    filter_processed: filterProcessed
                 }),
             });
 

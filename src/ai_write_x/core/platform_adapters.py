@@ -121,6 +121,12 @@ class PlatformAdapter(ABC):
         """获取平台名称"""
         return self.__class__.__name__.replace("Adapter", "").lower()
 
+    # 兼容老版本接口
+    def adapt_content(self, content_result: ContentResult, **kwargs) -> str:
+        return self.format_content(content_result, **kwargs)
+
+BasePlatformAdapter = PlatformAdapter
+
 
 class WeChatAdapter(PlatformAdapter):
     """微信公众号适配器"""

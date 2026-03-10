@@ -28,6 +28,7 @@ class DynamicTemplateInput(BaseModel):
     topic: str = Field(default="", description="文章主题分类")
     use_ai_designer: bool = Field(default=True, description="是否使用AI设计师生成独特模板（默认是）")
     use_adaptive_engine: bool = Field(default=True, description="是否使用自适应模板引擎（推荐，模块化组件化设计）")
+    format_mode: str = Field(default="standard", description="渲染模式：standard 或 simple (手机适配)")
 
 
 class DynamicTemplateTool(BaseTool):
@@ -70,7 +71,8 @@ class DynamicTemplateTool(BaseTool):
         self._ai_designer = None
     
     def _run(self, title: str, content: str, topic: str = "", 
-             use_ai_designer: bool = True, use_adaptive_engine: bool = True) -> str:
+             use_ai_designer: bool = True, use_adaptive_engine: bool = True,
+             format_mode: str = "standard") -> str:
         """
         生成动态模板（同步入口）
         """
@@ -115,7 +117,8 @@ class DynamicTemplateTool(BaseTool):
                 template = self._generator.generate_template_with_content(
                     title=title,
                     content=content,
-                    topic=topic
+                    topic=topic,
+                    format_mode=format_mode
                 )
                 log.print_log(f"[DynamicTemplate] 模板生成成功（快速模式）")
                 return template
@@ -164,7 +167,7 @@ class DynamicTemplateTool(BaseTool):
             
         except Exception as e:
             log.print_log(f"[DynamicTemplate] AI设计失败，回退到快速生成: {e}", "warning")
-            return self._generator.generate_template_with_content(title, content, topic)
+            return self._generator.generate_template_with_content(title, content, topic, format_mode)
     
     def _get_fallback_template(self, title: str, topic: str) -> str:
         """备用模板"""

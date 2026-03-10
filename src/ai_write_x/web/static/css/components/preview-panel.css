@@ -21,8 +21,8 @@
     display: flex;
     opacity: 1;
     pointer-events: auto;
-}  
-  
+}
+
 .preview-panel {
     background: var(--surface-color);
     border: 1px solid var(--border-color);
@@ -36,276 +36,332 @@
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
     margin-right: 0;
-}  
-  
-.preview-overlay.active .preview-panel {  
-    transform: translateX(0);  
-}  
-  
-/* 手机屏幕宽度预设 */  
-.mobile-width {  
-    width: 375px; /* iPhone 标准宽度 */  
-}  
-  
-.mobile-width.tablet-size {  
-    width: 768px; /* iPad 宽度 */  
-}  
-  
-.mobile-width.desktop-size {  
-    width: 1024px; /* 桌面宽度 */  
-}  
-  
-.preview-header {  
-    display: flex;  
-    justify-content: space-between;  
-    align-items: center;  
-    padding: 16px 20px;  
-    border-bottom: 1px solid var(--border-color);  
-    background: var(--background-color);  
-}  
-  
-.preview-title {  
-    font-size: 16px;  
-    font-weight: 600;  
-    color: var(--text-primary);  
-    margin: 0;  
-}  
-  
-.preview-controls {  
-    display: flex;  
-    gap: 8px;  
-}  
-  
-.preview-toggle-size,  
-.preview-close {  
-    background: none;  
-    border: none;  
-    font-size: 18px;  
-    cursor: pointer;  
-    color: var(--text-secondary);  
-    padding: 4px 8px;  
-    border-radius: 4px;  
-    transition: all 0.2s ease;  
-}  
-  
-.preview-toggle-size:hover,  
-.preview-close:hover {  
-    background: var(--hover-color);  
-    color: var(--text-primary);  
-}  
-  
-.preview-content {    
-    flex: 1;    
-    overflow-y: auto;    
-    padding: 0;  
+}
+
+.preview-overlay.active .preview-panel {
+    transform: translateX(0);
+}
+
+/* 手机屏幕宽度预设 */
+.mobile-width {
+    width: 375px;
+    /* iPhone 标准宽度 */
+}
+
+.mobile-width.tablet-size {
+    width: 768px;
+    /* iPad 宽度 */
+}
+
+.mobile-width.desktop-size {
+    width: 1024px;
+    /* 桌面宽度 */
+}
+
+.preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-color);
+}
+
+.preview-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.preview-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.preview-toggle-source,
+.preview-copy-html,
+.preview-toggle-size,
+.preview-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-toggle-source:hover,
+.preview-copy-html:hover,
+.preview-toggle-size:hover,
+.preview-close:hover {
+    background: var(--hover-color);
+    color: var(--text-primary);
+}
+
+.preview-toggle-source.active {
+    color: var(--primary-color);
+    background: var(--hover-color);
+}
+
+.preview-content {
+    flex: 1;
+    overflow: hidden;
+    /* 改为 hidden，内部滚动 */
+    padding: 0;
     background: transparent;
-}  
-  
-.preview-area {    
-    min-height: 100%;    
-    padding: 0;    
-    background: transparent;  
-}  
-  
-.preview-placeholder {    
-    color: var(--text-tertiary);    
-    text-align: center;    
-    margin-top: 50%;    
-    font-style: italic;  
+    position: relative;
+}
+
+.preview-source-area {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: var(--background-color);
+    overflow: hidden;
+}
+
+#preview-source-code {
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    border: none;
+    background: var(--background-color);
+    color: var(--text-primary);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+}
+
+
+.preview-area {
+    min-height: 100%;
+    padding: 0;
+    background: transparent;
+}
+
+.preview-placeholder {
+    color: var(--text-tertiary);
+    text-align: center;
+    margin-top: 50%;
+    font-style: italic;
     opacity: 0.6;
-}  
-  
-.preview-footer {  
-    padding: 12px 20px;  
-    border-top: 1px solid var(--border-color);  
-    background: var(--surface-color);  
-}  
-  
-.preview-size-info {  
-    font-size: 12px;  
-    color: var(--text-secondary);  
-}  
-  
-/* 响应式处理 */  
-@media (max-width: 480px) {  
-    .preview-overlay {  
-        padding: 5px;  
-    }  
-      
-    .mobile-width {  
-        width: calc(100vw - 10px);  
-    }  
-}  
-  
-/* 预览触发按钮样式 - 桌面优化 */  
-.preview-trigger {  
-    position: fixed;  
-    right: 0;  
-    top: 50%;  
-    transform: translateY(-50%);  
-    width: 32px;  
-    height: 60px;  
-    background: var(--surface-color);  
-    border: 1px solid var(--border-color);  
-    border-radius: 8px 0 0 8px;  
-    border-right: none;  
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);  
-    cursor: pointer;  
-    z-index: 999;  
-    display: flex; /* 默认显示,由 JS 控制 */  
-    flex-direction: column;  
-    align-items: center;  
-    justify-content: center;  
-    transition: all 0.3s ease;  
-    user-select: none;  
-}  
-  
-.preview-trigger:hover {  
-    background: var(--hover-color);  
-    transform: translateY(-50%) translateX(-3px);  
-    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);  
-}  
-
-
-.trigger-icon {  
-    display: flex;  
-    flex-direction: column;  
-    align-items: center;  
-    gap: 2px;  
-    font-size: 18px;  
-    color: var(--text-secondary);  
-    font-weight: bold;  
-}
-  
-.trigger-icon svg {  
-    fill: currentColor;  
-    opacity: 0.6; /* 添加半透明效果 */  
-    transition: opacity 0.2s ease, transform 0.3s ease;  
-}  
-  
-.preview-trigger .trigger-icon svg {  
-    transform: scaleX(-1); /* 默认向左指 */  
-}  
-  
-.preview-trigger:hover .trigger-icon {  
-    color: var(--primary-color);  
-}  
-  
-.preview-trigger:hover .trigger-icon svg {  
-    opacity: 0.9; /* 悬停时增加不透明度 */  
-}  
-  
-/* 左右晃动动画 */  
-@keyframes previewWiggle {  
-    0%, 100% { transform: translateX(0); }  
-    25% { transform: translateX(-2px); }  
-    75% { transform: translateX(2px); }  
-}  
-  
-.trigger-icon {  
-    animation: previewWiggle 2s linear infinite;  
-}  
-  
-.preview-trigger:hover .trigger-icon {  
-    animation: none;  
-}  
-  
-/* 工具提示 */  
-.trigger-tooltip {  
-    position: absolute;  
-    right: 40px;  
-    background: var(--text-primary);  
-    color: var(--background-color);  
-    padding: 6px 12px;  
-    border-radius: 4px;  
-    font-size: 12px;  
-    white-space: nowrap;  
-    opacity: 0;  
-    pointer-events: none;  
-    transition: opacity 0.3s ease;  
-    transform: translateY(-50%);  
-    top: 50%;  
-}  
-  
-.trigger-tooltip::after {  
-    content: '';  
-    position: absolute;  
-    left: 100%;  
-    top: 50%;  
-    transform: translateY(-50%);  
-    border: 5px solid transparent;  
-    border-left-color: var(--text-primary);  
-}  
-  
-.preview-trigger:hover .trigger-tooltip {  
-    opacity: 1;  
-}  
-  
-/* 激活状态 - 修复冲突 */  
-.preview-trigger.active {  
-    background: var(--primary-color);  
-    border-color: var(--primary-color);  
-}  
-  
-.preview-trigger.active .trigger-icon {  
-    color: white;  
-}  
-  
-.preview-trigger.active .trigger-icon svg {  
-    opacity: 1; /* 激活状态完全不透明 */  
-    transform: scaleX(1); /* 激活时向右指，表示"收起预览" */  
-}  
-  
-/* 响应式处理 */  
-@media (max-width: 768px) {  
-    .preview-trigger {  
-        right: 5px;  
-        width: 30px;  
-        height: 55px;  
-    }  
-      
-    .trigger-icon {  
-        font-size: 16px;  
-    }  
 }
 
-/* 预览面板操作按钮组 */  
-.preview-actions {  
-    display: flex;  
-    gap: 4px;  
-    align-items: center;  
-    margin-right: 8px;  
-}  
-  
-/* 复用创意工坊的 icon-btn 样式 */  
-.preview-actions .icon-btn {  
-    width: 28px;  
-    height: 28px;  
-    padding: 0;  
-    display: flex;  
-    align-items: center;  
-    justify-content: center;  
-    background: transparent;  
-    border: 1px solid transparent;  
-    border-radius: 6px;  
-    color: var(--text-secondary);  
-    cursor: pointer;  
-    transition: all 0.2s ease;  
-}  
-  
-.preview-actions .icon-btn:hover {  
-    background: var(--hover-background);  
-    border-color: var(--border-color);  
-    color: var(--text-primary);  
-}  
-  
-.preview-actions .btn-icon-small {  
-    width: 16px;  
-    height: 16px;  
-    stroke-width: 2;  
+.preview-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--surface-color);
 }
 
-[data-theme="light"] .preview-placeholder,  
-[data-theme="dark"] .preview-placeholder {  
-    background: transparent;  
+.preview-size-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* 响应式处理 */
+@media (max-width: 480px) {
+    .preview-overlay {
+        padding: 5px;
+    }
+
+    .mobile-width {
+        width: calc(100vw - 10px);
+    }
+}
+
+/* 预览触发按钮样式 - 桌面优化 */
+.preview-trigger {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 60px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    z-index: 999;
+    display: flex;
+    /* 默认显示,由 JS 控制 */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.preview-trigger:hover {
+    background: var(--hover-color);
+    transform: translateY(-50%) translateX(-3px);
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+
+.trigger-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 18px;
+    color: var(--text-secondary);
+    font-weight: bold;
+}
+
+.trigger-icon svg {
+    fill: currentColor;
+    opacity: 0.6;
+    /* 添加半透明效果 */
+    transition: opacity 0.2s ease, transform 0.3s ease;
+}
+
+.preview-trigger .trigger-icon svg {
+    transform: scaleX(-1);
+    /* 默认向左指 */
+}
+
+.preview-trigger:hover .trigger-icon {
+    color: var(--primary-color);
+}
+
+.preview-trigger:hover .trigger-icon svg {
+    opacity: 0.9;
+    /* 悬停时增加不透明度 */
+}
+
+/* 左右晃动动画 */
+@keyframes previewWiggle {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-2px);
+    }
+
+    75% {
+        transform: translateX(2px);
+    }
+}
+
+.trigger-icon {
+    animation: previewWiggle 2s linear infinite;
+}
+
+.preview-trigger:hover .trigger-icon {
+    animation: none;
+}
+
+/* 工具提示 */
+.trigger-tooltip {
+    position: absolute;
+    right: 40px;
+    background: var(--text-primary);
+    color: var(--background-color);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    transform: translateY(-50%);
+    top: 50%;
+}
+
+.trigger-tooltip::after {
+    content: '';
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-left-color: var(--text-primary);
+}
+
+.preview-trigger:hover .trigger-tooltip {
+    opacity: 1;
+}
+
+/* 激活状态 - 修复冲突 */
+.preview-trigger.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.preview-trigger.active .trigger-icon {
+    color: white;
+}
+
+.preview-trigger.active .trigger-icon svg {
+    opacity: 1;
+    /* 激活状态完全不透明 */
+    transform: scaleX(1);
+    /* 激活时向右指，表示"收起预览" */
+}
+
+/* 响应式处理 */
+@media (max-width: 768px) {
+    .preview-trigger {
+        right: 5px;
+        width: 30px;
+        height: 55px;
+    }
+
+    .trigger-icon {
+        font-size: 16px;
+    }
+}
+
+/* 预览面板操作按钮组 */
+.preview-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-right: 8px;
+}
+
+/* 复用创意工坊的 icon-btn 样式 */
+.preview-actions .icon-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.preview-actions .icon-btn:hover {
+    background: var(--hover-background);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.preview-actions .btn-icon-small {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2;
+}
+
+[data-theme="light"] .preview-placeholder,
+[data-theme="dark"] .preview-placeholder {
+    background: transparent;
 }

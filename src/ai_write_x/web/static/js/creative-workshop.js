@@ -390,6 +390,18 @@ class CreativeWorkshopManager {
                 localStorage.setItem('aiwritex_auto_retemplate', e.target.checked);
             });
         }
+
+        // V15.2: 过滤已处理话题开关持久化
+        const workshopFilterProcessed = document.getElementById('workshop-filter-processed');
+        if (workshopFilterProcessed) {
+            const savedState = localStorage.getItem('aiwritex_workshop_filter_processed');
+            if (savedState !== null) {
+                workshopFilterProcessed.checked = savedState === 'true';
+            }
+            workshopFilterProcessed.addEventListener('change', (e) => {
+                localStorage.setItem('aiwritex_workshop_filter_processed', e.target.checked);
+            });
+        }
     }
 
     // ========== 借鉴模式管理 ==========      
@@ -625,6 +637,8 @@ class CreativeWorkshopManager {
             const autoReTemplateSwitch = document.getElementById('auto-retemplate-switch');
             const isBeautifyOn = autoReTemplateSwitch ? autoReTemplateSwitch.checked : false;
 
+            const workshopFilterProcessed = document.getElementById('workshop-filter-processed');
+
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: {
@@ -636,7 +650,8 @@ class CreativeWorkshopManager {
                     reference: referenceConfig,
                     article_count: articleCount,
                     post_action: postAction,
-                    ai_beautify: isBeautifyOn
+                    ai_beautify: isBeautifyOn,
+                    filter_processed: workshopFilterProcessed?.checked || false
                 })
             });
 
@@ -1304,10 +1319,13 @@ class CreativeWorkshopManager {
                 if (contentResponse.ok) {
                     const content = await contentResponse.text();
 
+                    const isHtml = content.trim().startsWith('<');
                     const ext = latestArticle.path.toLowerCase().split('.').pop();
                     let htmlContent = content;
 
-                    if ((ext === 'md' || ext === 'markdown') && window.markdownRenderer) {
+                    if (isHtml) {
+                        htmlContent = content;
+                    } else if ((ext === 'md' || ext === 'markdown') && window.markdownRenderer) {
                         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                         htmlContent = window.markdownRenderer.renderWithStyles(content, isDark);
                     }

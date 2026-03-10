@@ -25,21 +25,32 @@ class WorkflowMetrics:
 
 
 class WorkflowMonitor:
+    """工作流监控器 - 单例模式"""
     _instance = None
     _lock = threading.Lock()
 
+    def __new__(cls):
+        """单例模式 - 使用__new__确保只有一个实例"""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        """初始化监控器"""
+        if self._initialized:
+            return
+        self._initialized = True
         self.metrics: Dict[str, WorkflowMetrics] = {}
         self.logs: List[ExecutionLog] = []
         self.max_logs = 1000  # 最大日志条数
 
     @classmethod
     def get_instance(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls()
-        return cls._instance
+        """获取单例实例（兼容旧代码）"""
+        return cls()
 
     def track_execution(
         self,

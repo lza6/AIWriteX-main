@@ -344,9 +344,9 @@ class GitHubTrendingTool(BaseTool):
         return "\n".join(lines)
 
 
-# 工具注册表
+# 工具注册类列表
 NEWSHUB_TOOLS = [
-    NewsHubMCPTool(),
-    TrendAnalysisTool(),
-    GitHubTrendingTool(),
+    NewsHubMCPTool,
+    TrendAnalysisTool,
+    GitHubTrendingTool,
 ]

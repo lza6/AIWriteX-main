@@ -1,6 +1,6 @@
-# AIWriteX 数据库结构定义 (V2.0 升级草案)
+# AIWriteX 数据库结构定义 (V23.0 Cognitive Singularity Upgrade)
 
-*(注：项目当前严重依赖 `data/topics_history.json`。为应对大型、高并发需求，V2.0 决定全面迁移至结构化的数据库，例如本地 SQLite 或 PostgreSQL)。*
+*(注：项目早已摆脱 `data/topics_history.json` 的严重依赖，现架构全面由异步 SQLModel 及 Qdrant 分布式向量数据库接管工作集群数据)。*
 
 ## 1. 表名: `topics` (话题数据表)
 用于存储各平台抓取来的全网热点话题、黑马话题等。

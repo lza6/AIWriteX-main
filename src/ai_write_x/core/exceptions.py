@@ -33,7 +33,7 @@ class AIWriteXError(Exception):
         self.details = details or {}
         self.severity = severity
         self.timestamp = datetime.now()
-    
+
     def to_dict(self) -> Dict:
         return {
             "error": self.__class__.__name__,
@@ -42,6 +42,24 @@ class AIWriteXError(Exception):
             "details": self.details,
             "timestamp": self.timestamp.isoformat()
         }
+
+
+# ==================== 异常导出（兼容旧代码）====================
+AIWriteXException = AIWriteXError  # 别名，兼容旧代码
+
+
+class WorkflowException(AIWriteXError):
+    """工作流异常 - 用于工作流执行过程中的错误"""
+    def __init__(self, message: str, step: str = None, context: dict = None, **kwargs):
+        super().__init__(message, **kwargs)
+        self.step = step
+        self.context = context or {}
+    
+    def to_dict(self) -> Dict:
+        data = super().to_dict()
+        data["step"] = self.step
+        data["context"] = self.context
+        return data
 
 
 # ==================== 致命异常 ====================

@@ -11,30 +11,32 @@ class PathManager:
     @staticmethod
     def get_app_data_dir():
         """获取应用数据目录"""
-        # 开发模式：使用项目根目录
         if not utils.get_is_release_ver():
-            # 从当前文件位置回到项目根目录
             return Path(__file__).parent.parent.parent.parent
 
-        # 发布模式：使用系统用户数据目录
-        if platform.system() == "Darwin":  # macOS
+        if platform.system() == "Darwin":
             return Path.home() / "Library/Application Support/AIWriteX"
         elif platform.system() == "Windows":
             return Path(os.environ.get("APPDATA", "")) / "AIWriteX"
-        else:  # Linux
+        else:
             return Path.home() / ".config/AIWriteX"
 
     @staticmethod
     def get_config_dir():
         """获取配置文件目录"""
         if not utils.get_is_release_ver():
-            # 开发模式：使用源码目录
             return Path(__file__).parent.parent / "config"
         else:
-            # 发布模式：使用用户数据目录
             config_dir = PathManager.get_app_data_dir() / "config"
             config_dir.mkdir(parents=True, exist_ok=True)
             return config_dir
+
+    @staticmethod
+    def get_output_dir():
+        """获取输出根目录"""
+        output_dir = PathManager.get_app_data_dir() / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
 
     @staticmethod
     def get_article_dir():
@@ -47,19 +49,15 @@ class PathManager:
     def get_template_dir():
         """获取模板目录 - 始终返回用户可写目录"""
         if not utils.get_is_release_ver():
-            # 开发模式：使用项目目录
             return PathManager.get_app_data_dir() / "knowledge/templates"
         else:
-            # 发布模式：使用用户数据目录
             template_dir = PathManager.get_app_data_dir() / "templates"
             template_dir.mkdir(parents=True, exist_ok=True)
 
-            # 首次运行时，从资源目录复制默认模板到用户目录
             res_template_dir = utils.get_res_path("templates")
             template_files = glob.glob(os.path.join(template_dir, "*", "*.html"))
             if os.path.exists(res_template_dir) and not template_files:
                 import shutil
-
                 shutil.copytree(res_template_dir, template_dir, dirs_exist_ok=True)
 
             return template_dir
@@ -113,11 +111,9 @@ class PathManager:
         categories = []
         excluded_dirs = {"components", "__pycache__", ".git"}
 
-        # 添加默认分类
         default_categories = list(default_template_categories.values())
         categories.extend(default_categories)
 
-        # 扫描实际存在的文件夹
         if os.path.exists(template_dir):
             for item in os.listdir(template_dir):
                 item_path = os.path.join(template_dir, item)
@@ -149,10 +145,8 @@ class PathManager:
     def get_base_dir():
         """获取项目根目录"""
         if not utils.get_is_release_ver():
-            # 开发模式：使用项目根目录 (PathManager.py is in src/ai_write_x/utils/)
             return Path(__file__).parent.parent.parent.parent
         else:
-            # 发布模式
             import sys
             if getattr(sys, 'frozen', False):
                 return Path(sys.executable).parent

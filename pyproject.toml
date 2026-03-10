@@ -1,6 +1,6 @@
 [project]
 name = "ai_write_x"
-version = "3.0.0"
+version = "23.0.0"
 description = "ai_write_x using crewAI"
 authors = [{ name = "iniwap", email = "iniwaper@gmail.com" }]
 requires-python = ">=3.10,<3.13"

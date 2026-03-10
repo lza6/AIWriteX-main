@@ -1,0 +1,130 @@
+{
+    "color_palettes": {
+        "military": {
+            "primary": "#2c5282",
+            "accent": "#e53e3e",
+            "background": "#f0f4ff",
+            "text": "#2d3748",
+            "border": "#4299e1",
+            "gradient_start": "#2c5282",
+            "gradient_end": "#1a365d"
+        },
+        "tech": {
+            "primary": "#319795",
+            "accent": "#38b2ac",
+            "background": "#e6fffa",
+            "text": "#234e52",
+            "border": "#4fd1c5",
+            "gradient_start": "#319795",
+            "gradient_end": "#285e61"
+        },
+        "emotion": {
+            "primary": "#e53e3e",
+            "accent": "#fc8181",
+            "background": "#fff5f5",
+            "text": "#742a2a",
+            "border": "#fc8181",
+            "gradient_start": "#e53e3e",
+            "gradient_end": "#c53030"
+        },
+        "finance": {
+            "primary": "#276749",
+            "accent": "#38a169",
+            "background": "#f0fff4",
+            "text": "#22543d",
+            "border": "#68d391",
+            "gradient_start": "#276749",
+            "gradient_end": "#22543d"
+        },
+        "lifestyle": {
+            "primary": "#805ad5",
+            "accent": "#9f7aea",
+            "background": "#faf5ff",
+            "text": "#44337a",
+            "border": "#b794f4",
+            "gradient_start": "#805ad5",
+            "gradient_end": "#6b46c1"
+        },
+        "news": {
+            "primary": "#2b6cb0",
+            "accent": "#3182ce",
+            "background": "#ebf8ff",
+            "text": "#2c5282",
+            "border": "#63b3ed",
+            "gradient_start": "#2b6cb0",
+            "gradient_end": "#2c5282"
+        },
+        "science": {
+            "primary": "#553c9a",
+            "accent": "#6b46c1",
+            "background": "#faf5ff",
+            "text": "#44337a",
+            "border": "#9f7aea",
+            "gradient_start": "#553c9a",
+            "gradient_end": "#44337a"
+        },
+        "sports": {
+            "primary": "#dd6b20",
+            "accent": "#ed8936",
+            "background": "#fffaf0",
+            "text": "#7c2d12",
+            "border": "#f6ad55",
+            "gradient_start": "#dd6b20",
+            "gradient_end": "#c05621"
+        },
+        "entertainment": {
+            "primary": "#d53f8c",
+            "accent": "#ed64a6",
+            "background": "#fff5f7",
+            "text": "#831843",
+            "border": "#f687b3",
+            "gradient_start": "#d53f8c",
+            "gradient_end": "#b83280"
+        },
+        "education": {
+            "primary": "#2c7a7b",
+            "accent": "#38b2ac",
+            "background": "#e6fffa",
+            "text": "#234e52",
+            "border": "#4fd1c5",
+            "gradient_start": "#2c7a7b",
+            "gradient_end": "#285e61"
+        },
+        "health": {
+            "primary": "#38a169",
+            "accent": "#48bb78",
+            "background": "#f0fff4",
+            "text": "#22543d",
+            "border": "#68d391",
+            "gradient_start": "#38a169",
+            "gradient_end": "#2f855a"
+        },
+        "travel": {
+            "primary": "#3182ce",
+            "accent": "#4299e1",
+            "background": "#ebf8ff",
+            "text": "#2c5282",
+            "border": "#63b3ed",
+            "gradient_start": "#3182ce",
+            "gradient_end": "#2b6cb0"
+        }
+    },
+    "selection_rules": {
+        "keyword_mapping": {
+            "军事/战争/武器/国防": "military",
+            "科技/AI/互联网/数码": "tech",
+            "情感/故事/人生/家庭": "emotion",
+            "财经/经济/投资/股票": "finance",
+            "生活/健康/美食/时尚": "lifestyle",
+            "新闻/时事/政治/社会": "news",
+            "科学/研究/发现/探索": "science",
+            "体育/运动/比赛/健身": "sports",
+            "娱乐/明星/电影/音乐": "entertainment",
+            "教育/学习/学校/培训": "education",
+            "医疗/医院/疾病/养生": "health",
+            "旅游/旅行/景点/攻略": "travel"
+        },
+        "fallback": "news",
+        "randomization_factor": 0.1
+    }
+}
