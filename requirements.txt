@@ -6,7 +6,7 @@ dashscope==1.22.1
 pydantic
 PyYAML==6.0.1
 Requests==2.32.3
-setuptools==65.5.0
+setuptools
 tomlkit==0.13.2
 aiforge-engine>=0.0.19
 rich
